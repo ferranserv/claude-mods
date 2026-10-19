@@ -173,3 +173,23 @@ test('a stored side preference reopens the pane at session start', async ($, on)
   await $.session.start({ source: 'startup', cwd: '/tmp' } as never)
   expect(w.open).toEqual(['meters'])
 })
+
+// Four mods draw in the band above the prompt. Whatever sits beneath a mod in the chain must
+// still show, so every band mod calls next first and stacks its own tree under what came back.
+test('stacks under another mod\'s band instead of replacing it', async ($, on) => {
+  mock.clock(on, { now: WED })
+  on('session.measure', (_, e) => ({ changed: e.changed }))
+  on('ui.render', ($2, e) => {
+    const { Text } = $2.ui.resolve(e)
+    return <Text>OTHER-MOD-BAND</Text>
+  })
+  await $.session.measure(measure(200_000, 40, 35) as never)
+
+  for (const surface of ['desktop', 'terminal'] as const) {
+    const ui = await $.ui.mount(band(surface))
+    expect(await ui.find({ type: 'Text', text: /OTHER-MOD-BAND/ })).toBeDefined()
+    const mine = surface === 'desktop' ? { type: 'Svg' } : { type: 'Text', text: /Context/ }
+    expect(await ui.find(mine as never)).toBeDefined()
+    await ui.unmount()
+  }
+})

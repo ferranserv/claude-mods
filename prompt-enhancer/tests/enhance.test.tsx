@@ -7,6 +7,7 @@ const BAND = {
 
 test('Enhance rewrites the draft in place, then Undo restores it', async ($, on) => {
   mock.clock(on, { now: 1_000 })
+  on('ui.render', () => ({ type: 'engine', ref: 0 }) as never)
   let box = 'fix login bug'
   let seen = ''
   on('prompt.read', () => ({ value: { text: box, cursor: box.length } }))

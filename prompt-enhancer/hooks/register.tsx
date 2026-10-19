@@ -184,19 +184,30 @@ export const register: Register = (on, options) => {
   }).catch(($, e, next) => next(e))
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
-    if (e.props.hasSurvey) return next(e)
+    // Other mods draw in this band too: take what sits beneath first and stack under it.
+    const below = await next(e)
+    if (e.props.hasSurvey) return below
     const s = await read($, stateAtom)
-    if (!s.hasDraft && !s.isBusy && s.original === '') return next(e)
+    if (!s.hasDraft && !s.isBusy && s.original === '') return below
 
     const { Box, Button, Text } = $.ui.resolve(e)
-    if (s.isBusy) {
-      return (
-        <Box justifyContent="flex-end" paddingX={1}>
-          <Text dimColor>✦ enhancing…</Text>
+    const stack = (mine: JSX.Element) =>
+      below.type === 'engine' ? (
+        mine
+      ) : (
+        <Box flexDirection="column">
+          {below}
+          {mine}
         </Box>
       )
+    if (s.isBusy) {
+      return stack(
+        <Box justifyContent="flex-end" paddingX={1}>
+          <Text dimColor>✦ enhancing…</Text>
+        </Box>,
+      )
     }
-    return (
+    return stack(
       <Box justifyContent="flex-end" paddingX={1} gap={2}>
         {s.original !== '' && (
           <Box key="undo-wrap">
@@ -212,7 +223,7 @@ export const register: Register = (on, options) => {
             <Text dimColor>Enhance{chord ? ` (${hotkey})` : ''}</Text>
           </Box>
         </Box>
-      </Box>
+      </Box>,
     )
   })
 }
