@@ -79,6 +79,10 @@ Unverified on the app: all of it. Open: "draft missing from prompt box" in N8 is
 ## Session 6b: preflight-guard 0.1.1
 - Added `+added −removed` line counts (from `git diff HEAD --numstat`) to the "uncommitted changes" and "session finished" lines and to the confirm button. Counts cover tracked files only and only the files a click would commit. Owner's desktop app already puts each session in a worktree (branch `claude/<topic>-<hash>`) and has its own Changes pane; that pane has no mod API, so the mod reads git itself.
 
+## Session 6c: preflight-guard 0.1.2 (first real screenshot)
+- Owner confirmed git runs in the desktop app (band showed "13 uncommitted changes (+313 −134)"), so `$.process.run` works there. Layout was wrong: wrapped onto 3 lines, buttons touching, no gap above plan-progress, wording unclear.
+- Now one row: `● 13 files changed (+313 −134) · [Commit checkpoint] · [Hide]`, blank line below, gap between items; Re-check button removed (auto every 30 s, `/preflight` on demand). Notices (committed, worktree ready) replace the row until OK.
+
 ## Next
 1. Owner: paste the screenshot, run the mods on the real app, report what cuts off or collides.
 2. Owner: run `python3 tools/audit-sessions.py`, pick an idea from the five.
