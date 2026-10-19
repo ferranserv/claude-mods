@@ -26,7 +26,7 @@
       "type": "number",
       "title": "Tool calls between reminders",
       "description": "How many tool calls without a task update before the reminder.",
-      "default": 6
+      "default": 10
     }
   }
 }

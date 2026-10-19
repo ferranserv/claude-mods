@@ -47,7 +47,7 @@ export const register: Register = (on, options) => {
   const minSteps = Math.max(1, Number(options.minSteps ?? 2) || 2)
   const hasSound = options.sound !== false
   const hasNudge = options.nudge !== false
-  const nudgeAfter = Math.max(2, Number(options.nudgeAfter ?? 6) || 6)
+  const nudgeAfter = Math.max(2, Number(options.nudgeAfter ?? 10) || 10)
 
   let promptAt = 0
   let promptText = ''
