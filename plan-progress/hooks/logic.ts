@@ -40,7 +40,10 @@ export function cleanPrompt(text: string): string {
 }
 
 /** The goal a prompt states: its first real line. */
-export const goalOf = (text: string): string => clip(firstLine(cleanPrompt(text)), 200)
+export const goalOf = (text: string): string => {
+  const line = clip(firstLine(cleanPrompt(text)), 200)
+  return /^(clear|off|stop|cancel|none)$/i.test(line) ? '' : line
+}
 
 export const clip = (text: string, width: number): string =>
   text.length <= width ? text : text.slice(0, Math.max(0, width - 1)) + '…'
@@ -144,6 +147,14 @@ export function extractList(input: Record<string, unknown>): PlanTask[] | undefi
   return undefined
 }
 
+/** The id a TaskCreate result carries: { task: { id } }, { id }, or the text "Task #7 created successfully". */
+export function taskIdOf(result: unknown): string | undefined {
+  const r = rec(result)
+  for (const v of [rec(r.task).id, r.id, r.taskId]) if (typeof v === 'string' || typeof v === 'number') return String(v)
+  const text = typeof result === 'string' ? result : typeof r.text === 'string' ? r.text : typeof r.content === 'string' ? r.content : ''
+  return /Task\s*#(\w+)/i.exec(text)?.[1] ?? /"id"\s*:\s*"?(\w+)/.exec(text)?.[1]
+}
+
 /** Folds one finished tool call into the snapshot; unknown tools return `s` itself. */
 export function applyTool(s: PlanSnap, tool: string, input: Record<string, unknown>, result: unknown, ctx: Ctx): PlanSnap {
   const next = applyToolInner(s, tool, input, result, ctx)
@@ -161,11 +172,17 @@ function applyToolInner(s: PlanSnap, tool: string, input: Record<string, unknown
     return { ...s, goal: clip(input.condition, 200), isGoalCmd: true, startedAt: s.startedAt || ctx.now, isRunning: true }
   }
 
+  // The app's own end-of-turn call (mcp__ccd_turn__wrap_up): the work is done, whatever the list still says.
+  if (name.endsWith('wrapup')) {
+    if (s.tasks.length === 0 || isAllDone(s)) return s
+    return { ...s, tasks: s.tasks.map(t => (t.status === 'completed' ? t : { ...t, status: 'completed' as const })) }
+  }
+
   if (name === 'taskcreate' || name === 'createtask') {
     const subjectIn = text('subject', 'title', 'content', 'name')
     if (subjectIn === undefined) return s
     const task = rec(rec(result).task)
-    const id = typeof task.id === 'string' || typeof task.id === 'number' ? String(task.id) : String(s.tasks.length + 1)
+    const id = taskIdOf(result) ?? String(s.tasks.length + 1)
     const subject = typeof task.subject === 'string' ? task.subject : subjectIn
     const next: PlanTask = { id, subject, status: 'pending' }
     return startIfNew({ ...s, tasks: [...s.tasks.filter(t => t.id !== id), next] }, ctx)
@@ -248,12 +265,12 @@ export const percent = (s: PlanSnap): number => {
 export const isTaskTool = (tool: string): boolean => /todo|plan|task|step/.test(norm(tool))
 
 /** What to tell the model when the checklist has gone stale: `calls` tool calls since a task tool ran. */
-export function nudgeNote(s: PlanSnap, calls: number, after: number): string | undefined {
+export function nudgeNote(s: PlanSnap, calls: number, after: number, via = 'the task tool'): string | undefined {
   if (s.tasks.length === 0 || isAllDone(s) || calls < after) return undefined
   const done = s.tasks.filter(t => t.status === 'completed').length
   const now = s.tasks.find(t => t.status === 'in_progress')
   const state = now ? `"${clip(firstLine(now.subject), 60)}" (#${now.id}) is marked in progress` : 'no step is marked in progress'
-  return `Plan Progress: ${done}/${s.tasks.length} checklist steps are done and ${state}. The user watches this checklist. If a step is finished, mark it completed now with the task tool, and mark the next one in progress.`
+  return `Plan Progress: ${done}/${s.tasks.length} checklist steps are done and ${state}. The user watches this checklist. If a step is finished, mark it completed now with ${via} (a tool that takes the whole list: send the full list again with the current statuses), and mark the next one in progress.`
 }
 
 export const bar = (pct: number, width: number): string => {
