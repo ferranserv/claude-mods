@@ -8,13 +8,14 @@ Personal Claude Code mods, published as the `claude-mods` plugin marketplace.
 | `prompt-enhancer` | Sparkle Enhance button + hotkey (`meta+e`) + `/enhance`. Rewrites your draft in place: fitting skills, project details, questions to answer first, what done looks like. One small-model call per use; undo button restores your draft. |
 | `mods-manager` | At each session start (at most hourly) runs `git pull --ff-only` in the folder the mods are installed from, so a merged pull request reaches the next session by itself; `/updatemods` does it now. Also the skill `sync-mods`: after you build a mod, it lands in `~/mods`, the marketplace file is rebuilt, and the mod is installed for every session. |
 | `saver` | Sends easy prompts (typos, renames, formatting, short summaries, quick questions) to Haiku 5.5 while context is under 100K tokens; hard ones stay on your model. A strip above the prompt shows the model that answered last and what was saved today at list prices. `/saver on`, `/saver off`. |
+| `preflight-guard` | Warns when a session starts on main, with uncommitted changes, or in a folder another session is working in. One click each: new worktree, checkpoint commit, or commit the files another session already finished. Never pushes. `/preflight`, `/preflight off`. |
 | `meters` | One band above the prompt (or a vertical side panel): context window, 5-hour limit, weekly limit (five weekday slots) and the **prompt cache countdown**. Context turns orange from 50% (or 150k tokens) with a "quality may start to slip" warning and red past 80%. Warns you before the cache goes cold, shows what the next message costs warm vs cold, and offers **New session with handoff** and **Fresh session** buttons, hotkeys, `/handoff`, `/fresh`, `/cache`. `/meters side` / `/meters top` move it. Replaces the earlier `context-bar` and `usage-limits` mods. |
 
 ## Install
 
 The marketplace is called `claude-mods` (plugin ids look like `meters@claude-mods`). It was called `my-mods` until 2026-10-19; an old local `my-mods` marketplace must be removed first (see below), or the app can keep reading its stale folder.
 
-**Claude desktop app, from GitHub (recommended, no terminal):** in a local Code session click **+** next to the prompt box, **Plugins**, **Add marketplace** with `ferranserv/claude-mods`, then **Add plugin** for `meters`, `saver`, `plan-progress` and `prompt-enhancer` (`mods-manager` is only for the CLI flow below and does nothing useful installed this way). To update after a pull request is merged: open the Plugins page and click **Update** on each plugin that offers it, then start a new session. Every change bumps the plugin's version so the Update button appears.
+**Claude desktop app, from GitHub (recommended, no terminal):** in a local Code session click **+** next to the prompt box, **Plugins**, **Add marketplace** with `ferranserv/claude-mods`, then **Add plugin** for `meters`, `saver`, `plan-progress`, `prompt-enhancer` and `preflight-guard` (`mods-manager` is only for the CLI flow below and does nothing useful installed this way). To update after a pull request is merged: open the Plugins page and click **Update** on each plugin that offers it, then start a new session. Every change bumps the plugin's version so the Update button appears.
 
 **Moving from the old `my-mods` install:** (1) merge the pull request that renamed the marketplace; (2) in the Plugins page remove the `my-mods` marketplace and its plugins; (3) optionally delete or rename the old local clone (`C:\Users\<you>\mods`); (4) add `ferranserv/claude-mods` as above.
 
@@ -80,3 +81,17 @@ Cache window: Claude Code's API usage does not report the TTL, so `meters` learn
 ## Audit
 
 `python3 tools/audit-sessions.py` reads your last 20 sessions locally and prints what you keep asking, what you keep commanding, and how you check work. Aggregates only.
+
+## preflight-guard: the rules
+
+Each session writes a small heartbeat file in the repo's shared git folder (`.git/preflight-guard/<session>.json`: folder, branch, working or idle, files it wrote with Edit/Write). Nothing is committed or pushed by itself. Silent when nothing applies.
+
+| Situation | Shown | Button |
+|---|---|---|
+| Another live session in THIS folder | Commits will collide | New worktree (`.claude/worktrees/s-<id>-<date>`, branch `claude/...`, from HEAD) then Switch (asks Claude to run EnterWorktree) or Copy path |
+| On main / master / the remote default | Edits land on the shared branch | New worktree |
+| Uncommitted changes, no other session in the folder | N changes | Checkpoint commit; on main it first opens `checkpoint/...` so main is untouched |
+| Other session in another folder, finished its turn, left changes | Its files | Commit its N files, then a confirm showing the branch (local only) |
+| Other session still working | Info only, no button | none: committing mid-edit saves half-written files |
+
+Click-commit rules: only files that session wrote, unless it is alone in its folder (then all changes); never `.env`, keys, certificates, databases; never pushes; the result line gives the undo command. A session silent for 15 minutes while "working" is treated as possibly closed and offered only if it recorded files. Ignored after 24 hours. `/preflight off` silences it for good.
