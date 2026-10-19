@@ -20,6 +20,27 @@ export type Peer = {
 }
 
 export type Change = { path: string; code: string }
+export type Stat = { add: number; del: number }
+
+/** `git diff HEAD --numstat` into per-file counts. Binary files ("-") count as 0; untracked files are not in it. */
+export function parseNumstat(text: string): Record<string, Stat> {
+  const out: Record<string, Stat> = {}
+  for (const line of text.split('\n')) {
+    const m = /^(\d+|-)\t(\d+|-)\t(.+)$/.exec(line)
+    if (m) out[m[3] as string] = { add: Number(m[1]) || 0, del: Number(m[2]) || 0 }
+  }
+  return out
+}
+
+export function sumStats(paths: readonly string[], stats: Record<string, Stat> | undefined): Stat {
+  let add = 0
+  let del = 0
+  for (const p of paths) {
+    add += stats?.[p]?.add ?? 0
+    del += stats?.[p]?.del ?? 0
+  }
+  return { add, del }
+}
 
 export type PeerKind = 'working' | 'idle' | 'maybe-gone' | 'ignore'
 
@@ -93,16 +114,18 @@ export type Facts = {
   peers: Peer[]
   /** Dirty changes found in each peer's folder, keyed by peer id. */
   peerChanges: Record<string, Change[]>
+  /** Line counts per file: this folder's under key '', each peer's under its id. */
+  stats: Record<string, Record<string, Stat>>
   /** Peers per folder, so a shared folder is known to be shared. */
   isFirstTurn: boolean
 }
 
 export type Advice =
   | { kind: 'main'; branch: string }
-  | { kind: 'dirty'; count: number; onDefault: boolean }
+  | { kind: 'dirty'; count: number; onDefault: boolean; add: number; del: number }
   | { kind: 'shared-folder'; peerIds: string[] }
   | { kind: 'peer-working'; peerId: string; branch: string; cwd: string; isGone: boolean }
-  | { kind: 'peer-done'; peerId: string; branch: string; cwd: string; take: number; leave: number; secrets: number; isSole: boolean }
+  | { kind: 'peer-done'; peerId: string; branch: string; cwd: string; take: number; leave: number; secrets: number; isSole: boolean; add: number; del: number }
 
 /**
  * The rules, in the order they show (most urgent first):
@@ -124,7 +147,8 @@ export function advise(f: Facts): Advice[] {
 
   // Changes in this folder are "mine to checkpoint" only when no other live session shares the folder.
   if (here.length === 0 && f.changes.length > 0) {
-    out.push({ kind: 'dirty', count: f.changes.length, onDefault: isDefaultBranch(f.branch, f.originHead) })
+    const t = sumStats(f.changes.map(c => c.path), f.stats[''])
+    out.push({ kind: 'dirty', count: f.changes.length, onDefault: isDefaultBranch(f.branch, f.originHead), add: t.add, del: t.del })
   }
 
   for (const p of elsewhere) {
@@ -135,6 +159,7 @@ export function advise(f: Facts): Advice[] {
       const pk = pickFiles(f.peerChanges[p.id] ?? [], p.files, !sharing)
       if (pk.take.length + pk.secrets.length + pk.leave.length === 0) continue
       if (kind === 'maybe-gone' && (p.files.length === 0 || pk.take.length === 0)) continue
+      const t = sumStats(pk.take, f.stats[p.id])
       out.push({
         kind: 'peer-done',
         peerId: p.id,
@@ -144,6 +169,8 @@ export function advise(f: Facts): Advice[] {
         leave: pk.leave.length,
         secrets: pk.secrets.length,
         isSole: !sharing,
+        add: t.add,
+        del: t.del,
       })
     }
   }

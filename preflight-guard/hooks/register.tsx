@@ -8,6 +8,7 @@ import {
   advise,
   checkpointMessage,
   norm,
+  parseNumstat,
   parseStatus,
   peerCommitMessage,
   peerKind,
@@ -18,7 +19,7 @@ import {
   slugOf,
   worktreePath,
 } from './logic'
-import type { Advice, Change, Facts, Peer, Phase } from './logic'
+import type { Advice, Change, Facts, Peer, Phase, Stat } from './logic'
 
 const isOn = atom({ plugin: 'preflight-guard', key: 'isOn' } as const, true)
 const advice = atom({ plugin: 'preflight-guard', key: 'advice' } as const, [] as Advice[])
@@ -95,11 +96,17 @@ async function gather($: EngineInterface, selfId: string, mine: Peer | null): Pr
     }
   }
   const peers = await peersOf($, repo, selfId)
+  const numstat = async (dir: string) => {
+    const d = await git($, dir, ['diff', 'HEAD', '--numstat'])
+    return d.ok ? parseNumstat(d.out) : {}
+  }
+  const stats: Record<string, Record<string, Stat>> = { '': await numstat(repo.cwd) }
   const peerChanges: Record<string, Change[]> = {}
   for (const p of peers) {
     if (peerKind(p, now) === 'ignore' || sameDir(p.cwd, repo.cwd)) continue
     const s = await git($, p.cwd, ['status', '--porcelain=v1', '-z'])
     peerChanges[p.id] = s.ok ? parseStatus(s.out) : []
+    if (peerChanges[p.id]?.length) stats[p.id] = await numstat(p.cwd)
   }
   return {
     now,
@@ -111,6 +118,7 @@ async function gather($: EngineInterface, selfId: string, mine: Peer | null): Pr
     mine,
     peers,
     peerChanges,
+    stats,
     isFirstTurn: true,
   }
 }
@@ -192,6 +200,8 @@ async function commitPeer($: EngineInterface, peerId: string): Promise<void> {
 
 // ---- the band ----
 
+const counts = (a: { add: number; del: number }) => (a.add + a.del > 0 ? ` (+${a.add} −${a.del})` : '')
+
 const label = (a: Advice): string => {
   switch (a.kind) {
     case 'shared-folder':
@@ -199,11 +209,11 @@ const label = (a: Advice): string => {
     case 'main':
       return `You are on ${a.branch}. Edits land on the shared branch.`
     case 'dirty':
-      return `${a.count} uncommitted change${a.count === 1 ? '' : 's'} before you start.`
+      return `${a.count} uncommitted change${a.count === 1 ? '' : 's'} before you start${counts(a)}.`
     case 'peer-working':
       return `Session ${short(a.peerId)} is working on ${a.branch}. Its files are not safe to commit yet.`
     case 'peer-done':
-      return `Session ${short(a.peerId)} finished on ${a.branch}: ${a.take} file${a.take === 1 ? '' : 's'} uncommitted${a.leave > 0 ? `, ${a.leave} not its` : ''}${a.secrets > 0 ? `, ${a.secrets} secret-looking skipped` : ''}.`
+      return `Session ${short(a.peerId)} finished on ${a.branch}: ${a.take} file${a.take === 1 ? '' : 's'} uncommitted${counts(a)}${a.leave > 0 ? `, ${a.leave} not its` : ''}${a.secrets > 0 ? `, ${a.secrets} secret-looking skipped` : ''}.`
   }
 }
 
@@ -328,7 +338,7 @@ export const register: Register = on => {
         }
         if (a.kind === 'peer-done' && a.take > 0) {
           if (ask === a.peerId) {
-            buttons.push(<Button key="yes" label={`Yes, commit ${a.take} on ${a.branch} (local only)`} onPress={act($, () => commitPeer($, a.peerId))} />)
+            buttons.push(<Button key="yes" label={`Yes, commit ${a.take}${counts(a)} on ${a.branch} (local only)`} onPress={act($, () => commitPeer($, a.peerId))} />)
             buttons.push(<Button key="no" label="Cancel" onPress={() => void update($, pending, () => null)} />)
           } else {
             buttons.push(<Button key="ask" label={`Commit its ${a.take} file${a.take === 1 ? '' : 's'}`} onPress={() => void update($, pending, () => a.peerId)} />)

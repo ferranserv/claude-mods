@@ -76,6 +76,9 @@ Unverified on the app: all of it. Open: "draft missing from prompt box" in N8 is
 - Band key `band:5:preflight-guard` is hand-written (top of the band) so the four shared `bands.tsx` copies stay identical; preflight-guard carries its own identical copy.
 - UNVERIFIED on the desktop app: `$.process.run` (docs say CLI only; without it the band stays empty and `/preflight` says all clear: check `/preflight` first), `turn.start`/`tool.call` heartbeats, Switch (asks Claude to call EnterWorktree with the path, one short turn).
 
+## Session 6b: preflight-guard 0.1.1
+- Added `+added −removed` line counts (from `git diff HEAD --numstat`) to the "uncommitted changes" and "session finished" lines and to the confirm button. Counts cover tracked files only and only the files a click would commit. Owner's desktop app already puts each session in a worktree (branch `claude/<topic>-<hash>`) and has its own Changes pane; that pane has no mod API, so the mod reads git itself.
+
 ## Next
 1. Owner: paste the screenshot, run the mods on the real app, report what cuts off or collides.
 2. Owner: run `python3 tools/audit-sessions.py`, pick an idea from the five.

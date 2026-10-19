@@ -1,11 +1,11 @@
 import { expect, test } from 'claude-code/testing'
 
-import { MINUTE, advise, isDefaultBranch, isSecretPath, parseStatus, peerKind, pickFiles, relativeTo, slugOf } from '../hooks/logic'
+import { MINUTE, advise, parseNumstat, isDefaultBranch, isSecretPath, parseStatus, peerKind, pickFiles, relativeTo, slugOf } from '../hooks/logic'
 import type { Facts, Peer } from '../hooks/logic'
 
 const NOW = 10_000_000_000
 const peer = (o: Partial<Peer>): Peer => ({ id: 'abc123', cwd: '/r/.claude/worktrees/a', branch: 'claude/a', phase: 'idle', at: NOW - MINUTE, files: [], ...o })
-const facts = (o: Partial<Facts>): Facts => ({ now: NOW, cwd: '/r', branch: 'claude/x', originHead: 'main', isBusy: false, changes: [], mine: null, peers: [], peerChanges: {}, isFirstTurn: true, ...o })
+const facts = (o: Partial<Facts>): Facts => ({ now: NOW, cwd: '/r', branch: 'claude/x', originHead: 'main', isBusy: false, changes: [], mine: null, peers: [], peerChanges: {}, stats: {}, isFirstTurn: true, ...o })
 const ch = (...paths: string[]) => paths.map(path => ({ path, code: ' M' }))
 const kinds = (f: Facts) => advise(f).map(a => a.kind)
 
@@ -97,4 +97,10 @@ test('tool paths become repo-relative; outside the repo they are dropped', () =>
 
 test('worktree names are short, unique per minute and path-safe', () => {
   expect(slugOf('3f9a-bb21-xx', new Date(2026, 9, 19, 14, 5).getTime())).toBe('s-3f9abb-1019-1405')
+})
+
+test('line counts come from numstat and are summed over the files a commit would take only', () => {
+  expect(parseNumstat('3\t1\ta.ts\n-\t-\timg.png\n10\t0\t.env\n')).toEqual({ 'a.ts': { add: 3, del: 1 }, 'img.png': { add: 0, del: 0 }, '.env': { add: 10, del: 0 } })
+  const f = facts({ peers: [peer({})], peerChanges: { abc123: ch('a.ts', '.env') }, stats: { abc123: parseNumstat('3\t1\ta.ts\n10\t0\t.env\n') } })
+  expect(advise(f)[0]).toMatchObject({ kind: 'peer-done', add: 3, del: 1 })
 })

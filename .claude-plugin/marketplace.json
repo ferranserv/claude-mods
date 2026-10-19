@@ -26,7 +26,7 @@
       "name": "preflight-guard",
       "source": "./preflight-guard",
       "description": "Warns when a session starts on main, with uncommitted changes, or beside another working session; offers a worktree, a commit checkpoint, and a click to commit what another session already finished.",
-      "version": "0.1.0"
+      "version": "0.1.1"
     },
     {
       "name": "prompt-enhancer",
