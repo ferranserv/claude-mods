@@ -33,7 +33,7 @@ test('phases you have left are remembered as visited', async () => {
   expect(s.visited).toEqual(['researching'])
   s = applyTool(s, 'update_plan', { plan: [{ step: 'Research the API', status: 'completed' }, { step: 'Write tests', status: 'in_progress' }] }, {}, ctx)
   expect(s.phase).toBe('testing')
-  expect(s.visited).toEqual(['researching', 'testing'])
+  expect(s.visited).toEqual(['researching', 'planning', 'building', 'testing']) // skipped phases are done too
 })
 
 test('a new turn starts the clock again (a goal continuation is not a typed prompt)', async () => {

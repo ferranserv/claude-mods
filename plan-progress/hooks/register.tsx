@@ -18,6 +18,8 @@ import {
   fmtTime,
   isActive,
   isAllDone,
+  isTaskTool,
+  nudgeNote,
   percent,
   toolPhase,
   withVisited,
@@ -44,6 +46,8 @@ function commit($: EngineInterface, fn: (s: PlanSnap) => PlanSnap) {
 export const register: Register = (on, options) => {
   const minSteps = Math.max(1, Number(options.minSteps ?? 2) || 2)
   const hasSound = options.sound !== false
+  const hasNudge = options.nudge !== false
+  const nudgeAfter = Math.max(2, Number(options.nudgeAfter ?? 6) || 6)
 
   let promptAt = 0
   let promptText = ''
@@ -51,6 +55,8 @@ export const register: Register = (on, options) => {
   // Tool names seen this session, for /plan-debug: what the app really sends decides what the panel can show.
   const seen: Record<string, number> = {}
   let lastShape = ''
+  // Tool calls since the model last touched its task list.
+  let calls = 0
 
   on('session.start', async ($, e, next) => {
     const { value } = await $.state.get(snapRef)
@@ -125,6 +131,21 @@ export const register: Register = (on, options) => {
       await commit($, s => applyTool(s, tool, input, result, ctx))
     }
     return ran
+  }).catch(($, e, next) => next(e))
+
+  // The model is the only one who knows a step is done: when it stops saying so, remind it (a few tokens).
+  on('classic.PostToolUse', async ($, e, next) => {
+    const out = await next(e)
+    if (!hasNudge) return out
+    if (isTaskTool(String(e.tool_name))) {
+      calls = 0
+      return out
+    }
+    calls += 1
+    const note = nudgeNote(await read($, snapAtom), calls, nudgeAfter)
+    if (note === undefined) return out
+    calls = 0
+    return { ...out, additionalContext: [...(out.additionalContext ?? []), note] }
   }).catch(($, e, next) => next(e))
 
   on('turn.start', async ($, e, next) => {
