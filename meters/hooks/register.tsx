@@ -13,7 +13,6 @@ import {
   bandWidth,
   cacheView,
   clockText,
-  dividerSvg,
   learnWindow,
   line,
   model,
@@ -489,30 +488,10 @@ export const register: Register = (on, options) => {
       )
     }
 
-    // A rule under the bars sets them apart from the strip below (saver); it leaves with the bars in side mode.
-    let rule
-    if (e.surface === 'terminal') {
-      const { Text } = $.ui.resolve(e)
-      rule = (
-        <Box justifyContent="center">
-          <Text color="#636366">{'─'.repeat(Math.max(8, Math.min(e.props.bodyColumns - 4, 72)))}</Text>
-        </Box>
-      )
-    } else {
-      const { Svg } = $.ui.resolve(e)
-      const d = dividerSvg(bandWidth(e.props.bodyColumns))
-      rule = (
-        <Box justifyContent="center">
-          <Svg source={d.source} alt="divider" />
-        </Box>
-      )
-    }
-
     const mine = (
       <Box key={bandKey('meters')} flexDirection="column">
         {body}
         {actions}
-        {rule}
       </Box>
     )
     return stack(below, mine as never, Box)

@@ -10,7 +10,9 @@
 // from its own folder).
 export type Tree = { type: string; props?: Record<string, unknown>; children?: unknown[] }
 
-export const RANK = { 'plan-progress': 10, meters: 20, saver: 30, 'prompt-enhancer': 40 } as const
+// 'saver-rule' is the rule above saver's strip: a band of its own between meters and saver, so it lands
+// there whichever of the two the engine calls first (a mod cannot see bands drawn by a mod called after it).
+export const RANK = { 'plan-progress': 10, meters: 20, 'saver-rule': 25, saver: 30, 'prompt-enhancer': 40 } as const
 
 export const bandKey = (name: keyof typeof RANK) => `band:${RANK[name]}:${name}`
 

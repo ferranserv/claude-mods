@@ -348,11 +348,11 @@ test('saved warning levels come back at session start; red never sits below oran
   expect(text(await $.command.run({ command: 'meters', args: 'limits' } as never))).toContain('red past 30%')
 })
 
-test('a rule under the bars goes with the bars: it is part of the meters band', async ($, on) => {
+test('meters draws no rule of its own: it belongs to the saver strip, which is hidden unless active', async ($, on) => {
   world(on)
   await started($)
   const ui = await $.ui.mount(band('terminal'))
-  expect(await ui.find({ type: 'Text', text: /^─+$/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^─+$/ })).toBeUndefined()
   await ui.unmount()
   const d = await $.ui.mount(band('desktop'))
   expect(await d.find({ type: 'Svg' })).toBeDefined()

@@ -70,8 +70,8 @@ Cache window: Claude Code's API usage does not report the TTL, so `meters` learn
 - Hotkey `meta+e` is Option+E on macOS only when the terminal sends Option as Meta. Change it in the mod's options.
 - The chime uses `afplay` on macOS and a PowerShell sound player on Windows (best effort: it needs the host to allow running commands). On Linux it plays nothing.
 - `plan-progress` shows only for a `/goal` or a task list of 2+ steps, so it is invisible in an ordinary chat. The ✕ on the panel or `/plan-reset` clears it; `/plan-debug` lists the tool names it has seen (use it when the checklist stays empty). It is drawn as SVG on the desktop, text in a terminal.
-- `saver`: `/saver why` says why the last prompt did or did not go to Haiku. Nothing is routed when your session model is already Haiku.
-- The rule under the bars belongs to `meters`, so it leaves with them when the side panel is open. The saver strip stays in the band: it is a separate mod.
+- `saver`: the strip is hidden unless saver is on AND the last answer was routed to Haiku. `/saver strip on` shows it whenever saver is on, `/saver strip always` even when off, `/saver strip active` is the default. `/saver why` says why the last prompt did or did not go to Haiku. Nothing is routed when your session model is already Haiku.
+- The rule above the saver strip belongs to `saver` (its own band, rank 25) and shows only when the strip does.
 - `/handoff` is held by Anthropic skills (`handoff`, `design:design-handoff`) and is refused here; use `/newsession` or `/meters handoff`.
 - The cache label rounds UP to the step (60m right after a message), so it can read up to 5 minutes more than is left; `/cache` is exact.
 - The Enhance sparkle is always shown above the prompt (dim until you type a draft); `/enhance <draft>` works too.

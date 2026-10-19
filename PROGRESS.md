@@ -51,6 +51,10 @@ Fixed
 Not fixed / by design: /handoff is held by two skills (use /newsession); limits update only when a reply reports them; the panel appearing twice is probably the app's own /goal display.
 Unverified: all of the above on the app.
 
+## Session 4b: saver strip
+- Owner ran the OLD saver (`/saver why` printed the 0.1.2 help): the fixes were not merged yet.
+- saver 0.2.0: strip hidden unless saver is on and the last answer was routed to Haiku (`/saver strip active|on|always`); the rule above it is saver's again (appears only with the strip); meters 0.2.5 draws no rule. 23 saver tests.
+
 ## Next
 1. Owner: paste the screenshot, run the mods on the real app, report what cuts off or collides.
 2. Owner: run `python3 tools/audit-sessions.py`, pick an idea from the five.

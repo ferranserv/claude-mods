@@ -7,7 +7,11 @@ import {
   COLOR,
   CONTEXT_LIMIT,
   HAIKU_ID,
+  bandWidth,
   dayKey,
+  dividerSvg,
+  isStripShown,
+  parseMode,
   labelLocally,
   money,
   priceOf,
@@ -19,6 +23,8 @@ import type { Level } from './lib'
 const isOn = atom({ plugin: 'saver', key: 'isOn' } as const, true)
 const last = atom({ plugin: 'saver', key: 'last' } as const, null)
 const saved = atom({ plugin: 'saver', key: 'saved' } as const, { day: '', usd: 0 })
+const mode = atom({ plugin: 'saver', key: 'mode' } as const, 'active')
+const lastRouted = atom({ plugin: 'saver', key: 'lastRouted' } as const, false)
 
 export const register: Register = on => {
   // What the current turn was labelled; set when the prompt arrives, read at each step.
@@ -36,6 +42,9 @@ export const register: Register = on => {
     const storedOn = await $.store.get('isOn')
     if (typeof storedOn === 'boolean') await update($, isOn, () => storedOn)
 
+    const storedMode = parseMode(await $.store.get('stripMode'))
+    if (storedMode) await update($, mode, () => storedMode)
+
     const storedSaved = (await $.store.get('saved')) as Saved | undefined
     if (storedSaved && typeof storedSaved.usd === 'number') {
       await update($, saved, () => storedSaved)
@@ -52,8 +61,15 @@ export const register: Register = on => {
       return { text: `saver ${arg}` }
     }
     if (arg === 'why') return { text: why }
+    if (arg.startsWith('strip')) {
+      const wanted = parseMode(arg.slice(5).trim())
+      if (!wanted) return { text: 'Use /saver strip active (only when it just routed to Haiku), /saver strip on (whenever saver is on) or /saver strip always.' }
+      await $.store.set('stripMode', wanted)
+      await update($, mode, () => wanted)
+      return { text: `The saver strip now shows: ${wanted === 'active' ? 'only when the last answer was routed to Haiku' : wanted === 'on' ? 'whenever saver is on' : 'always, even when off'}.` }
+    }
     const state = (await read($, isOn)) ? 'on' : 'off'
-    return { text: `saver is ${state}. Use /saver on, /saver off or /saver why.` }
+    return { text: `saver is ${state}; the strip shows ${await read($, mode)}. Use /saver on, /saver off, /saver why or /saver strip active|on|always.` }
   })
 
   on('prompt.submit', async ($, e, next) => {
@@ -97,6 +113,7 @@ export const register: Register = on => {
     }
 
     const response = yield* next(isHaiku ? { ...e, model: HAIKU_ID } : e)
+    await update($, lastRouted, () => isHaiku)
 
     const answered = response.usage?.model ?? (isHaiku ? HAIKU_ID : e.model)
     await update($, last, () => answered)
@@ -118,12 +135,32 @@ export const register: Register = on => {
     const below = await next(e)
     if (e.props.hasSurvey) return below
 
+    const isEnabled = await read($, isOn)
+    if (!isStripShown(await read($, mode), isEnabled, await read($, lastRouted))) return below
+
     const { Box, Text } = $.ui.resolve(e)
     const today = dayKey(await $.clock.now())
-    const isEnabled = await read($, isOn)
     const model = await read($, last)
     const total = await read($, saved)
     const usd = total.day === today ? total.usd : 0
+
+    // A rule above the strip, as a band of its own between the bars (rank 20) and the strip (rank 30).
+    let rule
+    if (e.surface === 'terminal') {
+      rule = (
+        <Box key={bandKey('saver-rule')} justifyContent="center">
+          <Text color={COLOR.track}>{'─'.repeat(Math.max(8, Math.min(e.props.bodyColumns - 4, 72)))}</Text>
+        </Box>
+      )
+    } else {
+      const { Svg } = $.ui.resolve(e)
+      const d = dividerSvg(bandWidth(e.props.bodyColumns))
+      rule = (
+        <Box key={bandKey('saver-rule')} justifyContent="center">
+          <Svg source={d.source} alt="divider" />
+        </Box>
+      )
+    }
 
     const mine = (
       <Box key={bandKey('saver')} justifyContent="center">
@@ -138,6 +175,6 @@ export const register: Register = on => {
       </Box>
     )
 
-    return stack(below, mine as never, Box)
+    return stack(below, [rule, mine] as never, Box)
   })
 }
