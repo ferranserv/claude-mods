@@ -1,0 +1,20 @@
+{
+  "name": "plan-progress",
+  "version": "0.1.0",
+  "description": "Panel above the prompt for multi-step work and /goal: goal, phase, task checklist, progress bar, elapsed time, and a chime when a turn ends. Zero model calls.",
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "sound": {
+      "type": "boolean",
+      "title": "Chime when a turn finishes",
+      "description": "Plays sounds/done.wav at the end of each main-loop turn (macOS afplay).",
+      "default": true
+    },
+    "minSteps": {
+      "type": "number",
+      "title": "Minimum steps before the panel shows",
+      "description": "The panel shows for a /goal at any size, and for a task list once it has this many steps.",
+      "default": 2
+    }
+  }
+}
