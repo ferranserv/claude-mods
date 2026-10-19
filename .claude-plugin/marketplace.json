@@ -13,8 +13,8 @@
     {
       "name": "mods-manager",
       "source": "./mods-manager",
-      "description": "Skill that keeps every mod you build installed from the my-mods marketplace, in every session.",
-      "version": "0.1.0"
+      "description": "Keeps your mods current: pulls the mods folder from GitHub at session start (/updatemods to do it now), and a skill that installs mods you build.",
+      "version": "0.2.0"
     },
     {
       "name": "plan-progress",

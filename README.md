@@ -6,7 +6,7 @@ Personal Claude Code mods, published as the `my-mods` plugin marketplace.
 | --- | --- |
 | `plan-progress` | Panel above the prompt for multi-step work and `/goal`: goal, phase (researching, planning, building, testing, auditing), task checklist, progress bar with %, elapsed time. Chime when a turn ends. Zero model calls, zero extra tokens. |
 | `prompt-enhancer` | Sparkle Enhance button + hotkey (`meta+e`) + `/enhance`. Rewrites your draft in place: fitting skills, project details, questions to answer first, what done looks like. One small-model call per use; undo button restores your draft. |
-| `mods-manager` | Skill `sync-mods`: after you build a mod, it lands in `~/mods`, the marketplace file is rebuilt, and the mod is installed for every session. |
+| `mods-manager` | At each session start (at most hourly) runs `git pull --ff-only` in the folder the mods are installed from, so a merged pull request reaches the next session by itself; `/updatemods` does it now. Also the skill `sync-mods`: after you build a mod, it lands in `~/mods`, the marketplace file is rebuilt, and the mod is installed for every session. |
 | `saver` | Sends easy prompts (typos, renames, formatting, short summaries, quick questions) to Haiku 5.5 while context is under 100K tokens; hard ones stay on your model. A strip above the prompt shows the model that answered last and what was saved today at list prices. `/saver on`, `/saver off`. |
 | `meters` | One band above the prompt (or a vertical side panel): context window, 5-hour limit, weekly limit (five weekday slots) and the **prompt cache countdown**. Context turns orange from 50% (or 150k tokens) with a "quality may start to slip" warning and red past 80%. Warns you before the cache goes cold, shows what the next message costs warm vs cold, and offers **New session with handoff** and **Fresh session** buttons, hotkeys, `/handoff`, `/fresh`, `/cache`. `/meters side` / `/meters top` move it. Replaces the earlier `context-bar` and `usage-limits` mods. |
 
@@ -24,6 +24,10 @@ bash ~/mods/mods-manager/skills/sync-mods/sync.sh --install-hook
 That registers `~/mods` as the `my-mods` marketplace, installs every mod at user scope, and adds a SessionStart hook so mods you drop in later install themselves. Check with `/plugin` (or `claude plugin list`). `mods-manager` and `sync.sh` need `bash` and `python3`; they do nothing useful for desktop-app-only users.
 
 Cloud sessions on this repo load the mods from `.claude/settings.json`. For cloud sessions on other repos, put the install lines above in the environment's setup script.
+
+## Keeping the mods current
+
+If the app installed the mods from a local clone (for example `C:\Users\<you>\mods`), a merged pull request does not reach it by itself. `mods-manager` (0.2.0+) pulls that folder at session start and shows "Mods updated to <commit>. Start a new session to load them." The new files load in the *next* session, so there is one session of lag. It only works where the app lets a mod run `git`; if not, it says so once. Manual fallback: `git -C "$env:USERPROFILE\mods" pull`, then a new session. Anything merged to `main` is loaded automatically from then on: the merge is the gate. Turn it off with the mod's `autoUpdate` option.
 
 ## New mods
 

@@ -30,6 +30,11 @@ Still unverified: sparkle position/size, hotkeys, handoff buttons and paste afte
 - Likely cause (not confirmed, no error text): `session.start` registered commands in a row and stopped at the first refusal (the owner has a `handoff` skill, so `/handoff` is probably refused). `/meters` registers first, so it worked while `/cache` never registered; the pulse timer and saved settings after it were skipped too.
 - Fix: each command registers on its own (meters, cache, fresh, handoff, newsession); plan-progress and prompt-enhancer wrapped the same way. `/meters status` lists refused names; `/meters cache|handoff|fresh` are fallbacks; `/newsession` aliases `/handoff`.
 
+## Session 3d: stale install (owner)
+- Cause confirmed: the app installed from the owner's local clone `C:\Users\fservitje\mods` (stuck at PR #2); removing/re-adding the marketplace read the same folder. `git pull` there fixed it.
+- mods-manager 0.2.0: session-start `git pull --ff-only` in the plugins' folder (parent of the plugin root), throttled to 1/hour, toast when HEAD changed, one notice if git cannot run, `/updatemods`. 7 tests. UNVERIFIED: whether the desktop app lets a mod run git at all (the CLI docs say process.run is CLI only).
+- Needs one manual `git pull` to receive 0.2.0 itself; automatic afterwards.
+
 ## Next
 1. Owner: paste the screenshot, run the mods on the real app, report what cuts off or collides.
 2. Owner: run `python3 tools/audit-sessions.py`, pick an idea from the five.
