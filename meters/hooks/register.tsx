@@ -46,6 +46,8 @@ const isBusy = atom(isBusyRef, false)
 // The countdown text last drawn: the band is redrawn only when it changes.
 let lastLabel = ''
 let isHandoffRunning = false
+// Commands the app refused at session start, for /meters status.
+const failed: string[] = []
 
 function patchCache($: EngineInterface, fn: (c: Cache) => Cache) {
   return update($, cache, fn)
@@ -152,6 +154,28 @@ async function fresh($: EngineInterface) {
   await $.command.run({ command: 'clear' })
 }
 
+/** `/cache`, `/cache 30`, `/cache auto`: sets the window if asked, then says what it is and how long is left. */
+async function cacheReport($: EngineInterface, args: string, notifyMin: number, stepMin: number): Promise<string> {
+  const arg = args.trim().toLowerCase()
+  if (arg === 'auto') {
+    await $.store.delete('cacheOverride')
+    await patchCache($, c => ({ ...c, override: null }))
+  } else if (arg !== '') {
+    const minutes = Number(arg.replace(/m(in)?$/, ''))
+    if (!Number.isFinite(minutes) || minutes < 1 || minutes > 1440) return 'Use /cache <minutes> (1 to 1440), or /cache auto.'
+    await $.store.set('cacheOverride', Math.round(minutes))
+    await patchCache($, c => ({ ...c, override: Math.round(minutes) }))
+  }
+  const c = await read($, cache)
+  const now = await $.clock.now()
+  const tokens = (await read($, fill))?.tokens ?? 0
+  const v = cacheView(c, now, tokens, priceOf(await read($, modelId)), notifyMin, stepMin)
+  const source = c.override !== null ? 'set by you' : c.detected !== null ? 'learned from the API' : `default, not learned yet (${c.misses} miss${c.misses === 1 ? '' : 'es'} seen)`
+  const left = v.state === 'unknown' ? 'no reply yet' : v.state === 'cold' ? 'cold' : `${clockText(v.leftMs)} left`
+  const cost = v.warmUsd !== null && v.coldUsd !== null ? ` Next message input: ${money(v.warmUsd)} warm, ${money(v.coldUsd)} cold.` : ''
+  return `Prompt cache window ${windowMinutes(c)} min (${source}); ${left}.${cost}`
+}
+
 const thresholds = (o: Record<string, unknown>): Thresholds => {
   const n = (v: unknown, d: number) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : d)
   const warn = n(o.warnPercent, DEFAULT_LIMITS.warnPercent)
@@ -169,22 +193,35 @@ export const register: Register = (on, options) => {
   const freshLabel = typeof options.freshKey === 'string' ? options.freshKey : 'meta+n'
 
   on('session.start', async ($, e, next) => {
-    await $.command.register({
-      name: 'meters',
-      description: 'Where the usage meters show: /meters side or /meters top',
-      argumentHint: 'side|top',
-    })
-    await $.command.register({
-      name: 'handoff',
-      description: 'Write a handoff brief, clear the session, paste the brief into the fresh one (/handoff paste re-pastes the last)',
-      argumentHint: 'paste',
-    })
-    await $.command.register({ name: 'fresh', description: 'Clear the session and start fresh, no handoff' })
-    await $.command.register({
-      name: 'cache',
-      description: 'Prompt cache window: /cache shows it, /cache <minutes> sets it, /cache auto learns it',
-      argumentHint: '<minutes>|auto',
-    })
+    // Each command on its own: the app refuses a name another command or skill already holds, and one
+    // refusal must not stop the others (or the rest of this hook) from running. /meters is the fallback
+    // for every other command (/meters cache, /meters handoff, /meters fresh) and says what was refused.
+    failed.length = 0
+    try {
+      await $.command.register({ name: 'meters', description: 'Usage meters: /meters side, top, cache, handoff, fresh or status', argumentHint: 'side|top|cache|handoff|fresh|status' })
+    } catch {
+      failed.push('meters')
+    }
+    try {
+      await $.command.register({ name: 'cache', description: 'Prompt cache window: /cache shows it, /cache <minutes> sets it, /cache auto learns it', argumentHint: '<minutes>|auto' })
+    } catch {
+      failed.push('cache')
+    }
+    try {
+      await $.command.register({ name: 'fresh', description: 'Clear the session and start fresh, no handoff' })
+    } catch {
+      failed.push('fresh')
+    }
+    try {
+      await $.command.register({ name: 'handoff', description: 'Write a handoff brief, clear the session, paste the brief into the fresh one (/handoff paste re-pastes the last)', argumentHint: 'paste' })
+    } catch {
+      failed.push('handoff')
+    }
+    try {
+      await $.command.register({ name: 'newsession', description: 'Same as /handoff: brief, clear, paste (use it where /handoff belongs to another skill)', argumentHint: 'paste' })
+    } catch {
+      failed.push('newsession')
+    }
 
     const usage = await $.session.usage()
     await update($, limits, () => usage.rateLimits)
@@ -326,7 +363,31 @@ export const register: Register = (on, options) => {
       return { text: 'Meters back in the band above the prompt.' }
     }
 
-    return { text: 'Use /meters side or /meters top.' }
+    if (arg === 'status') {
+      const names = ['meters', 'cache', 'fresh', 'handoff', 'newsession']
+      const ok = names.filter(n => !failed.includes(n))
+      return { text: `Commands registered: ${ok.map(n => '/' + n).join(' ') || 'none'}.${failed.length ? ` Refused by the app: ${failed.map(n => '/' + n).join(' ')} (another command or skill holds the name; use /meters ${failed.includes('cache') ? 'cache' : failed.includes('fresh') ? 'fresh' : 'handoff'} instead).` : ''}` }
+    }
+
+    if (arg === 'cache' || arg.startsWith('cache ')) return { text: await cacheReport($, arg.slice(5), notifyMin, stepMin) }
+
+    if (arg === 'handoff' || arg === 'handoff paste') {
+      $.clock.after(0, () => void handoff($, arg.endsWith('paste')))
+      return { text: 'Writing a handoff brief, then starting a fresh session…' }
+    }
+
+    if (arg === 'fresh') {
+      $.clock.after(0, () => void fresh($))
+      return { text: 'Starting a fresh session…' }
+    }
+
+    return { text: 'Use /meters side, top, cache, handoff, fresh or status.' }
+  })
+
+  on('command.run', { command: 'newsession' }, async ($, e) => {
+    const isPaste = e.args.trim().toLowerCase() === 'paste'
+    $.clock.after(0, () => void handoff($, isPaste))
+    return { text: isPaste ? 'Pasting the last handoff brief into the prompt box…' : 'Writing a handoff brief, then starting a fresh session…' }
   })
 
   on('command.run', { command: 'handoff' }, async ($, e) => {
@@ -341,26 +402,7 @@ export const register: Register = (on, options) => {
     return { text: 'Starting a fresh session…' }
   })
 
-  on('command.run', { command: 'cache' }, async ($, e) => {
-    const arg = e.args.trim().toLowerCase()
-    if (arg === 'auto') {
-      await $.store.delete('cacheOverride')
-      await patchCache($, c => ({ ...c, override: null }))
-    } else if (arg !== '') {
-      const minutes = Number(arg.replace(/m(in)?$/, ''))
-      if (!Number.isFinite(minutes) || minutes < 1 || minutes > 1440) return { text: 'Use /cache <minutes> (1 to 1440), or /cache auto.' }
-      await $.store.set('cacheOverride', Math.round(minutes))
-      await patchCache($, c => ({ ...c, override: Math.round(minutes) }))
-    }
-    const c = await read($, cache)
-    const now = await $.clock.now()
-    const tokens = (await read($, fill))?.tokens ?? 0
-    const v = cacheView(c, now, tokens, priceOf(await read($, modelId)), notifyMin, stepMin)
-    const source = c.override !== null ? 'set by you' : c.detected !== null ? 'learned from the API' : `default, not learned yet (${c.misses} miss${c.misses === 1 ? '' : 'es'} seen)`
-    const left = v.state === 'unknown' ? 'no reply yet' : v.state === 'cold' ? 'cold' : `${clockText(v.leftMs)} left`
-    const cost = v.warmUsd !== null && v.coldUsd !== null ? ` Next message input: ${money(v.warmUsd)} warm, ${money(v.coldUsd)} cold.` : ''
-    return { text: `Prompt cache window ${windowMinutes(c)} min (${source}); ${left}.${cost}` }
-  })
+  on('command.run', { command: 'cache' }, async ($, e) => ({ text: await cacheReport($, e.args, notifyMin, stepMin) }))
 
   // The person closed the side panel with its own close mark: remember it, or the next session reopens it.
   on('ui.close', { id: PANE }, async ($, e, next) => {

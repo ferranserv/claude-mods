@@ -131,7 +131,7 @@ test('/meters side where no pane can be drawn: says so and keeps the band', asyn
 test('/meters with a bad argument explains itself', async ($, on) => {
   world(on, { isPlaced: true })
   const r = await $.command.run({ command: 'meters', args: 'left' } as never)
-  expect(String((r as { text: string }).text)).toContain('/meters side or /meters top')
+  expect(String((r as { text: string }).text)).toContain('Use /meters side, top, cache, handoff, fresh or status')
 })
 
 test('terminal side pane is text, not SVG', async ($, on) => {
