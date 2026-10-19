@@ -1,8 +1,38 @@
 {
-  "name": "ferran-mods",
-  "owner": { "name": "Ferran" },
+  "name": "my-mods",
+  "owner": {
+    "name": "ferranserv"
+  },
   "plugins": [
-    { "name": "saver", "source": "./saver" },
-    { "name": "meters", "source": "./meters" }
+    {
+      "name": "mods-manager",
+      "source": "./mods-manager",
+      "description": "Skill that keeps every mod you build installed from the my-mods marketplace, in every session.",
+      "version": "0.1.0"
+    },
+    {
+      "name": "plan-progress",
+      "source": "./plan-progress",
+      "description": "Panel above the prompt for multi-step work and /goal: goal, phase, task checklist, progress bar, elapsed time, and a chime when a turn ends. Zero model calls.",
+      "version": "0.1.0"
+    },
+    {
+      "name": "prompt-enhancer",
+      "source": "./prompt-enhancer",
+      "description": "A sparkle Enhance button and hotkey that rewrites your draft prompt in place: fitting skills, project details, decisions to ask you first, and what done looks like.",
+      "version": "0.1.0"
+    },
+    {
+      "name": "saver",
+      "source": "./saver",
+      "description": "Sends easy prompts to Haiku 5.5 while context is under 100K tokens and shows what that saved today above the prompt. /saver on|off.",
+      "version": "0.1.0"
+    },
+    {
+      "name": "meters",
+      "source": "./meters",
+      "description": "Context window (red past 80%, fresh-session legend), 5-hour and weekly limits (five 20% weekday slots) as slim meters above the prompt, or a side panel with /meters side.",
+      "version": "0.1.0"
+    }
   ]
 }

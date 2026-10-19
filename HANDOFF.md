@@ -2,6 +2,8 @@
 
 You are continuing work on two Claude Code mods in this repo (`ferranserv/claude-mods`, branch `main`). A local session built them; you cannot see its machine, so everything you need is in this repo. Paths below are relative to the repo root.
 
+Also read `REQUEST.md` and `PROGRESS.md`: they hold the owner's wider list (cache countdown, Handoff & Clear, hotkeys, context-bar colors). `meters` is the merged successor of the owner's context-bar and usage-limits mods.
+
 ## What exists
 - `saver/` : routes "easy" prompts to Haiku 5.5 (every request of the turn) while context < 100K tokens; hard prompts stay on the user's model. Unclear prompts are labelled by Haiku 5.5 via `$.model.classify`. `/saver on|off`. A centered strip above the prompt shows the model that answered last and "saved today" (list prices: Haiku 5.5 $0.10 in / $0.50 out per MTok vs the main model's price; every input-side token, cached or not, is counted at the plain input price, so savings are an estimate).
   - `saver/hooks/register.tsx` (hooks), `saver/hooks/lib.ts` (pure logic: labelling, prices, savings), `saver/hooks/lib.test.ts` (7 tests, passing).

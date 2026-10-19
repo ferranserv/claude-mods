@@ -1,0 +1,26 @@
+{
+  "name": "prompt-enhancer",
+  "version": "0.1.0",
+  "description": "A sparkle Enhance button and hotkey that rewrites your draft prompt in place: fitting skills, project details, decisions to ask you first, and what done looks like.",
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "hotkey": {
+      "type": "string",
+      "title": "Enhance hotkey",
+      "description": "Chord pressed in the prompt box, e.g. meta+e (Option+E on macOS terminals set to use Option as Meta), ctrl+shift+e. Empty turns the hotkey off.",
+      "default": "meta+e"
+    },
+    "model": {
+      "type": "string",
+      "title": "Model that rewrites the draft",
+      "description": "An alias (haiku, sonnet) or a full model id. A small model keeps each Enhance cheap.",
+      "default": "haiku"
+    },
+    "maxSkills": {
+      "type": "number",
+      "title": "Skills offered to the model",
+      "description": "At most this many installed skills are sent with the draft, the best word matches first.",
+      "default": 12
+    }
+  }
+}

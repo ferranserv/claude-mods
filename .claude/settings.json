@@ -1,0 +1,10 @@
+{
+  "extraKnownMarketplaces": {
+    "my-mods": { "source": { "source": "github", "repo": "ferranserv/claude-mods" } }
+  },
+  "enabledPlugins": {
+    "mods-manager@my-mods": true,
+    "plan-progress@my-mods": true,
+    "prompt-enhancer@my-mods": true
+  }
+}
