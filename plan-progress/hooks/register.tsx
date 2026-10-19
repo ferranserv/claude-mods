@@ -19,6 +19,7 @@ import {
   isActive,
   isAllDone,
   isTaskTool,
+  norm,
   nudgeNote,
   percent,
   toolPhase,
@@ -55,6 +56,8 @@ export const register: Register = (on, options) => {
   // Tool names seen this session, for /plan-debug: what the app really sends decides what the panel can show.
   const seen: Record<string, number> = {}
   let lastShape = ''
+  let lastCreate = ''
+  let unmatched = 0
   // Tool calls since the model last touched its task list.
   let calls = 0
 
@@ -86,7 +89,7 @@ export const register: Register = (on, options) => {
     const snap = await read($, snapAtom)
     const tools = Object.entries(seen).sort((a, b) => b[1] - a[1]).slice(0, 14).map(([k, n]) => `${k}x${n}`).join(' ') || 'none yet'
     return {
-      text: `Tools seen: ${tools}. Task list: ${snap.tasks.length} (${snap.tasks.filter(t => t.status === 'completed').length} done). Goal: ${snap.goal ? `"${clip(snap.goal, 60)}"` : 'none'}${snap.isGoalCmd ? ' (from /goal)' : ''}. Phase: ${snap.phase}. Running: ${snap.isRunning ? 'yes' : 'no'}. Last plan-like call: ${lastShape || 'none'}`,
+      text: `Tools seen: ${tools}. Task list: ${snap.tasks.length} (${snap.tasks.filter(t => t.status === 'completed').length} done). Goal: ${snap.goal ? `"${clip(snap.goal, 60)}"` : 'none'}${snap.isGoalCmd ? ' (from /goal)' : ''}. Phase: ${snap.phase}. Running: ${snap.isRunning ? 'yes' : 'no'}. Task updates with an unknown id: ${unmatched}. Task ids: ${snap.tasks.map(t => t.id).join(',') || 'none'}. Last TaskCreate result: ${lastCreate || 'none'}. Last plan-like call: ${lastShape || 'none'}`,
     }
   })
 
@@ -128,7 +131,12 @@ export const register: Register = (on, options) => {
     if (deny === undefined && isError !== true) {
       const now = await $.clock.now()
       const ctx = { now, promptAt, promptText }
-      await commit($, s => applyTool(s, tool, input, result, ctx))
+      if (/^(taskcreate|createtask)$/.test(norm(tool))) lastCreate = JSON.stringify(result)?.slice(0, 160) ?? ''
+      await commit($, s => {
+        const folded = applyTool(s, tool, input, result, ctx)
+        if (/^(taskupdate|updatetask)$/.test(norm(tool)) && folded === s) unmatched += 1
+        return folded
+      })
     }
     return ran
   }).catch(($, e, next) => next(e))

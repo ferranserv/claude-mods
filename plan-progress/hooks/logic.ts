@@ -144,6 +144,14 @@ export function extractList(input: Record<string, unknown>): PlanTask[] | undefi
   return undefined
 }
 
+/** The id a TaskCreate result carries: { task: { id } }, { id }, or the text "Task #7 created successfully". */
+export function taskIdOf(result: unknown): string | undefined {
+  const r = rec(result)
+  for (const v of [rec(r.task).id, r.id, r.taskId]) if (typeof v === 'string' || typeof v === 'number') return String(v)
+  const text = typeof result === 'string' ? result : typeof r.text === 'string' ? r.text : typeof r.content === 'string' ? r.content : ''
+  return /Task\s*#(\w+)/i.exec(text)?.[1] ?? /"id"\s*:\s*"?(\w+)/.exec(text)?.[1]
+}
+
 /** Folds one finished tool call into the snapshot; unknown tools return `s` itself. */
 export function applyTool(s: PlanSnap, tool: string, input: Record<string, unknown>, result: unknown, ctx: Ctx): PlanSnap {
   const next = applyToolInner(s, tool, input, result, ctx)
@@ -165,7 +173,7 @@ function applyToolInner(s: PlanSnap, tool: string, input: Record<string, unknown
     const subjectIn = text('subject', 'title', 'content', 'name')
     if (subjectIn === undefined) return s
     const task = rec(rec(result).task)
-    const id = typeof task.id === 'string' || typeof task.id === 'number' ? String(task.id) : String(s.tasks.length + 1)
+    const id = taskIdOf(result) ?? String(s.tasks.length + 1)
     const subject = typeof task.subject === 'string' ? task.subject : subjectIn
     const next: PlanTask = { id, subject, status: 'pending' }
     return startIfNew({ ...s, tasks: [...s.tasks.filter(t => t.id !== id), next] }, ctx)

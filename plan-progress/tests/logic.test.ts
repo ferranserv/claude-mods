@@ -13,6 +13,7 @@ import {
   cleanPrompt,
   goalOf,
   nudgeNote,
+  taskIdOf,
   percent,
   phaseFromSubject,
   toolPhase,
@@ -144,4 +145,15 @@ test('the nudge fires only for a stale, unfinished checklist', async () => {
   expect(nudgeNote(open, 6, 6)).toContain('0/2')
   const finished = applyTool(open, 'update_plan', { plan: [{ step: 'A', status: 'completed' }, { step: 'B', status: 'completed' }] }, {}, ctx)
   expect(nudgeNote(finished, 20, 6)).toBeUndefined()
+})
+
+test('the task id is read from an object result, a text result, or a JSON string', async () => {
+  expect(taskIdOf({ task: { id: '7' } })).toBe('7')
+  expect(taskIdOf('Task #12 created successfully: Probe')).toBe('12')
+  expect(taskIdOf({ text: 'Task #3 created' })).toBe('3')
+  expect(taskIdOf('{"task":{"id":"9"}}')).toBe('9')
+  expect(taskIdOf(undefined)).toBeUndefined()
+  const s = applyTool(EMPTY, 'TaskCreate', { subject: 'A' }, 'Task #7 created successfully: A', ctx)
+  expect(s.tasks[0]?.id).toBe('7')
+  expect(applyTool(s, 'TaskUpdate', { taskId: '7', status: 'completed' }, {}, ctx).tasks[0]?.status).toBe('completed')
 })
