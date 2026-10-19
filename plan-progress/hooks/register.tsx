@@ -57,6 +57,8 @@ export const register: Register = (on, options) => {
   const seen: Record<string, number> = {}
   let lastShape = ''
   let lastCreate = ''
+  // The tool the model builds its list with, so the reminder names the right one.
+  let planTool = ''
   let unmatched = 0
   // Tool calls since the model last touched its task list.
   let calls = 0
@@ -135,6 +137,7 @@ export const register: Register = (on, options) => {
       await commit($, s => {
         const folded = applyTool(s, tool, input, result, ctx)
         if (/^(taskupdate|updatetask)$/.test(norm(tool)) && folded === s) unmatched += 1
+        if (folded !== s && folded.tasks !== s.tasks && /todo|plan|task|step/.test(norm(tool))) planTool = tool
         return folded
       })
     }
@@ -150,7 +153,7 @@ export const register: Register = (on, options) => {
       return out
     }
     calls += 1
-    const note = nudgeNote(await read($, snapAtom), calls, nudgeAfter)
+    const note = nudgeNote(await read($, snapAtom), calls, nudgeAfter, planTool || undefined)
     if (note === undefined) return out
     calls = 0
     return { ...out, additionalContext: [...(out.additionalContext ?? []), note] }

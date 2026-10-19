@@ -40,7 +40,10 @@ export function cleanPrompt(text: string): string {
 }
 
 /** The goal a prompt states: its first real line. */
-export const goalOf = (text: string): string => clip(firstLine(cleanPrompt(text)), 200)
+export const goalOf = (text: string): string => {
+  const line = clip(firstLine(cleanPrompt(text)), 200)
+  return /^(clear|off|stop|cancel|none)$/i.test(line) ? '' : line
+}
 
 export const clip = (text: string, width: number): string =>
   text.length <= width ? text : text.slice(0, Math.max(0, width - 1)) + '…'
@@ -169,6 +172,12 @@ function applyToolInner(s: PlanSnap, tool: string, input: Record<string, unknown
     return { ...s, goal: clip(input.condition, 200), isGoalCmd: true, startedAt: s.startedAt || ctx.now, isRunning: true }
   }
 
+  // The app's own end-of-turn call (mcp__ccd_turn__wrap_up): the work is done, whatever the list still says.
+  if (name.endsWith('wrapup')) {
+    if (s.tasks.length === 0 || isAllDone(s)) return s
+    return { ...s, tasks: s.tasks.map(t => (t.status === 'completed' ? t : { ...t, status: 'completed' as const })) }
+  }
+
   if (name === 'taskcreate' || name === 'createtask') {
     const subjectIn = text('subject', 'title', 'content', 'name')
     if (subjectIn === undefined) return s
@@ -256,12 +265,12 @@ export const percent = (s: PlanSnap): number => {
 export const isTaskTool = (tool: string): boolean => /todo|plan|task|step/.test(norm(tool))
 
 /** What to tell the model when the checklist has gone stale: `calls` tool calls since a task tool ran. */
-export function nudgeNote(s: PlanSnap, calls: number, after: number): string | undefined {
+export function nudgeNote(s: PlanSnap, calls: number, after: number, via = 'the task tool'): string | undefined {
   if (s.tasks.length === 0 || isAllDone(s) || calls < after) return undefined
   const done = s.tasks.filter(t => t.status === 'completed').length
   const now = s.tasks.find(t => t.status === 'in_progress')
   const state = now ? `"${clip(firstLine(now.subject), 60)}" (#${now.id}) is marked in progress` : 'no step is marked in progress'
-  return `Plan Progress: ${done}/${s.tasks.length} checklist steps are done and ${state}. The user watches this checklist. If a step is finished, mark it completed now with the task tool, and mark the next one in progress.`
+  return `Plan Progress: ${done}/${s.tasks.length} checklist steps are done and ${state}. The user watches this checklist. If a step is finished, mark it completed now with ${via} (a tool that takes the whole list: send the full list again with the current statuses), and mark the next one in progress.`
 }
 
 export const bar = (pct: number, width: number): string => {

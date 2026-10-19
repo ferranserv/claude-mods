@@ -157,3 +157,14 @@ test('the task id is read from an object result, a text result, or a JSON string
   expect(s.tasks[0]?.id).toBe('7')
   expect(applyTool(s, 'TaskUpdate', { taskId: '7', status: 'completed' }, {}, ctx).tasks[0]?.status).toBe('completed')
 })
+
+test('wrap_up finishes the checklist; a goal of "clear" is not a goal', async () => {
+  const s = applyTool(EMPTY, 'mcp__ccd_turn__update_plan', { items: [{ content: 'A', status: 'in_progress' }, { content: 'B', status: 'pending' }] }, {}, ctx)
+  expect(s.tasks.length).toBe(2)
+  const done = applyTool(s, 'mcp__ccd_turn__wrap_up', { summary: 'x' }, {}, ctx)
+  expect(isAllDone(done)).toBe(true)
+  expect(percent(done)).toBe(100)
+  expect(applyTool(EMPTY, 'mcp__ccd_turn__wrap_up', {}, {}, ctx)).toBe(EMPTY)
+  expect(goalOf('clear')).toBe('')
+  expect(nudgeNote(s, 10, 10, 'mcp__ccd_turn__update_plan')).toContain('mcp__ccd_turn__update_plan')
+})
