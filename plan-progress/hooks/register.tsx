@@ -3,6 +3,7 @@ import type { EngineInterface, Register } from 'claude-code'
 
 import type { PlanSnap } from '../types'
 import { bandKey, stack } from './bands'
+import { planSvg } from './plan-svg'
 import {
   EMPTY,
   PHASES,
@@ -45,6 +46,8 @@ export const register: Register = (on, options) => {
   let promptAt = 0
   let promptText = ''
   let lastPhase = ''
+  // Tool names seen this session, for /plan-debug: what the app really sends decides what the panel can show.
+  const seen: Record<string, number> = {}
 
   on('session.start', async ($, e, next) => {
     const { value } = await $.state.get(snapRef)
@@ -57,12 +60,25 @@ export const register: Register = (on, options) => {
     } catch {
       // The name is taken: the panel works without the command.
     }
+    try {
+      await $.command.register({ name: 'plan-debug', description: 'What Plan Progress has seen: tool names, task list, phase.' })
+    } catch {
+      // The name is taken: nothing else depends on it.
+    }
     return next(e)
   })
 
   on('command.run', { command: 'plan-reset' }, async $ => {
     await commit($, () => EMPTY)
     return { text: 'Plan Progress cleared.' }
+  })
+
+  on('command.run', { command: 'plan-debug' }, async $ => {
+    const snap = await read($, snapAtom)
+    const tools = Object.entries(seen).sort((a, b) => b[1] - a[1]).slice(0, 14).map(([k, n]) => `${k}x${n}`).join(' ') || 'none yet'
+    return {
+      text: `Tools seen: ${tools}. Task list: ${snap.tasks.length} (${snap.tasks.filter(t => t.status === 'completed').length} done). Goal: ${snap.goal ? `"${clip(snap.goal, 60)}"` : 'none'}${snap.isGoalCmd ? ' (from /goal)' : ''}. Phase: ${snap.phase}. Running: ${snap.isRunning ? 'yes' : 'no'}.`,
+    }
   })
 
   on('session.end', async ($, e, next) => {
@@ -87,6 +103,7 @@ export const register: Register = (on, options) => {
 
   on('tool.call', async ($, e, next) => {
     const tool = String(e.tool)
+    seen[tool] = (seen[tool] ?? 0) + 1
     const input = e as unknown as Record<string, unknown>
 
     const guess = toolPhase(tool, input, lastPhase === '' ? 'researching' : (lastPhase as PlanSnap['phase']))
@@ -133,44 +150,78 @@ export const register: Register = (on, options) => {
     const isShown = s.isGoalCmd || s.tasks.length >= minSteps
     if (!isShown) return below
 
-    const { Box, Text } = $.ui.resolve(e)
+    const { Box, Button } = $.ui.resolve(e)
     const cols = Math.max(20, e.props.bodyColumns)
     const now = await $.clock.now()
     const elapsed = fmtTime((s.isRunning ? now : s.endedAt || now) - s.startedAt)
     const pct = percent(s)
     const done = s.tasks.filter(t => t.status === 'completed').length
     const isDone = isAllDone(s)
-    const counts = s.tasks.length > 0 ? `${done}/${s.tasks.length} steps` : 'no task list yet'
-    const tail = ` ${s.tasks.length > 0 ? `${pct}%` : '—'}  ${counts}  ⏱ ${elapsed}`
-    const barWidth = Math.max(8, Math.min(28, cols - tail.length - 2))
     // Leave room for the bands stacked with this one (meters, saver, Enhance).
     const rows = Math.max(1, Math.min(MAX_CHECKLIST, e.props.maxRows - 9))
     const { shown, hidden } = windowTasks(s.tasks, rows)
-    const phaseLine = isDone
-      ? '✔ complete'
-      : cols >= 60
-        ? PHASES.map(p => (p === s.phase ? `[${p}]` : p)).join(' › ')
-        : s.phase
-
-    const mine = (
-      <Box key={bandKey('plan-progress')} flexDirection="column" paddingX={1}>
-        <Text wrap="truncate">
-          <Text bold color="cyan">Goal </Text>
-          {clip(s.goal || 'working…', cols - 8)}
-        </Text>
-        <Text wrap="truncate" color={isDone ? 'green' : 'yellow'}>{phaseLine}</Text>
-        <Text wrap="truncate">
-          <Text color={isDone ? 'green' : 'cyan'}>{bar(pct, barWidth)}</Text>
-          {tail}
-        </Text>
-        {shown.map(t => (
-          <Text key={t.id} wrap="truncate" dimColor={t.status === 'completed'} bold={t.status === 'in_progress'}>
-            {MARK[t.status]} {clip(firstLine(t.subject), cols - 4)}
-          </Text>
-        ))}
-        {hidden > 0 && <Text dimColor>  +{hidden} more</Text>}
-      </Box>
+    const dismiss = (
+      <Button key="dismiss" plain dimColor onPress={() => commit($, () => EMPTY)}>
+        ✕
+      </Button>
     )
+
+    let body
+    if (e.surface === 'terminal') {
+      const { Text } = $.ui.resolve(e)
+      const counts = s.tasks.length > 0 ? `${done}/${s.tasks.length} steps` : 'no task list yet'
+      const tail = ` ${s.tasks.length > 0 ? `${pct}%` : '—'}  ${counts}  ⏱ ${elapsed}`
+      const barWidth = Math.max(8, Math.min(28, cols - tail.length - 2))
+      const phaseLine = isDone
+        ? '✔ complete'
+        : cols >= 60
+          ? PHASES.map(p => (p === s.phase ? `[${p}]` : p)).join(' › ') + (s.isRunning ? '' : '  (idle)')
+          : s.isRunning ? s.phase : `idle · last: ${s.phase}`
+      body = (
+        <Box flexDirection="column" paddingX={1}>
+          <Box justifyContent="space-between">
+            <Text wrap="truncate">
+              <Text bold color="cyan">Goal </Text>
+              {clip(s.goal || 'working…', cols - 12)}
+            </Text>
+            {dismiss}
+          </Box>
+          <Text wrap="truncate" color={isDone ? 'green' : s.isRunning ? 'yellow' : undefined} dimColor={!isDone && !s.isRunning}>{phaseLine}</Text>
+          <Text wrap="truncate">
+            <Text color={isDone ? 'green' : 'cyan'}>{bar(pct, barWidth)}</Text>
+            {tail}
+          </Text>
+          {shown.map(t => (
+            <Text key={t.id} wrap="truncate" dimColor={t.status === 'completed'} bold={t.status === 'in_progress'}>
+              {MARK[t.status]} {clip(firstLine(t.subject), cols - 4)}
+            </Text>
+          ))}
+          {hidden > 0 && <Text dimColor>  +{hidden} more</Text>}
+        </Box>
+      )
+    } else {
+      const { Svg } = $.ui.resolve(e)
+      const svg = planSvg(Math.max(320, Math.min(1600, Math.round(cols * 8))) - 44, {
+        goal: s.goal,
+        phase: s.phase,
+        isDone,
+        isRunning: s.isRunning,
+        pct,
+        done,
+        total: s.tasks.length,
+        elapsed,
+        shown,
+        hidden,
+      })
+      body = (
+        <Box justifyContent="space-between" paddingX={1}>
+          <Svg source={svg.source} alt={`Plan: ${s.goal || 'working'}, ${done} of ${s.tasks.length} steps, ${elapsed}`} />
+          {dismiss}
+        </Box>
+      )
+    }
+
+    const mine = <Box key={bandKey('plan-progress')} flexDirection="column">{body}</Box>
 
     return stack(below, mine as never, Box)
   })

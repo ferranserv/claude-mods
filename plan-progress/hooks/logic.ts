@@ -17,6 +17,16 @@ export type Ctx = { now: number; promptAt: number; promptText: string }
 const TEST = /\b(test|tests|pytest|jest|vitest|mocha|tsc|typecheck|lint|eslint|ruff|mypy|clippy|validate|cargo (test|check)|go (test|vet)|npm run (test|lint|build|check))\b/i
 const AUDIT = /review|audit|security|simplify|verify|critique/i
 
+/** `TaskCreate`, `task_create`, `Task-Create` all read the same. */
+export const norm = (tool: string): string => tool.toLowerCase().replace(/[^a-z]/g, '')
+
+const statusOf = (v: unknown): PlanTask['status'] => {
+  const n = typeof v === 'string' ? norm(v) : ''
+  if (n === 'completed' || n === 'complete' || n === 'done') return 'completed'
+  if (n === 'inprogress' || n === 'active' || n === 'doing' || n === 'started') return 'in_progress'
+  return 'pending'
+}
+
 export const firstLine = (text: string): string => text.trim().split('\n')[0]?.trim() ?? ''
 
 export const clip = (text: string, width: number): string =>
@@ -50,28 +60,34 @@ export function phaseFromSubject(subject: string): PlanPhase | undefined {
 /** The phase one tool call implies; reads never pull a build, test or audit back to researching. */
 export function toolPhase(tool: string, input: Record<string, unknown>, current: PlanPhase): PlanPhase | undefined {
   const str = (k: string): string => (typeof input[k] === 'string' ? (input[k] as string) : '')
-  switch (tool) {
-    case 'Read':
-    case 'Grep':
-    case 'Glob':
-    case 'WebSearch':
-    case 'WebFetch':
+  switch (norm(tool)) {
+    case 'read':
+    case 'grep':
+    case 'glob':
+    case 'websearch':
+    case 'webfetch':
       return current === 'building' || current === 'testing' || current === 'auditing' ? undefined : 'researching'
-    case 'EnterPlanMode':
-    case 'ExitPlanMode':
-    case 'TaskCreate':
-    case 'TodoWrite':
+    case 'enterplanmode':
+    case 'exitplanmode':
+    case 'taskcreate':
+    case 'createtask':
+    case 'todowrite':
+    case 'writetodos':
+    case 'updateplan':
       return 'planning'
-    case 'Edit':
-    case 'Write':
-    case 'NotebookEdit':
+    case 'edit':
+    case 'write':
+    case 'notebookedit':
+    case 'multiedit':
+    case 'applypatch':
       return 'building'
-    case 'Bash':
+    case 'bash':
+    case 'shell':
       return TEST.test(str('command')) ? 'testing' : undefined
-    case 'Skill':
+    case 'skill':
       return AUDIT.test(str('skill')) ? 'auditing' : undefined
-    case 'Agent':
-    case 'Task':
+    case 'agent':
+    case 'task':
       return AUDIT.test(`${str('subagent_type')} ${str('description')}`) ? 'auditing' : undefined
     default:
       return undefined
@@ -88,38 +104,48 @@ function startIfNew(s: PlanSnap, ctx: Ctx): PlanSnap {
 
 /** Folds one finished tool call into the snapshot; unknown tools return `s` itself. */
 export function applyTool(s: PlanSnap, tool: string, input: Record<string, unknown>, result: unknown, ctx: Ctx): PlanSnap {
-  if (tool === 'ProposeGoal' && typeof input.condition === 'string') {
+  const name = norm(tool)
+  const text = (...keys: string[]): string | undefined => {
+    for (const k of keys) if (typeof input[k] === 'string' && (input[k] as string).trim() !== '') return input[k] as string
+    return undefined
+  }
+
+  if (name === 'proposegoal' && typeof input.condition === 'string') {
     return { ...s, goal: clip(input.condition, 200), isGoalCmd: true, startedAt: s.startedAt || ctx.now, isRunning: true }
   }
 
-  if (tool === 'TaskCreate' && typeof input.subject === 'string') {
+  if (name === 'taskcreate' || name === 'createtask') {
+    const subjectIn = text('subject', 'title', 'content', 'name')
+    if (subjectIn === undefined) return s
     const task = rec(rec(result).task)
-    const id = typeof task.id === 'string' ? task.id : `n${s.tasks.length + 1}`
-    const subject = typeof task.subject === 'string' ? task.subject : input.subject
+    const id = typeof task.id === 'string' || typeof task.id === 'number' ? String(task.id) : String(s.tasks.length + 1)
+    const subject = typeof task.subject === 'string' ? task.subject : subjectIn
     const next: PlanTask = { id, subject, status: 'pending' }
     return startIfNew({ ...s, tasks: [...s.tasks.filter(t => t.id !== id), next] }, ctx)
   }
 
-  if (tool === 'TaskUpdate' && typeof input.taskId === 'string') {
-    const id = input.taskId
+  if (name === 'taskupdate' || name === 'updatetask') {
+    const raw = input.taskId ?? input.id ?? input.task_id
+    if (typeof raw !== 'string' && typeof raw !== 'number') return s
+    const id = String(raw)
     if (!s.tasks.some(t => t.id === id)) return s
-    if (input.status === 'deleted') return { ...s, tasks: s.tasks.filter(t => t.id !== id) }
-    const status = input.status === 'pending' || input.status === 'in_progress' || input.status === 'completed' ? input.status : undefined
-    const tasks = s.tasks.map(t =>
-      t.id === id
-        ? { ...t, status: status ?? t.status, subject: typeof input.subject === 'string' ? input.subject : t.subject }
-        : t,
-    )
+    if (typeof input.status === 'string' && norm(input.status) === 'deleted') return { ...s, tasks: s.tasks.filter(t => t.id !== id) }
+    const status = typeof input.status === 'string' ? statusOf(input.status) : undefined
+    const renamed = text('subject', 'title', 'content')
+    const tasks = s.tasks.map(t => (t.id === id ? { ...t, status: status ?? t.status, subject: renamed ?? t.subject } : t))
     const started = status === 'in_progress' ? tasks.find(t => t.id === id) : undefined
     const phase = (started && phaseFromSubject(started.subject)) || s.phase
     return { ...s, tasks, phase }
   }
 
-  if (tool === 'TodoWrite' && Array.isArray(input.todos)) {
-    const tasks: PlanTask[] = input.todos.map((raw, i) => {
+  // The whole list at once: Claude Code's TodoWrite ({ todos: [{ content, status }] }) and the
+  // update_plan shape other agents use ({ plan: [{ step, status }] }).
+  const list = name === 'todowrite' || name === 'writetodos' ? input.todos : name === 'updateplan' ? input.plan : undefined
+  if (Array.isArray(list)) {
+    const tasks: PlanTask[] = list.map((raw, i) => {
       const t = rec(raw)
-      const status = t.status === 'completed' || t.status === 'in_progress' ? t.status : 'pending'
-      return { id: String(i + 1), subject: typeof t.content === 'string' ? t.content : `Step ${i + 1}`, status }
+      const subject = [t.content, t.step, t.subject, t.title].find(v => typeof v === 'string' && v.trim() !== '')
+      return { id: String(i + 1), subject: typeof subject === 'string' ? subject : `Step ${i + 1}`, status: statusOf(t.status) }
     })
     const active = tasks.find(t => t.status === 'in_progress')
     const phase = (active && phaseFromSubject(active.subject)) || s.phase

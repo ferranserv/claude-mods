@@ -90,17 +90,3 @@ export function dayKey(ms: number): string {
 export function money(usd: number): string {
   return usd < 0.01 ? `$${usd.toFixed(4)}` : `$${usd.toFixed(2)}`
 }
-
-// A terminal column is about this many CSS pixels on the desktop app.
-const PX_PER_COLUMN = 8
-
-export function bandWidth(columns: number): number {
-  return Math.max(320, Math.min(1600, Math.round(columns * PX_PER_COLUMN)))
-}
-
-/** A hairline with room above and below it, to set this strip apart from the bars above it. */
-export function dividerSvg(width: number): { source: string; width: number; height: number } {
-  const height = 15
-  const source = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect x="0" y="7" width="${width}" height="1" rx="0.5" fill="#8E8E93" fill-opacity="0.45"/></svg>`
-  return { source, width, height }
-}
