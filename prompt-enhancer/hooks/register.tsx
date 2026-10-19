@@ -189,7 +189,6 @@ export const register: Register = (on, options) => {
     const below = await next(e)
     if (e.props.hasSurvey) return below
     const s = await read($, stateAtom)
-    if (!s.hasDraft && !s.isBusy && s.original === '') return below
 
     const { Box, Button, Text } = $.ui.resolve(e)
     const stackIt = (mine: JSX.Element) => stack(below, mine as never, Box)
@@ -211,7 +210,7 @@ export const register: Register = (on, options) => {
           </Box>
         )}
         <Box key="enhance-wrap">
-          <Button key="enhance" plain hotkey="e" onPress={() => enhance($, cfg)}>✦</Button>
+          <Button key="enhance" plain dimColor={!s.hasDraft} hotkey="e" onPress={() => enhance($, cfg)}>✦</Button>
           <Box position="absolute" top={-1} right={0} display="none" hover={{ display: 'flex' }}>
             <Text dimColor>Enhance{chord ? ` (${hotkey})` : ''}</Text>
           </Box>

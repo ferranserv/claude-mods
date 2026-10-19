@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'claude-code/testing'
 
-import { RANK, bandKey, bandsOf, hasAbove, stack } from '../hooks/bands'
+import { RANK, bandKey, bandsOf, stack } from '../hooks/bands'
 import type { Tree } from '../hooks/bands'
 
 // A stand-in for the surface's Box: stack() builds the wrapper with h(Box, props, ...children).
@@ -46,11 +46,11 @@ describe('stack', () => {
     expect(bandsOf(t).map(b => (b.type === 'Text' ? String(b.children?.[0]) : String(b.props?.key)))).toEqual(['A', 'B', 'band:10:plan-progress', 'band:30:saver'])
   })
 
-  test('hasAbove: a divider only when a band of lower rank is beneath', () => {
-    const t = stack(engine, band('meters'), Box) as Tree
-    expect(hasAbove(t, RANK.saver)).toBe(true)
-    expect(hasAbove(t, RANK['plan-progress'])).toBe(false)
-    expect(hasAbove(engine, RANK.saver)).toBe(false)
-    expect(hasAbove(stack(engine, band('prompt-enhancer'), Box) as Tree, RANK.saver)).toBe(false)
+  test("saver's rule lands between meters and saver, whichever of them is called first", () => {
+    const rule: Tree = { type: 'Box', props: { key: bandKey('saver-rule') }, children: ['rule'] }
+    // saver innermost (it cannot see meters), then meters; and the other way round
+    const a = stack(stack(engine, [rule, band('saver')], Box) as Tree, band('meters'), Box) as Tree
+    const b = stack(stack(engine, band('meters'), Box) as Tree, [rule, band('saver')], Box) as Tree
+    for (const t of [a, b]) expect(keys(t)).toEqual(['band:20:meters', 'band:25:saver-rule', 'band:30:saver'])
   })
 })

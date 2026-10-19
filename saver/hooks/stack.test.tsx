@@ -24,12 +24,10 @@ test('stacks under another mod\'s band instead of replacing it', async ($, on) =
 
 const props = { hasSurvey: false, isWorking: false, maxRows: 12, bodyColumns: 100, scroll: { bodyRows: 10 }, view: {} }
 
-test('a rule sets saver apart from the bars above it, and only when there are bars', async ($, on) => {
+test('a rule sits between the bars above and the strip, as a band of its own', async ($, on) => {
   mock.clock(on, { now: new Date(2026, 9, 21, 12).getTime() })
   on('store.get', () => ({ value: undefined }) as never)
-  let withBars = true
   on('ui.render', ($2, e) => {
-    if (!withBars) return { type: 'engine', ref: 0 } as never
     const { Box, Text } = $2.ui.resolve(e)
     return (
       <Box key="band:20:meters">
@@ -39,17 +37,10 @@ test('a rule sets saver apart from the bars above it, and only when there are ba
   })
 
   for (const surface of ['desktop', 'terminal'] as const) {
-    withBars = true
-    let ui = await $.ui.mount({ plugin: 'saver', surface, component: 'AbovePrompt', props } as never)
+    const ui = await $.ui.mount({ plugin: 'saver', surface, component: 'AbovePrompt', props } as never)
     expect(await ui.find({ type: 'Text', text: /BARS/ })).toBeDefined()
-    const rule = surface === 'desktop' ? { type: 'Svg' } : { type: 'Text', text: /^─+$/ }
-    expect(await ui.find(rule as never)).toBeDefined()
-    await ui.unmount()
-
-    withBars = false
-    ui = await $.ui.mount({ plugin: 'saver', surface, component: 'AbovePrompt', props } as never)
     expect(await ui.find({ type: 'Text', text: /Saver/ })).toBeDefined()
-    expect(await ui.find(rule as never)).toBeUndefined()
+    expect(await ui.find((surface === 'desktop' ? { type: 'Svg' } : { type: 'Text', text: /^─+$/ }) as never)).toBeDefined()
     await ui.unmount()
   }
 })

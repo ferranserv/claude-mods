@@ -1,16 +1,53 @@
 {
   "name": "meters",
-  "version": "0.2.0",
-  "author": { "name": "Ferran" },
+  "version": "0.2.1",
+  "author": {
+    "name": "Ferran"
+  },
   "description": "Context window, 5-hour, weekly usage and the prompt cache countdown as compact meters in one band above the prompt or a side panel, with warnings, a going-cold notice and one-click handoff to a fresh session.",
   "types": "./types/index.d.ts",
   "userConfig": {
-    "warnPercent": { "type": "number", "title": "First context warning (%)", "description": "The context bar turns orange and warns that quality may start to slip.", "default": 50 },
-    "redPercent": { "type": "number", "title": "Context alert (%)", "description": "The context bar turns red past this.", "default": 80 },
-    "warnTokens": { "type": "number", "title": "Context warning by size (tokens)", "description": "Same orange warning once the context holds this many tokens, whatever the percent (a 1M window).", "default": 150000 },
-    "cacheMinutes": { "type": "number", "title": "Prompt cache window (minutes)", "description": "Used until the real window is learned from the API's behaviour, or when you set one with /cache <minutes>.", "default": 60 },
-    "notifyMinutes": { "type": "number", "title": "Warn before the cache goes cold (minutes)", "description": "A notice this long before the prompt cache expires. Capped at half the window.", "default": 5 },
-    "handoffKey": { "type": "string", "title": "Hotkey: new session with handoff", "description": "Chord pressed in the prompt box, e.g. meta+h. Empty turns it off.", "default": "meta+h" },
-    "freshKey": { "type": "string", "title": "Hotkey: fresh session", "description": "Chord pressed in the prompt box, e.g. meta+n. Empty turns it off.", "default": "meta+n" }
+    "warnPercent": {
+      "type": "number",
+      "title": "First context warning (%)",
+      "description": "The context bar turns orange and warns that quality may start to slip.",
+      "default": 50
+    },
+    "redPercent": {
+      "type": "number",
+      "title": "Context alert (%)",
+      "description": "The context bar turns red past this.",
+      "default": 80
+    },
+    "warnTokens": {
+      "type": "number",
+      "title": "Context warning by size (tokens)",
+      "description": "Same orange warning once the context holds this many tokens, whatever the percent (a 1M window).",
+      "default": 150000
+    },
+    "cacheMinutes": {
+      "type": "number",
+      "title": "Prompt cache window (minutes)",
+      "description": "Used until the real window is learned from the API's behaviour, or when you set one with /cache <minutes>.",
+      "default": 60
+    },
+    "notifyMinutes": {
+      "type": "number",
+      "title": "Warn before the cache goes cold (minutes)",
+      "description": "A notice this long before the prompt cache expires. Capped at half the window.",
+      "default": 5
+    },
+    "handoffKey": {
+      "type": "string",
+      "title": "Hotkey: new session with handoff",
+      "description": "Chord pressed in the prompt box, e.g. meta+h. Empty turns it off.",
+      "default": "meta+h"
+    },
+    "freshKey": {
+      "type": "string",
+      "title": "Hotkey: fresh session",
+      "description": "Chord pressed in the prompt box, e.g. meta+n. Empty turns it off.",
+      "default": "meta+n"
+    }
   }
 }

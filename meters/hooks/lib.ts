@@ -459,7 +459,7 @@ export function bandSvg(width: number, m: Model): { source: string; width: numbe
 /** A hairline with room above and below it, to set one band apart from the next. */
 export function dividerSvg(width: number): { source: string; width: number; height: number } {
   const height = 15
-  return { source: wrapSvg(width, height, rect(0, 7, width, 1, C.gray, 0.35)), width, height }
+  return { source: wrapSvg(width, height, rect(0, 7, width, 1, C.gray, 0.45)), width, height }
 }
 
 export function sideWidth(columns: number): number {

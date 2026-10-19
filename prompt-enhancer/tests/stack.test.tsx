@@ -24,3 +24,18 @@ test('stacks under another mod\'s band instead of replacing it', async ($, on) =
     await ui.unmount()
   }
 })
+
+test('the sparkle is there before you type anything, dimmed', async ($, on) => {
+  mock.clock(on, { now: 1_000 })
+  on('ui.render', () => ({ type: 'engine', ref: 0 }) as never)
+  for (const surface of ['desktop', 'terminal'] as const) {
+    const ui = await $.ui.mount({
+      plugin: 'prompt-enhancer',
+      surface,
+      component: 'AbovePrompt',
+      props: { hasSurvey: false, isWorking: false, maxRows: 12, bodyColumns: 100, scroll: { bodyRows: 10 }, view: {} },
+    } as never)
+    expect(await ui.find({ key: 'enhance' })).toBeDefined()
+    await ui.unmount()
+  }
+})
