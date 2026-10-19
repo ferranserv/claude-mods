@@ -47,3 +47,30 @@ test('/plan-debug says which tools it has seen and what it holds', async ($, on)
   expect(r.text).toContain('Readx1')
   expect(r.text).toContain('Task list: 2')
 })
+
+test('/plan-debug shows the last plan-like call, so an unknown shape can be read off', async ($, on) => {
+  mock.clock(on, { now: 1_000 })
+  on('tool.call', { tool: 'update_plan' as never }, () => ({ result: 'ok' }) as never)
+  await $.tool.call({ tool: 'update_plan', plan: [{ step: 'A', status: 'in_progress' }, { step: 'B', status: 'pending' }] } as never)
+  const r = (await $.command.run({ command: 'plan-debug', args: '' } as never)) as { text: string }
+  expect(r.text).toContain('Task list: 2')
+  expect(r.text).toContain('Last plan-like call: update_plan')
+  expect(r.text).toContain('"plan"')
+})
+
+test('a turn that starts after the first one ended runs the timer again', async ($, on) => {
+  const clock = mock.clock(on, { now: 1_000 })
+  on('ui.render', () => ({ type: 'engine', ref: 0 }) as never)
+  on('tool.call', { tool: 'update_plan' as never }, () => ({ result: 'ok' }) as never)
+  on('turn.complete', (_, e) => ({ text: e.answer }) as never)
+  on('turn.start', (_, e) => e as never)
+  await $.tool.call({ tool: 'update_plan', plan: [{ step: 'A', status: 'in_progress' }, { step: 'B', status: 'pending' }] } as never)
+  const t = $ as unknown as { turn: { complete: (i: unknown) => Promise<unknown>; start: (i: unknown) => Promise<unknown> } }
+  await t.turn.complete({ reason: 'answer', answer: 'x', durationMs: 5, isAborted: false, turnId: 't1' })
+  const idle = (await $.command.run({ command: 'plan-debug', args: '' } as never)) as { text: string }
+  expect(idle.text).toContain('Running: no')
+  await clock.advance(60_000)
+  await t.turn.start({ text: 'continue', turnId: 't2' })
+  const running = (await $.command.run({ command: 'plan-debug', args: '' } as never)) as { text: string }
+  expect(running.text).toContain('Running: yes')
+})

@@ -11,6 +11,7 @@ import {
   applyPrompt,
   applyTool,
   applyTurnEnd,
+  applyTurnStart,
   bar,
   clip,
   firstLine,
@@ -19,6 +20,7 @@ import {
   isAllDone,
   percent,
   toolPhase,
+  withVisited,
   windowTasks,
 } from './logic'
 
@@ -48,6 +50,7 @@ export const register: Register = (on, options) => {
   let lastPhase = ''
   // Tool names seen this session, for /plan-debug: what the app really sends decides what the panel can show.
   const seen: Record<string, number> = {}
+  let lastShape = ''
 
   on('session.start', async ($, e, next) => {
     const { value } = await $.state.get(snapRef)
@@ -77,7 +80,7 @@ export const register: Register = (on, options) => {
     const snap = await read($, snapAtom)
     const tools = Object.entries(seen).sort((a, b) => b[1] - a[1]).slice(0, 14).map(([k, n]) => `${k}x${n}`).join(' ') || 'none yet'
     return {
-      text: `Tools seen: ${tools}. Task list: ${snap.tasks.length} (${snap.tasks.filter(t => t.status === 'completed').length} done). Goal: ${snap.goal ? `"${clip(snap.goal, 60)}"` : 'none'}${snap.isGoalCmd ? ' (from /goal)' : ''}. Phase: ${snap.phase}. Running: ${snap.isRunning ? 'yes' : 'no'}.`,
+      text: `Tools seen: ${tools}. Task list: ${snap.tasks.length} (${snap.tasks.filter(t => t.status === 'completed').length} done). Goal: ${snap.goal ? `"${clip(snap.goal, 60)}"` : 'none'}${snap.isGoalCmd ? ' (from /goal)' : ''}. Phase: ${snap.phase}. Running: ${snap.isRunning ? 'yes' : 'no'}. Last plan-like call: ${lastShape || 'none'}`,
     }
   })
 
@@ -105,11 +108,12 @@ export const register: Register = (on, options) => {
     const tool = String(e.tool)
     seen[tool] = (seen[tool] ?? 0) + 1
     const input = e as unknown as Record<string, unknown>
+    if (/todo|plan|task|step/i.test(tool)) lastShape = `${tool} ${JSON.stringify(input, (k, v) => (k === 'tool_use_id' ? undefined : v)).slice(0, 220)}`
 
     const guess = toolPhase(tool, input, lastPhase === '' ? 'researching' : (lastPhase as PlanSnap['phase']))
     if (guess !== undefined && guess !== lastPhase) {
       lastPhase = guess
-      await commit($, s => (isActive(s) ? { ...s, phase: guess } : s))
+      await commit($, s => (isActive(s) ? withVisited({ ...s, phase: guess }) : s))
     }
 
     const ran = await next(e)
@@ -121,6 +125,11 @@ export const register: Register = (on, options) => {
       await commit($, s => applyTool(s, tool, input, result, ctx))
     }
     return ran
+  }).catch(($, e, next) => next(e))
+
+  on('turn.start', async ($, e, next) => {
+    if (e.agentId === undefined) await commit($, s => applyTurnStart(s))
+    return next(e)
   }).catch(($, e, next) => next(e))
 
   on('turn.complete', async ($, e, next) => {
@@ -175,7 +184,7 @@ export const register: Register = (on, options) => {
       const phaseLine = isDone
         ? '✔ complete'
         : cols >= 60
-          ? PHASES.map(p => (p === s.phase ? `[${p}]` : p)).join(' › ') + (s.isRunning ? '' : '  (idle)')
+          ? PHASES.map(p => (p === s.phase ? `[${p}]` : s.visited.includes(p) ? `✔${p}` : p)).join(' › ') + (s.isRunning ? '' : '  (idle)')
           : s.isRunning ? s.phase : `idle · last: ${s.phase}`
       body = (
         <Box flexDirection="column" paddingX={1}>
@@ -204,6 +213,7 @@ export const register: Register = (on, options) => {
       const svg = planSvg(Math.max(320, Math.min(1600, Math.round(cols * 8))) - 44, {
         goal: s.goal,
         phase: s.phase,
+        visited: s.visited,
         isDone,
         isRunning: s.isRunning,
         pct,

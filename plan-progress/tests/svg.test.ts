@@ -6,6 +6,7 @@ import type { PlanView } from '../hooks/plan-svg'
 const view = (over: Partial<PlanView> = {}): PlanView => ({
   goal: 'Ship the importer with tests',
   phase: 'building',
+  visited: ['researching', 'planning', 'building'],
   isDone: false,
   isRunning: true,
   pct: 50,
@@ -49,14 +50,32 @@ describe('planSvg', () => {
     expect(none.source).toContain('no task list yet')
   })
 
-  test('the five phases show with the current one lit; all green when done; idle is dimmer', () => {
-    const running = planSvg(700, view()).source
-    for (const p of ['researching', 'planning', 'building', 'testing', 'auditing']) expect(running).toContain(`>${p}<`)
-    expect(running.match(/fill="#0A84FF" fill-opacity="1"/g)?.length).toBeGreaterThanOrEqual(1)
+  test('five chips span the full width, joined by lines; the current one is lit', () => {
+    const { source } = planSvg(700, view())
+    for (const p of ['researching', 'planning', 'building', 'testing', 'auditing']) expect(source).toContain(`>${p}<`)
+    const chips = rects(source).filter(r => attr(r, 'y') === 20)
+    expect(chips.length).toBe(5)
+    expect(near(attr(chips[0] ?? '', 'x'), 0)).toBe(true)
+    const last = chips[4] ?? ''
+    expect(near(attr(last, 'x') + attr(last, 'width'), 700, 0.2)).toBe(true) // reaches the right edge
+    const links = rects(source).filter(r => attr(r, 'height') === 1.5)
+    expect(links.length).toBe(4) // connectors between the five chips
+    expect(chips.filter(c => c.includes('fill="#0A84FF"') && c.includes('fill-opacity="1"')).length).toBe(1) // one lit chip
+  })
+
+  test('phases you have been in and left are green; ahead of you grey; idle dims the current one', () => {
+    const running = planSvg(700, view({ phase: 'building', visited: ['researching', 'planning', 'building'] })).source
+    // researching + planning done: green chips; their connectors green too
+    expect(running.match(/fill="#30D158" fill-opacity="0.25"/g)?.length).toBe(2)
+    expect(running.match(/fill="#30D158" fill-opacity="0.7"/g)?.length).toBe(3) // links from researching, planning, building
     const idle = planSvg(700, view({ isRunning: false })).source
     expect(idle).toContain('fill-opacity="0.55"')
-    expect(idle).toContain('>idle<')
+    expect(idle).toContain('· idle')
+  })
+
+  test('done: every chip green, no lit blue chip, says complete', () => {
     const done = planSvg(700, view({ isDone: true, pct: 100, done: 4 })).source
+    expect(done.match(/fill="#30D158" fill-opacity="0.25"/g)?.length).toBe(5)
     expect(done).toContain('✔ complete')
     expect(done).not.toContain('fill="#0A84FF" fill-opacity="1"')
   })

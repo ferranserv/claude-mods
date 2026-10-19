@@ -8,7 +8,7 @@
       "name": "meters",
       "source": "./meters",
       "description": "Context window, 5-hour, weekly usage and the prompt cache countdown as compact meters in one band above the prompt or a side panel, with warnings, a going-cold notice and one-click handoff to a fresh session.",
-      "version": "0.2.5"
+      "version": "0.3.0"
     },
     {
       "name": "mods-manager",
@@ -20,7 +20,7 @@
       "name": "plan-progress",
       "source": "./plan-progress",
       "description": "Panel above the prompt for multi-step work and /goal: goal, phase, task checklist, progress bar, elapsed time, and a chime when a turn ends. Zero model calls.",
-      "version": "0.2.0"
+      "version": "0.3.0"
     },
     {
       "name": "prompt-enhancer",

@@ -5,6 +5,7 @@ import { PHASES, clip, firstLine } from './logic'
 export type PlanView = {
   goal: string
   phase: PlanPhase
+  visited: readonly PlanPhase[]
   isDone: boolean
   isRunning: boolean
   pct: number
@@ -37,24 +38,33 @@ export function planSvg(width: number, v: PlanView): { source: string; width: nu
   out += text(0, 11, 'Goal', { size: 10 })
   out += text(34, 11, fits(v.goal || 'working…', width - 34, 11.5), { size: 11.5, weight: 600, fill: C.text })
 
-  // Phase: five chips, the current one lit; all green when the list is done; dimmer while idle
-  const chip = (label: string) => room(label, 10) + 16
-  const total = PHASES.reduce((a, p) => a + chip(p) + 6, -6)
-  const labels = total <= width ? PHASES : ([v.phase] as readonly PlanPhase[])
-  let x = 0
-  for (const p of labels) {
-    const w = chip(p)
-    const isCurrent = p === v.phase
-    const fill = v.isDone ? C.green : isCurrent ? C.blue : C.gray
-    out += rect(x, 20, w, 16, fill, v.isDone ? 0.25 : isCurrent ? (v.isRunning ? 1 : 0.55) : 0.18, 8)
-    out += text(x + w / 2, 31.5, p, { size: 10, anchor: 'middle', weight: isCurrent ? 600 : 400, fill: v.isDone ? C.green : isCurrent ? '#FFFFFF' : C.gray })
-    x += w + 6
+  // Phases as a stepper across the full width: a chip per phase joined by lines. A phase you have been in
+  // and left is green, the current one blue (dimmer while idle), the rest grey; all green when done.
+  const link = 16
+  const chipW = (width - link * (PHASES.length - 1)) / PHASES.length
+  if (chipW >= 58) {
+    PHASES.forEach((p, i) => {
+      const x = i * (chipW + link)
+      const isCurrent = p === v.phase && !v.isDone
+      const isPast = v.isDone || (v.visited.includes(p) && p !== v.phase)
+      const fill = isPast ? C.green : isCurrent ? C.blue : C.gray
+      out += rect(x, 20, chipW, 18, fill, isPast ? 0.25 : isCurrent ? (v.isRunning ? 1 : 0.55) : 0.18, 9)
+      out += text(x + chipW / 2, 32, p, { size: 10, anchor: 'middle', weight: isCurrent ? 600 : 400, fill: isPast ? C.green : isCurrent ? '#FFFFFF' : C.gray })
+      if (i < PHASES.length - 1) {
+        const reached = v.isDone || v.visited.includes(p)
+        out += rect(x + chipW + 2, 28.25, link - 4, 1.5, reached ? C.green : C.gray, reached ? 0.7 : 0.3, 0.75)
+      }
+    })
+  } else {
+    // too narrow for five: just the current phase
+    const w = Math.min(width, room(v.phase, 10) + 20)
+    out += rect(0, 20, w, 18, v.isDone ? C.green : C.blue, v.isDone ? 0.25 : v.isRunning ? 1 : 0.55, 9)
+    out += text(w / 2, 32, v.phase, { size: 10, anchor: 'middle', weight: 600, fill: v.isDone ? C.green : '#FFFFFF' })
   }
-  if (v.isDone) out += text(x + 4, 31.5, '✔ complete', { size: 10.5, fill: C.green, weight: 600 })
-  else if (!v.isRunning) out += text(x + 4, 31.5, 'idle', { size: 10.5 })
 
   // Bar, percent, steps, time
-  const right = v.total > 0 ? `${v.pct}% · ${v.done}/${v.total} steps · ${v.elapsed}` : `no task list yet · ${v.elapsed}`
+  const state = v.isDone ? ' · ✔ complete' : v.isRunning ? '' : ' · idle'
+  const right = (v.total > 0 ? `${v.pct}% · ${v.done}/${v.total} steps · ${v.elapsed}` : `no task list yet · ${v.elapsed}`) + state
   const barW = Math.max(60, width - room(right, 10.5) - 14)
   out += rect(0, 45, barW, 7, C.gray, 0.25)
   if (v.pct > 0) out += rect(0, 45, Math.max(7, (barW * Math.min(100, v.pct)) / 100), 7, v.isDone ? C.green : C.blue)

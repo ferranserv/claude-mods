@@ -84,7 +84,28 @@ async function pulse($: EngineInterface, notifyMin: number, stepMin: number) {
 }
 
 /** Writes a handoff brief, clears the session, pastes the brief into the fresh one. */
-async function handoff($: EngineInterface, pasteOnly: boolean) {
+type HandoffMode = 'full' | 'paste' | 'brief'
+
+/** Writes the brief under the home folder (Windows has USERPROFILE, not HOME). Returns the path, or '' if it could not. */
+async function saveCopy($: EngineInterface, brief: string, now: number): Promise<string> {
+  try {
+    const home =
+      (await $.env.get('HOME')) || (await $.env.get('USERPROFILE')) || `${(await $.env.get('HOMEDRIVE')) ?? ''}${(await $.env.get('HOMEPATH')) ?? ''}`
+    if (!home) return ''
+    const path = briefPath(home, now)
+    await $.fs.write(path, brief + '\n')
+    return path
+  } catch {
+    return ''
+  }
+}
+
+/**
+ * full: write a brief, clear the session, paste the brief into the fresh one.
+ * paste: put the last brief back in the box, no clear. brief: write one, copy it and put it in the box, keep the session.
+ */
+async function handoff($: EngineInterface, mode: HandoffMode) {
+  const pasteOnly = mode === 'paste'
   if (isHandoffRunning) return
   isHandoffRunning = true
   try {
@@ -93,6 +114,7 @@ async function handoff($: EngineInterface, pasteOnly: boolean) {
       return
     }
 
+    let savedAt = ''
     let brief = pasteOnly ? (((await $.store.get('lastBrief')) as string | undefined) ?? '') : ''
     if (!pasteOnly) {
       $.ui.status('writing handoff…')
@@ -119,15 +141,28 @@ async function handoff($: EngineInterface, pasteOnly: boolean) {
         return
       }
       await $.store.set('lastBrief', brief)
-      try {
-        const home = (await $.env.get('HOME')) ?? ''
-        if (home !== '') await $.fs.write(briefPath(home, now), brief + '\n')
-      } catch {
-        // The copy on disk is a safety net; the paste below is the point.
-      }
+      // The copy on disk is a safety net; the paste below is the point. Say if it could not be written.
+      savedAt = await saveCopy($, brief, now)
+      if (savedAt !== '') await $.store.set('lastBriefPath', savedAt)
     }
     if (brief === '') {
       $.ui.toast('No handoff brief saved yet.')
+      return
+    }
+
+    const where = savedAt !== '' ? ` A copy is saved at ${savedAt}.` : pasteOnly ? '' : ' (A copy could not be saved to your home folder.)'
+
+    if (mode === 'brief') {
+      // Keep the session: the brief goes to the clipboard and the prompt box (after any draft already there).
+      const draft = (await $.prompt.read()).text
+      await $.prompt.fill({ text: draft.trim() === '' ? brief : `\n\n${brief}`, mode: draft.trim() === '' ? 'replace' : 'append' })
+      let isCopied = false
+      try {
+        isCopied = (await $.ui.copy({ text: brief })).isCopied
+      } catch {
+        isCopied = false
+      }
+      $.ui.toast(`Handoff brief ${isCopied ? 'copied and ' : ''}placed in the prompt box. Your session is unchanged.${where}`)
       return
     }
 
@@ -140,7 +175,7 @@ async function handoff($: EngineInterface, pasteOnly: boolean) {
       await $.prompt.fill({ text: brief, mode: 'replace' })
       isPasted = (await $.prompt.read()).text === brief
     }
-    $.ui.toast(isPasted ? 'Handoff brief is in the prompt box: review, then Enter.' : 'The brief could not be pasted. /handoff paste retries; it is saved in ~/.claude/handoffs/.')
+    $.ui.toast(isPasted ? `Handoff brief is in the prompt box: review, then Enter.${where}` : `The brief could not be pasted. /newsession paste retries.${where}`)
   } catch {
     $.ui.toast('Handoff failed. Nothing was cleared unless the session looks new.')
   } finally {
@@ -178,6 +213,12 @@ async function cacheReport($: EngineInterface, args: string, notifyMin: number, 
   const cost = v.warmUsd !== null && v.coldUsd !== null ? ` Next message input: ${money(v.warmUsd)} warm, ${money(v.coldUsd)} cold.` : ''
   return `Prompt cache window ${windowMinutes(c)} min (${source}); ${left}.${cost}`
 }
+
+/** `paste` and `brief` anywhere in the arguments pick those modes; anything else is the full handoff. */
+const handoffMode = (args: string): HandoffMode => (/\bpaste\b/i.test(args) ? 'paste' : /\b(brief|copy)\b/i.test(args) ? 'brief' : 'full')
+
+const handoffSays = (m: HandoffMode): string =>
+  m === 'paste' ? 'Putting the last handoff brief into the prompt box…' : m === 'brief' ? 'Writing a handoff brief into the prompt box; your session stays…' : 'Writing a handoff brief, then starting a fresh session…'
 
 const thresholds = (o: Record<string, unknown>): Thresholds => {
   const n = (v: unknown, d: number) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : d)
@@ -223,7 +264,7 @@ export const register: Register = (on, options) => {
     // for every other command (/meters cache, /meters handoff, /meters fresh) and says what was refused.
     failed.length = 0
     try {
-      await $.command.register({ name: 'meters', description: 'Usage meters: /meters side, top, cache, handoff, fresh or status', argumentHint: 'side|top|cache|handoff|fresh|status' })
+      await $.command.register({ name: 'meters', description: 'Usage meters: /meters side, top, cache, handoff, brief, fresh, limits or status', argumentHint: 'side|top|cache|handoff|brief|fresh|limits|status' })
     } catch {
       failed.push('meters')
     }
@@ -238,12 +279,12 @@ export const register: Register = (on, options) => {
       failed.push('fresh')
     }
     try {
-      await $.command.register({ name: 'handoff', description: 'Write a handoff brief, clear the session, paste the brief into the fresh one (/handoff paste re-pastes the last)', argumentHint: 'paste' })
+      await $.command.register({ name: 'handoff', description: 'Write a handoff brief, clear the session, paste it into the fresh one. /handoff brief keeps the session; /handoff paste re-pastes the last', argumentHint: 'brief|paste' })
     } catch {
       failed.push('handoff')
     }
     try {
-      await $.command.register({ name: 'newsession', description: 'Same as /handoff: brief, clear, paste (use it where /handoff belongs to another skill)', argumentHint: 'paste' })
+      await $.command.register({ name: 'newsession', description: 'Same as /handoff: brief, clear, paste (/newsession brief keeps the session, /newsession paste re-pastes the last)', argumentHint: 'brief|paste' })
     } catch {
       failed.push('newsession')
     }
@@ -357,7 +398,7 @@ export const register: Register = (on, options) => {
 
   on('prompt.edit', async ($, e, next) => {
     if (matchesChord(handoffChord, e.key)) {
-      $.clock.after(0, () => void handoff($, false))
+      $.clock.after(0, () => void handoff($, 'full'))
       return { text: e.text, cursor: e.cursor }
     }
     if (matchesChord(freshChord, e.key)) {
@@ -400,9 +441,15 @@ export const register: Register = (on, options) => {
 
     if (arg === 'cache' || arg.startsWith('cache ')) return { text: await cacheReport($, arg.slice(5), notifyMin, stepMin) }
 
-    if (arg === 'handoff' || arg === 'handoff paste') {
-      $.clock.after(0, () => void handoff($, arg.endsWith('paste')))
-      return { text: 'Writing a handoff brief, then starting a fresh session…' }
+    if (arg === 'handoff' || arg.startsWith('handoff ')) {
+      const m = handoffMode(arg.slice(7))
+      $.clock.after(0, () => void handoff($, m))
+      return { text: handoffSays(m) }
+    }
+
+    if (arg === 'brief') {
+      $.clock.after(0, () => void handoff($, 'brief'))
+      return { text: handoffSays('brief') }
     }
 
     if (arg === 'fresh') {
@@ -414,16 +461,15 @@ export const register: Register = (on, options) => {
   })
 
   on('command.run', { command: 'newsession' }, async ($, e) => {
-    const isPaste = e.args.trim().toLowerCase() === 'paste'
-    $.clock.after(0, () => void handoff($, isPaste))
-    return { text: isPaste ? 'Pasting the last handoff brief into the prompt box…' : 'Writing a handoff brief, then starting a fresh session…' }
+    const m = handoffMode(e.args)
+    $.clock.after(0, () => void handoff($, m))
+    return { text: handoffSays(m) }
   })
 
   on('command.run', { command: 'handoff' }, async ($, e) => {
-    const isPaste = e.args.trim().toLowerCase() === 'paste'
-    // The clear must not run inside this command's own dispatch.
-    $.clock.after(0, () => void handoff($, isPaste))
-    return { text: isPaste ? 'Pasting the last handoff brief into the prompt box…' : 'Writing a handoff brief, then starting a fresh session…' }
+    const m = handoffMode(e.args)
+    $.clock.after(0, () => void handoff($, m))
+    return { text: handoffSays(m) }
   })
 
   on('command.run', { command: 'fresh' }, async $ => {
@@ -466,7 +512,9 @@ export const register: Register = (on, options) => {
       limitsAt: await read($, lim),
     })
     const { Box, Button } = $.ui.resolve(e)
-    const actions = actionRow(m.ctx.level !== 'calm' && !e.props.isWorking, Box, Button, handoffLabel, freshLabel, () => handoff($, false), () => fresh($))
+    // The prop is not set by every app, so the mod also tracks turns itself.
+    const isWorking = e.props.isWorking || (await read($, isBusy))
+    const actions = actionRow(m.ctx.level !== 'calm' && !isWorking, Box, Button, handoffLabel, freshLabel, () => handoff($, 'full'), () => handoff($, 'brief'), () => fresh($))
 
     let body
     if (e.surface === 'terminal') {
@@ -507,7 +555,7 @@ export const register: Register = (on, options) => {
       limitsAt: await read($, lim),
     })
     const { Box, Button } = $.ui.resolve(e)
-    const actions = actionRow(m.ctx.level !== 'calm', Box, Button, handoffLabel, freshLabel, () => handoff($, false), () => fresh($))
+    const actions = actionRow(m.ctx.level !== 'calm' && !(await read($, isBusy)), Box, Button, handoffLabel, freshLabel, () => handoff($, 'full'), () => handoff($, 'brief'), () => fresh($))
 
     if (e.surface === 'terminal') {
       const { Text } = $.ui.resolve(e)
@@ -547,6 +595,7 @@ function actionRow(
   handoffKey: string,
   freshKey: string,
   onHandoff: () => unknown,
+  onCopy: () => unknown,
   onFresh: () => unknown,
 ) {
   if (!isShown) return null
@@ -554,6 +603,7 @@ function actionRow(
     Box as never,
     { key: 'actions', justifyContent: 'center', gap: 2 } as never,
     h(Button as never, { key: 'handoff', hotkey: 'h', variant: 'primary', onPress: onHandoff } as never, `New session with handoff (H · ${handoffKey})`),
+    h(Button as never, { key: 'copy', hotkey: 'c', onPress: onCopy } as never, 'Copy handoff, keep session (C)'),
     h(Button as never, { key: 'fresh', hotkey: 'n', onPress: onFresh } as never, `Fresh session (N · ${freshKey})`),
   ) as never
 }

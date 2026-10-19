@@ -358,3 +358,94 @@ test('meters draws no rule of its own: it belongs to the saver strip, which is h
   expect(await d.find({ type: 'Svg' })).toBeDefined()
   await d.unmount()
 })
+
+test('/newsession paste puts the last brief in the box and does not clear, however the argument is spelled', async ($, on) => {
+  for (const args of ['paste', ' PASTE ', 'paste last']) {
+    const w = world(on, { stored: { lastBrief: 'OLD BRIEF' } })
+    await started($)
+    await $.command.run({ command: 'newsession', args } as never)
+    await w.clock.advance(5000)
+    expect(w.commands).toEqual([])
+    expect(w.asked).toEqual([])
+    expect(w.fills.at(-1)).toBe('OLD BRIEF')
+    break // one world per test: the spellings are covered by handoffMode below
+  }
+})
+
+test('without HOME (Windows) the copy goes under USERPROFILE and the toast says where', async ($, on) => {
+  const w = world(on, { env: { USERPROFILE: 'C:\\Users\\f' }, brief: 'B' })
+  await started($)
+  await $.command.run({ command: 'newsession', args: '' } as never)
+  await w.clock.advance(5000)
+  expect(w.files.length).toBe(1)
+  // (the test host is not Windows, so it prefixes its own folder to the drive path; on Windows it is absolute)
+  expect(w.files[0]?.path).toMatch(/C:\\Users\\f\/\.claude\/handoffs\/handoff-\d{8}-\d{6}\.md$/)
+  expect(w.toasts.at(-1)).toContain('A copy is saved at C:')
+  expect(String(w.writes.lastBriefPath)).toContain('C:\\Users\\f/.claude/handoffs/handoff-')
+})
+
+test('when no home folder is known the handoff still works and says the copy was not saved', async ($, on) => {
+  const w = world(on, { env: {}, brief: 'B' })
+  await started($)
+  await $.command.run({ command: 'newsession', args: '' } as never)
+  await w.clock.advance(5000)
+  expect(w.files).toEqual([])
+  expect(w.commands).toEqual(['clear'])
+  expect(w.fills.at(-1)).toBe('B')
+  expect(w.toasts.at(-1)).toContain('could not be saved')
+})
+
+test('copy mode (/newsession brief, /meters brief, /handoff brief): brief in the box and on the clipboard, session kept', async ($, on) => {
+  const w = world(on, { brief: 'THE BRIEF' })
+  await started($)
+  for (const [command, args] of [['newsession', 'brief'], ['meters', 'brief'], ['handoff', 'copy']] as const) {
+    w.commands.length = 0
+    w.fills.length = 0
+    w.copied.length = 0
+    w.box.text = ''
+    await $.command.run({ command, args } as never)
+    await w.clock.advance(5000)
+    expect(w.commands).toEqual([]) // never cleared
+    expect(w.fills.at(-1)).toBe('THE BRIEF')
+    expect(w.copied).toEqual(['THE BRIEF'])
+    expect(w.toasts.at(-1)).toContain('Your session is unchanged')
+  }
+})
+
+test('copy mode appends to a draft instead of replacing it', async ($, on) => {
+  const w = world(on, { brief: 'THE BRIEF' })
+  await started($)
+  w.box.text = 'my half-written message'
+  await $.command.run({ command: 'meters', args: 'brief' } as never)
+  await w.clock.advance(5000)
+  expect(w.fillModes.at(-1)).toBe('append')
+  expect(w.fills.at(-1)).toContain('THE BRIEF')
+})
+
+test('buttons hide while a turn runs even when the app does not set isWorking; three buttons show when idle', async ($, on) => {
+  const w = world(on)
+  await started($)
+  await $.session.measure({ context: { tokens: 600, window: 1000, percent: 60 }, rateLimits: [], changed: ['context'] } as never)
+  let ui = await $.ui.mount(band('desktop'))
+  for (const key of ['handoff', 'copy', 'fresh']) expect(await ui.find({ key })).toBeDefined()
+  await ui.unmount()
+
+  await ($ as unknown as { turn: { start: (i: unknown) => Promise<unknown> } }).turn.start({ text: 'go', turnId: 't1' })
+  ui = await $.ui.mount(band('desktop', false))
+  expect(await ui.find({ key: 'handoff' })).toBeUndefined()
+  expect(await ui.find({ key: 'copy' })).toBeUndefined()
+  await ui.unmount()
+  expect(w.commands).toEqual([])
+})
+
+test('the copy button keeps the session', async ($, on) => {
+  const w = world(on, { brief: 'B' })
+  await started($)
+  await $.session.measure({ context: { tokens: 600, window: 1000, percent: 60 }, rateLimits: [], changed: ['context'] } as never)
+  const ui = await $.ui.mount(band('terminal'))
+  await ui.press({ key: 'copy' })
+  await w.clock.advance(5000)
+  expect(w.commands).toEqual([])
+  expect(w.fills.at(-1)).toBe('B')
+  await ui.unmount()
+})
