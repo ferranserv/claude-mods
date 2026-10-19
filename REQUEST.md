@@ -13,7 +13,7 @@ Goals (status 2026-10-19, session 2)
    - [x] Handoff & Clear button, `/handoff`, quality-degradation warning, hotkeys (new session with handoff, fresh session)
 3. New mods: Plan Progress, Prompt Enhancer (done).
 4. Audit last 20 sessions: owner runs `tools/audit-sessions.py`, picks one of five ideas. Nothing built until picked.
-5. ~/mods as `my-mods` marketplace, skill to keep new mods installed (done, tested in a cloud container only).
+5. ~/mods as `claude-mods` marketplace, skill to keep new mods installed (done, tested in a cloud container only).
 
 Success: mods validate + tests pass; bands stack in any order; owner confirms on screen.
 Constraint: token-lean (no model calls where avoidable).
