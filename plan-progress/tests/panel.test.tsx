@@ -15,6 +15,7 @@ const BAND = (bodyColumns: number): Record<string, unknown> =>
 
 test('panel shows goal, phase, bar, percent and checklist on terminal and desktop', async ($, on) => {
   mock.clock(on, { now: 1_000 })
+  on('ui.render', () => ({ type: 'engine', ref: 0 }) as never)
   on('tool.call', { tool: 'TaskCreate' }, (_$, e) => ({ result: { task: { id: e.subject, subject: e.subject } } }) as never)
   on('tool.call', { tool: 'TaskUpdate' }, () => ({ result: { success: true } }) as never)
 

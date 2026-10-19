@@ -2,6 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import type { PlanSnap } from '../types'
+import { bandKey, stack } from './bands'
 import {
   EMPTY,
   PHASES,
@@ -23,6 +24,7 @@ import {
 const snapRef = { plugin: 'plan-progress', key: 'snap' } as const
 const snapAtom = atom(snapRef, EMPTY)
 
+const MAX_CHECKLIST = 6
 const MARK = { completed: '✔', in_progress: '◐', pending: '○' } as const
 
 // Cache for the ticker only; the snapshot itself lives in $.state.
@@ -110,11 +112,13 @@ export const register: Register = (on, options) => {
   })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
-    if (e.props.hasSurvey) return next(e)
+    // Other mods draw in this band too: take what sits beneath first and stack under it.
+    const below = await next(e)
+    if (e.props.hasSurvey) return below
 
     const s = await read($, snapAtom)
     const isShown = s.isGoalCmd || s.tasks.length >= minSteps
-    if (!isShown) return next(e)
+    if (!isShown) return below
 
     const { Box, Text } = $.ui.resolve(e)
     const cols = Math.max(20, e.props.bodyColumns)
@@ -126,7 +130,8 @@ export const register: Register = (on, options) => {
     const counts = s.tasks.length > 0 ? `${done}/${s.tasks.length} steps` : 'no task list yet'
     const tail = ` ${s.tasks.length > 0 ? `${pct}%` : '—'}  ${counts}  ⏱ ${elapsed}`
     const barWidth = Math.max(8, Math.min(28, cols - tail.length - 2))
-    const rows = Math.max(0, e.props.maxRows - 4)
+    // Leave room for the bands stacked with this one (meters, saver, Enhance).
+    const rows = Math.max(1, Math.min(MAX_CHECKLIST, e.props.maxRows - 9))
     const { shown, hidden } = windowTasks(s.tasks, rows)
     const phaseLine = isDone
       ? '✔ complete'
@@ -134,8 +139,8 @@ export const register: Register = (on, options) => {
         ? PHASES.map(p => (p === s.phase ? `[${p}]` : p)).join(' › ')
         : s.phase
 
-    return (
-      <Box flexDirection="column" paddingX={1}>
+    const mine = (
+      <Box key={bandKey('plan-progress')} flexDirection="column" paddingX={1}>
         <Text wrap="truncate">
           <Text bold color="cyan">Goal </Text>
           {clip(s.goal || 'working…', cols - 8)}
@@ -153,5 +158,7 @@ export const register: Register = (on, options) => {
         {hidden > 0 && <Text dimColor>  +{hidden} more</Text>}
       </Box>
     )
+
+    return stack(below, mine as never, Box)
   })
 }

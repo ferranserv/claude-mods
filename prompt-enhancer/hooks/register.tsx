@@ -2,6 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import type { EnhancerState } from '../types'
+import { bandKey, stack } from './bands'
 import { SYSTEM, buildPrompt, cleanOutput, clip, matchesChord, parseChord, pickSkills } from './logic'
 import type { SkillInfo } from './logic'
 
@@ -184,20 +185,23 @@ export const register: Register = (on, options) => {
   }).catch(($, e, next) => next(e))
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
-    if (e.props.hasSurvey) return next(e)
+    // Other mods draw in this band too: take what sits beneath first and stack under it.
+    const below = await next(e)
+    if (e.props.hasSurvey) return below
     const s = await read($, stateAtom)
-    if (!s.hasDraft && !s.isBusy && s.original === '') return next(e)
+    if (!s.hasDraft && !s.isBusy && s.original === '') return below
 
     const { Box, Button, Text } = $.ui.resolve(e)
+    const stackIt = (mine: JSX.Element) => stack(below, mine as never, Box)
     if (s.isBusy) {
-      return (
-        <Box justifyContent="flex-end" paddingX={1}>
+      return stackIt(
+        <Box key={bandKey('prompt-enhancer')} justifyContent="flex-end" paddingX={1}>
           <Text dimColor>✦ enhancing…</Text>
-        </Box>
+        </Box>,
       )
     }
-    return (
-      <Box justifyContent="flex-end" paddingX={1} gap={2}>
+    return stackIt(
+      <Box key={bandKey('prompt-enhancer')} justifyContent="flex-end" paddingX={1} gap={2}>
         {s.original !== '' && (
           <Box key="undo-wrap">
             <Button key="undo" plain dimColor onPress={() => undo($)}>↩</Button>
@@ -212,7 +216,7 @@ export const register: Register = (on, options) => {
             <Text dimColor>Enhance{chord ? ` (${hotkey})` : ''}</Text>
           </Box>
         </Box>
-      </Box>
+      </Box>,
     )
   })
 }

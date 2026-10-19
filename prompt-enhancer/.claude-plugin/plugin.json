@@ -1,6 +1,6 @@
 {
   "name": "prompt-enhancer",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A sparkle Enhance button and hotkey that rewrites your draft prompt in place: fitting skills, project details, decisions to ask you first, and what done looks like.",
   "types": "./types/index.d.ts",
   "userConfig": {

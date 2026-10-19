@@ -8,7 +8,7 @@ Personal Claude Code mods, published as the `my-mods` plugin marketplace.
 | `prompt-enhancer` | Sparkle Enhance button + hotkey (`meta+e`) + `/enhance`. Rewrites your draft in place: fitting skills, project details, questions to answer first, what done looks like. One small-model call per use; undo button restores your draft. |
 | `mods-manager` | Skill `sync-mods`: after you build a mod, it lands in `~/mods`, the marketplace file is rebuilt, and the mod is installed for every session. |
 | `saver` | Sends easy prompts (typos, renames, formatting, short summaries, quick questions) to Haiku 5.5 while context is under 100K tokens; hard ones stay on your model. A strip above the prompt shows the model that answered last and what was saved today at list prices. `/saver on`, `/saver off`. |
-| `meters` | Context window (red past 80%, with a fresh-session legend), 5-hour limit and weekly limit (five 20% weekday slots) as slim meters above the prompt; `/meters side` opens a vertical side panel, `/meters top` returns to the band. Replaces the earlier `context-bar` and `usage-limits` mods. |
+| `meters` | One band above the prompt (or a vertical side panel): context window, 5-hour limit, weekly limit (five weekday slots) and the **prompt cache countdown**. Context turns orange from 50% (or 150k tokens) with a "quality may start to slip" warning and red past 80%. Warns you before the cache goes cold, shows what the next message costs warm vs cold, and offers **New session with handoff** and **Fresh session** buttons, hotkeys, `/handoff`, `/fresh`, `/cache`. `/meters side` / `/meters top` move it. Replaces the earlier `context-bar` and `usage-limits` mods. |
 
 ## Install on your machine
 
@@ -29,11 +29,23 @@ Build the mod (it lands in `~/.claude/dev-mods/<session>/<mod>`), then run the `
 
 If you also keep the hot-reloaded dev copy enabled, a mod can load twice in that session. Disable one.
 
-## Status of saver and meters
+## meters: commands, hotkeys, options
 
-- Both pass `claude plugin validate`; `saver` has 7 passing tests (`saver/hooks/lib.test.ts`). `meters` has no tests yet and its SVG layout has not been seen on screen.
-- `saver` costs use list prices and count every input-side token (cached or not) at the plain input price, so savings are an estimate.
-- `meters`, `plan-progress` and `prompt-enhancer` all draw in the band above the prompt; whether they stack cleanly has not been tested. See `HANDOFF.md`.
+| | |
+| --- | --- |
+| `/meters side` / `/meters top` | Side panel, or back to the band. The app decides where a docked pane goes; no side is promised. Closing the panel with its own mark is remembered. |
+| `/handoff` | Writes a handoff brief, clears the session, pastes the brief into the fresh prompt box (review, then Enter). `/handoff paste` puts the last brief back in the prompt box (no clear). A copy is saved in `~/.claude/handoffs/`. |
+| `/fresh` | Clears the session, no brief. |
+| `/cache`, `/cache 30`, `/cache auto` | Show the window and time left, set the window in minutes, or go back to learning it. |
+| Buttons | **New session with handoff** (H) and **Fresh session** (N) appear under the bars once the context is at the first warning and Claude is idle. H / N work while the band has focus (ctrl+x tab). |
+| Hotkeys | `meta+h` handoff, `meta+n` fresh, from the prompt box. Change or clear them in the mod's options. |
+| Options | `warnPercent` 50, `redPercent` 80, `warnTokens` 150000, `cacheMinutes` 60, `notifyMinutes` 5, `handoffKey`, `freshKey`. |
+
+Cache window: Claude Code's API usage does not report the TTL, so `meters` learns it. A cache hit after more than five idle minutes proves the one-hour cache; two full misses inside the hour mean the five-minute one; a model switch reports it outright. Until then (and whenever you set one with `/cache`) it uses 60 minutes. Cost of the next message is input-side only, at list price: cache read 0.1x when warm, cache write 1.25x (5 min) or 2x (1 hour) when cold. The handoff brief is written by a fork of the session (nearly free) while the cache is warm and by a small model over the transcript tail when it is cold.
+
+## Band order
+
+`meters`, `saver`, `plan-progress` and `prompt-enhancer` all draw in the band above the prompt. Each takes what is beneath it, tags its own tree `band:<rank>:<name>` and returns `stack(...)` from its own copy of `hooks/bands.tsx`, which sorts by rank: plan-progress (10), meters (20), saver (30), prompt-enhancer (40). The order on screen is the same whichever mod the engine calls first. Keep the four copies of `bands.tsx` identical. A mod outside the contract stays on top.
 
 ## Limits
 
