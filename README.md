@@ -10,18 +10,20 @@ Personal Claude Code mods, published as the `my-mods` plugin marketplace.
 | `saver` | Sends easy prompts (typos, renames, formatting, short summaries, quick questions) to Haiku 5.5 while context is under 100K tokens; hard ones stay on your model. A strip above the prompt shows the model that answered last and what was saved today at list prices. `/saver on`, `/saver off`. |
 | `meters` | One band above the prompt (or a vertical side panel): context window, 5-hour limit, weekly limit (five weekday slots) and the **prompt cache countdown**. Context turns orange from 50% (or 150k tokens) with a "quality may start to slip" warning and red past 80%. Warns you before the cache goes cold, shows what the next message costs warm vs cold, and offers **New session with handoff** and **Fresh session** buttons, hotkeys, `/handoff`, `/fresh`, `/cache`. `/meters side` / `/meters top` move it. Replaces the earlier `context-bar` and `usage-limits` mods. |
 
-## Install on your machine
+## Install
+
+**Claude desktop app (no terminal needed):** in a local Code session click **+** next to the prompt box, **Plugins**, **Add marketplace** with `ferranserv/claude-mods`, then **Add plugin** for each mod. To update after a merge, update the `my-mods` marketplace from the same menu and start a new session.
+
+**With the Claude Code CLI** (macOS/Linux, or Windows with Git Bash and Python):
 
 ```bash
 git clone https://github.com/ferranserv/claude-mods ~/mods
 bash ~/mods/mods-manager/skills/sync-mods/sync.sh --install-hook
 ```
 
-That registers `~/mods` as the `my-mods` marketplace, installs every mod at user scope, and adds a SessionStart hook so mods you drop in later install themselves. Check with `/plugin` (or `claude plugin list`).
+That registers `~/mods` as the `my-mods` marketplace, installs every mod at user scope, and adds a SessionStart hook so mods you drop in later install themselves. Check with `/plugin` (or `claude plugin list`). `mods-manager` and `sync.sh` need `bash` and `python3`; they do nothing useful for desktop-app-only users.
 
-Without cloning: `/plugin install plan-progress --marketplace ferranserv/claude-mods`.
-
-Cloud sessions on this repo load the mods from `.claude/settings.json`. For cloud sessions on other repos, put the two install lines above in the environment's setup script.
+Cloud sessions on this repo load the mods from `.claude/settings.json`. For cloud sessions on other repos, put the install lines above in the environment's setup script.
 
 ## New mods
 
@@ -36,7 +38,8 @@ If you also keep the hot-reloaded dev copy enabled, a mod can load twice in that
 | `/meters side` / `/meters top` | Side panel, or back to the band. The app decides where a docked pane goes; no side is promised. Closing the panel with its own mark is remembered. |
 | `/handoff` | Writes a handoff brief, clears the session, pastes the brief into the fresh prompt box (review, then Enter). `/handoff paste` puts the last brief back in the prompt box (no clear). A copy is saved in `~/.claude/handoffs/`. |
 | `/fresh` | Clears the session, no brief. |
-| `/cache`, `/cache 30`, `/cache auto` | Show the window and time left, set the window in minutes, or go back to learning it. |
+| `/cache`, `/cache 30`, `/cache auto` | Show the window and exact time left, set the window in minutes, or go back to learning it. |
+| Cache countdown | Resets to the full window the moment you send a message (and at each request Claude makes), never on its own. The band shows it in 5-minute steps (`55m`, `50m`, … `<5m`, `cold`) and redraws only when that changes; `cacheStepMinutes` changes the step. The going-cold notice still fires exactly `notifyMinutes` before the end. |
 | Buttons | **New session with handoff** (H) and **Fresh session** (N) appear under the bars once the context is at the first warning and Claude is idle. H / N work while the band has focus (ctrl+x tab). |
 | Hotkeys | `meta+h` handoff, `meta+n` fresh, from the prompt box. Change or clear them in the mod's options. |
 | Options | `warnPercent` 50, `redPercent` 80, `warnTokens` 150000, `cacheMinutes` 60, `notifyMinutes` 5, `handoffKey`, `freshKey`. |
@@ -51,7 +54,9 @@ Cache window: Claude Code's API usage does not report the TTL, so `meters` learn
 
 - Claude Code has no render site inside the prompt box, so the Enhance button sits in a band directly above it, right-aligned. The hotkey and `/enhance` work anywhere.
 - Hotkey `meta+e` is Option+E on macOS only when the terminal sends Option as Meta. Change it in the mod's options.
-- The chime uses `afplay` (macOS). On Linux/Windows the hook runs and plays nothing.
+- The chime uses `afplay` on macOS and a PowerShell sound player on Windows (best effort: it needs the host to allow running commands). On Linux it plays nothing.
+- `plan-progress` shows only for a `/goal` or a task list of 2+ steps, so it is invisible in an ordinary chat. `/plan-reset` clears it.
+- The Enhance sparkle is always shown above the prompt (dim until you type a draft); `/enhance <draft>` works too.
 
 ## Audit
 

@@ -106,7 +106,16 @@ export const register: Register = (on, options) => {
     if (e.agentId === undefined) {
       const now = await $.clock.now()
       await commit($, s => applyTurnEnd(s, now))
-      if (hasSound && e.reason !== 'aborted') void $.audio.play({ asset: 'sounds/done.wav' }).catch(() => undefined)
+      if (hasSound && e.reason !== 'aborted') {
+        void $.audio.play({ asset: 'sounds/done.wav' }).catch(() => undefined)
+        // $.audio.play only has a player on macOS; Windows gets the same clip through PowerShell.
+        if ((await $.env.get('OS')) === 'Windows_NT') {
+          const wav = `${$.plugin.root}/sounds/done.wav`.replace(/'/g, "''")
+          void $.process
+            .run(['powershell.exe', '-NoProfile', '-NonInteractive', '-Command', `(New-Object Media.SoundPlayer '${wav}').PlaySync()`], { timeoutMs: 5000 })
+            .catch(() => undefined)
+        }
+      }
     }
     return next(e)
   })

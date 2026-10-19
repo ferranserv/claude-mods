@@ -69,6 +69,47 @@ test('a notice goes out five minutes before the cache goes cold, once', async ($
   expect(w.notices.length).toBe(2)
 })
 
+const send = ($: unknown, text: string, command?: { name: string; args: string }) =>
+  ($ as { prompt: { submit: (i: unknown) => Promise<unknown> } }).prompt.submit({ text, command, origin: { kind: 'composer' } })
+
+test('sending a message restarts the countdown at the full window; commands do not', async ($, on) => {
+  const w = world(on)
+  on('prompt.submit', (_, e) => e as never)
+  await started($)
+  await step($, w, usage(100, 0, 190_000))
+  await w.clock.advance(40 * MIN)
+  expect(text(await $.command.run({ command: 'cache', args: '' } as never))).toContain('20:00 left')
+
+  await send($, '/cache', { name: 'cache', args: '' })
+  expect(text(await $.command.run({ command: 'cache', args: '' } as never))).toContain('20:00 left')
+
+  await send($, 'next question')
+  expect(text(await $.command.run({ command: 'cache', args: '' } as never))).toContain('1:00:00 left')
+  await w.clock.advance(10 * MIN)
+  expect(text(await $.command.run({ command: 'cache', args: '' } as never))).toContain('50:00 left')
+})
+
+test('learning still works when a message was sent in between (the gap runs from the last reply)', async ($, on) => {
+  const w = world(on)
+  on('prompt.submit', (_, e) => e as never)
+  await started($)
+  await step($, w, usage(100, 0, 190_000))
+  await w.clock.advance(20 * MIN)
+  await send($, 'back after a while')
+  await step($, w, usage(100, 190_000, 0))
+  expect(w.writes.cacheDetected).toBe(60)
+})
+
+test('the countdown restarts when each request goes out, not when it ends', async ($, on) => {
+  const w = world(on)
+  await started($)
+  await step($, w, usage(100, 0, 190_000))
+  await w.clock.advance(30 * MIN)
+  await step($, w, usage(100, 190_000, 0))
+  // the stub answers instantly, so the request started now: a full window again
+  expect(text(await $.command.run({ command: 'cache', args: '' } as never))).toContain('1:00:00 left')
+})
+
 test('the notice shows what the next message costs warm and cold', async ($, on) => {
   const w = world(on)
   await started($)
@@ -220,7 +261,7 @@ test('the cache meter counts down in the band, and shows cold after the window',
   await step($, w, usage(100, 0, 190_000))
   await w.clock.advance(18 * MIN)
   let ui = await $.ui.mount(band('terminal'))
-  expect(await ui.find({ type: 'Text', text: /42:00/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /40m/ })).toBeDefined()
   await ui.unmount()
   await w.clock.advance(50 * MIN)
   ui = await $.ui.mount(band('terminal'))

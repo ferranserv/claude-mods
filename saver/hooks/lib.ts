@@ -101,6 +101,6 @@ export function bandWidth(columns: number): number {
 /** A hairline with room above and below it, to set this strip apart from the bars above it. */
 export function dividerSvg(width: number): { source: string; width: number; height: number } {
   const height = 15
-  const source = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect x="0" y="7" width="${width}" height="1" rx="0.5" fill="#8E8E93" fill-opacity="0.35"/></svg>`
+  const source = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect x="0" y="7" width="${width}" height="1" rx="0.5" fill="#8E8E93" fill-opacity="0.45"/></svg>`
   return { source, width, height }
 }

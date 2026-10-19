@@ -13,6 +13,19 @@ Done
 
 Not verified (see final report): anything on a real screen; `$.command.run('clear')` from a timer; `$.ui.notify` on the desktop; the real cache TTL; pasting after /clear; older Claude Code builds rejecting helpers that take `$`.
 
+## Session 3 (2026-10-19): first real screenshots (desktop app, Windows)
+Seen working: meters band and side panel, cache countdown ticking, saver strip below the bars, stacking order meters > saver.
+Fixed after the screenshots
+- Saver rule was missing: saver could not see the bars (it is innermost). The rule is now its own band (rank 25) emitted by saver; order-independent, tested both ways.
+- Enhance sparkle was hidden until a draft was typed, and the desktop app may not raise draft events: it is now always shown (dim without a draft).
+- plan-progress is conditional by design (needs `/goal` or 2+ tasks); chime has a Windows PowerShell fallback.
+Still unverified: sparkle position/size, hotkeys, handoff buttons and paste after clear, going-cold notification, plan-progress panel, chime on Windows.
+
+## Session 3b: countdown semantics (owner feedback)
+- Countdown now restarts when a message is sent (prompt.submit) and when each request goes out, not when a reply ends. Commands and hidden prompts do not restart it.
+- Display moves in 5-minute steps (option); redraw only when the label changes; the timer runs every 15 s instead of every second.
+- Window learning measures the idle gap from the end of the previous request (new field `lastEndAt`), so sending a message in between does not break it.
+
 ## Next
 1. Owner: paste the screenshot, run the mods on the real app, report what cuts off or collides.
 2. Owner: run `python3 tools/audit-sessions.py`, pick an idea from the five.
