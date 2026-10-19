@@ -2,11 +2,14 @@ import { atom, read, update } from 'claude-code'
 import type { Register } from 'claude-code'
 
 import type { Saved } from '../types'
+import { RANK, bandKey, hasAbove, stack } from './bands'
 import {
   COLOR,
   CONTEXT_LIMIT,
   HAIKU_ID,
+  bandWidth,
   dayKey,
+  dividerSvg,
   labelLocally,
   money,
   priceOf,
@@ -117,26 +120,42 @@ export const register: Register = on => {
     const total = await read($, saved)
     const usd = total.day === today ? total.usd : 0
 
+    // Under the bars, set apart by a rule with room around it (only when there are bars above).
+    let divider = null
+    if (hasAbove(below, RANK.saver)) {
+      if (e.surface === 'terminal') {
+        divider = (
+          <Box justifyContent="center">
+            <Text color={COLOR.track}>{'─'.repeat(Math.max(8, Math.min(e.props.bodyColumns - 4, 72)))}</Text>
+          </Box>
+        )
+      } else {
+        const { Svg } = $.ui.resolve(e)
+        const d = dividerSvg(bandWidth(e.props.bodyColumns))
+        divider = (
+          <Box justifyContent="center">
+            <Svg source={d.source} alt="divider" />
+          </Box>
+        )
+      }
+    }
+
     const mine = (
-      <Box justifyContent="center">
-        <Text color={isEnabled ? COLOR.green : COLOR.track}>●</Text>
-        <Text color={COLOR.dim}> Saver {isEnabled ? 'on' : 'off'}</Text>
-        <Text color={COLOR.track}>{'   |   '}</Text>
-        <Text color={COLOR.dim}>Answered by </Text>
-        <Text color={COLOR.text}>{model ? shortName(model) : '-'}</Text>
-        <Text color={COLOR.track}>{'   |   '}</Text>
-        <Text color={COLOR.dim}>Saved today </Text>
-        <Text color={COLOR.green}>{money(usd)}</Text>
+      <Box key={bandKey('saver')} flexDirection="column">
+        {divider}
+        <Box justifyContent="center">
+          <Text color={isEnabled ? COLOR.green : COLOR.track}>●</Text>
+          <Text color={COLOR.dim}> Saver {isEnabled ? 'on' : 'off'}</Text>
+          <Text color={COLOR.track}>{'   |   '}</Text>
+          <Text color={COLOR.dim}>Answered by </Text>
+          <Text color={COLOR.text}>{model ? shortName(model) : '-'}</Text>
+          <Text color={COLOR.track}>{'   |   '}</Text>
+          <Text color={COLOR.dim}>Saved today </Text>
+          <Text color={COLOR.green}>{money(usd)}</Text>
+        </Box>
       </Box>
     )
 
-    return below.type === 'engine' ? (
-      mine
-    ) : (
-      <Box flexDirection="column">
-        {below}
-        {mine}
-      </Box>
-    )
+    return stack(below, mine as never, Box)
   })
 }

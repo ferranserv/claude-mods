@@ -1,6 +1,6 @@
 {
   "name": "plan-progress",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Panel above the prompt for multi-step work and /goal: goal, phase, task checklist, progress bar, elapsed time, and a chime when a turn ends. Zero model calls.",
   "types": "./types/index.d.ts",
   "userConfig": {

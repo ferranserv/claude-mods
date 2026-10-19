@@ -2,6 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import type { EnhancerState } from '../types'
+import { bandKey, stack } from './bands'
 import { SYSTEM, buildPrompt, cleanOutput, clip, matchesChord, parseChord, pickSkills } from './logic'
 import type { SkillInfo } from './logic'
 
@@ -191,24 +192,16 @@ export const register: Register = (on, options) => {
     if (!s.hasDraft && !s.isBusy && s.original === '') return below
 
     const { Box, Button, Text } = $.ui.resolve(e)
-    const stack = (mine: JSX.Element) =>
-      below.type === 'engine' ? (
-        mine
-      ) : (
-        <Box flexDirection="column">
-          {below}
-          {mine}
-        </Box>
-      )
+    const stackIt = (mine: JSX.Element) => stack(below, mine as never, Box)
     if (s.isBusy) {
-      return stack(
-        <Box justifyContent="flex-end" paddingX={1}>
+      return stackIt(
+        <Box key={bandKey('prompt-enhancer')} justifyContent="flex-end" paddingX={1}>
           <Text dimColor>✦ enhancing…</Text>
         </Box>,
       )
     }
-    return stack(
-      <Box justifyContent="flex-end" paddingX={1} gap={2}>
+    return stackIt(
+      <Box key={bandKey('prompt-enhancer')} justifyContent="flex-end" paddingX={1} gap={2}>
         {s.original !== '' && (
           <Box key="undo-wrap">
             <Button key="undo" plain dimColor onPress={() => undo($)}>↩</Button>

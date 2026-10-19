@@ -1,24 +1,36 @@
 import { describe, expect, test } from 'claude-code/testing'
 
 import {
+  CACHE_INITIAL,
   DAYS,
   allottedThrough,
   bandSvg,
   bandWidth,
+  cacheView,
   cells,
+  clockText,
+  dividerSvg,
   kilo,
+  learnWindow,
   legendFor,
+  legendLines,
+  levelOf,
   line,
   model,
+  money,
+  nextCost,
   pace,
+  priceOf,
   resetShort,
   sideSvg,
   sliceFrac,
   usageColor,
   weekColor,
+  windowMinutes,
   workday,
+  wrapLines,
 } from './lib'
-import type { Data } from './lib'
+import type { CacheState, Data } from './lib'
 
 // Wednesday 12:00 local, so the weekday slots are Mon, Tue done and Wed in progress.
 const WED = new Date(2026, 9, 21, 12).getTime()
@@ -103,18 +115,63 @@ describe('colors', () => {
   })
 })
 
-describe('legendFor', () => {
-  test('calm below the thresholds', () => {
+describe('legendFor and levels', () => {
+  test('calm below 50 percent and 150k tokens', () => {
+    expect(levelOf(49, 100_000)).toBe('calm')
     expect(legendFor(20, 40_000).tone).toBe('calm')
   })
-  test('warns at 150k tokens even when percent is low', () => {
+  test('first warning at 50 percent, whatever the token count', () => {
+    expect(levelOf(50, 10)).toBe('warn')
+    const l = legendFor(52, 10)
+    expect(l.tone).toBe('warn')
+    expect(l.text).toContain('52%')
+    expect(l.text).toContain('quality')
+  })
+  test('warns at 150k tokens even when percent is low (a 1M window)', () => {
+    expect(levelOf(15, 149_999)).toBe('calm')
     const l = legendFor(15, 150_000)
     expect(l.tone).toBe('warn')
     expect(l.text).toContain('150k')
   })
-  test('alerts only past 80 percent', () => {
-    expect(legendFor(80, 10).tone).not.toBe('alert')
-    expect(legendFor(81, 10).tone).toBe('alert')
+  test('alert only past 80 percent', () => {
+    expect(levelOf(80, 10)).toBe('warn')
+    expect(levelOf(81, 10)).toBe('alert')
+    expect(legendFor(81, 10).text).toContain('Hand off')
+  })
+  test('thresholds can be changed', () => {
+    const t = { warnPercent: 30, redPercent: 60, warnTokens: 50_000 }
+    expect(levelOf(30, 0, t)).toBe('warn')
+    expect(levelOf(61, 0, t)).toBe('alert')
+    expect(levelOf(10, 50_000, t)).toBe('warn')
+    expect(legendFor(10, 0, t).text).toContain('30%')
+  })
+  test('every message has a short form', () => {
+    for (const [p, tk] of [[10, 10], [55, 10], [10, 200_000], [90, 10]] as const) {
+      const l = legendFor(p, tk)
+      expect(l.short.length).toBeLessThan(l.text.length + 1)
+      expect(l.short.length).toBeLessThanOrEqual(36)
+    }
+  })
+})
+
+describe('legend wrapping', () => {
+  test('wrapLines breaks on words and refuses what will not fit', () => {
+    expect(wrapLines('one two three', 1000, 9, 2)).toEqual(['one two three'])
+    expect(wrapLines('aaaa bbbb cccc dddd', 5 * 9 * 0.54 * 1.01, 9, 2)).toBeNull()
+    expect(wrapLines('x'.repeat(200), 100, 9, 2)).toBeNull()
+  })
+  test('a wide column shows the whole message, never an ellipsis', () => {
+    const l = legendFor(55, 10)
+    const lines = legendLines(l, 230, 9, 2)
+    expect(lines.join(' ')).toBe(l.text)
+    expect(lines.join('')).not.toContain('…')
+  })
+  test('a narrow column falls back to the short message, and only then clips', () => {
+    const l = legendFor(55, 10)
+    expect(legendLines(l, 110, 9, 2).join(' ')).toBe(l.short)
+    const tiny = legendLines(l, 40, 9, 2)
+    expect(tiny.length).toBe(1)
+    expect(tiny[0]?.endsWith('…')).toBe(true)
   })
 })
 
@@ -126,9 +183,17 @@ describe('model', () => {
     expect(m.week.value[0]?.[0]?.t).toBe('-')
   })
 
-  test('context turns red past 80', () => {
-    expect(model(data(80)).ctx.color).toBe(model(data(10)).ctx.color)
-    expect(model(data(81)).ctx.color).not.toBe(model(data(10)).ctx.color)
+  test('context bar: blue, orange from 50, red past 80', () => {
+    // small windows, so the token count stays under 150k and only the percent speaks
+    const at = (percent: number) => model({ ...data(), fill: { tokens: percent * 1000, window: 100_000, percent } }).ctx.color
+    const blue = at(10)
+    const orange = at(50)
+    const red = at(81)
+    expect(at(49)).toBe(blue)
+    expect(orange).not.toBe(blue)
+    expect(at(80)).toBe(orange)
+    expect(red).not.toBe(orange)
+    expect(red).not.toBe(blue)
   })
 
   test('five-hour reset text and weekly pace text', () => {
@@ -176,8 +241,8 @@ describe('bandSvg', () => {
     expect(trackRects.length).toBe(7)
     const slots = trackRects.slice(2)
     const letters = tags(source, 'text')
-      .map((t, i) => ({ tag: t, body: source.split(t)[1]?.split('</text>')[0] ?? '' }))
-      .filter(x => x.tag.includes('font-size="10"') && x.tag.includes('text-anchor="middle"'))
+      .map(t => ({ tag: t, body: source.split(t)[1]?.split('</text>')[0] ?? '' }))
+      .filter(x => x.tag.includes('font-size="9"') && x.tag.includes('text-anchor="middle"'))
     expect(letters.map(l => l.body)).toEqual([...DAYS])
     slots.forEach((slot, i) => {
       const center = attr(slot, 'x') + attr(slot, 'width') / 2
@@ -227,8 +292,9 @@ describe('bandSvg', () => {
   })
 
   test('band width is clamped', () => {
-    expect(bandWidth(10)).toBe(300)
-    expect(bandWidth(1000)).toBeLessThanOrEqual(1400)
+    expect(bandWidth(10)).toBe(320)
+    expect(bandWidth(1000)).toBe(1600)
+    expect(bandWidth(100)).toBe(800)
   })
 })
 
@@ -280,15 +346,162 @@ describe('terminal line', () => {
   })
 
   test('shows a short hint when the context is large or nearly full', () => {
-    expect(line(model(data(10))).map(s => s.t).join('')).not.toContain('long context')
+    expect(line(model(data(10))).map(s => s.t).join('')).not.toContain('quality')
     const big = { ...data(15), fill: { tokens: 160_000, window: 1_000_000, percent: 16 } }
-    expect(line(model(big)).map(s => s.t).join('')).toContain('long context')
-    expect(line(model(data(90))).map(s => s.t).join('')).toContain('fresh session')
+    expect(line(model(big)).map(s => s.t).join('')).toContain('quality may slip')
+    expect(line(model(data(55))).map(s => s.t).join('')).toContain('quality may slip')
+    expect(line(model(data(90))).map(s => s.t).join('')).toContain('hand off now')
   })
 
   test('bar cells total the bar width', () => {
     const segs = line(model(data(50, 50, 50)), 8)
     const bars = segs.filter(s => /^━+$/.test(s.t))
     expect(bars.map(s => s.t.length).reduce((a, b) => a + b, 0)).toBe(24)
+    const withCache = line(model({ ...data(50, 50, 50), cache: { state: { ...CACHE_INITIAL, lastAt: WED - 10 * MIN }, price: null } }))
+    expect(withCache.filter(s => /^━+$/.test(s.t)).map(s => s.t.length).reduce((a, b) => a + b, 0)).toBe(24)
+  })
+})
+
+describe('prompt cache', () => {
+  const at = (over: Partial<CacheState> = {}): CacheState => ({ ...CACHE_INITIAL, ...over })
+
+  test('window: your setting beats what was learned beats the 60-minute default', () => {
+    expect(windowMinutes(at())).toBe(60)
+    expect(windowMinutes(at({ detected: 5 }))).toBe(5)
+    expect(windowMinutes(at({ detected: 5, override: 30 }))).toBe(30)
+  })
+
+  test('learning: a hit after more than five idle minutes proves the one-hour cache', () => {
+    const hit = { input: 100, read: 90_000, create: 0 }
+    expect(learnWindow(at(), 20 * MIN, hit).detected).toBe(60)
+    expect(learnWindow(at(), 2 * MIN, hit).detected).toBeNull()
+  })
+
+  test('learning: two full misses inside the hour mean the five-minute cache; one is not enough', () => {
+    const miss = { input: 100, read: 0, create: 90_000 }
+    const once = learnWindow(at(), 20 * MIN, miss)
+    expect(once.detected).toBeNull()
+    expect(once.misses).toBe(1)
+    expect(learnWindow(once, 20 * MIN, miss).detected).toBe(5)
+  })
+
+  test('learning: a proven hour is never undone by a miss, and a miss after an hour proves nothing', () => {
+    const miss = { input: 100, read: 0, create: 90_000 }
+    expect(learnWindow(at({ detected: 60 }), 20 * MIN, miss).detected).toBe(60)
+    expect(learnWindow(at({ misses: 1 }), 90 * MIN, miss).detected).toBeNull()
+    expect(learnWindow(at(), 20 * MIN, { input: 0, read: 0, create: 0 })).toEqual(at())
+  })
+
+  test('a hit resets the miss count', () => {
+    const c = learnWindow(at({ misses: 1 }), 20 * MIN, { input: 1, read: 5_000, create: 0 })
+    expect(c.misses).toBe(0)
+  })
+
+  test('view: unknown, warm, soon (last five minutes), cold', () => {
+    const c = at({ lastAt: WED })
+    expect(cacheView(at(), WED, 0, null).state).toBe('unknown')
+    expect(cacheView(c, WED + 10 * MIN, 0, null).state).toBe('warm')
+    expect(cacheView(c, WED + 56 * MIN, 0, null).state).toBe('soon')
+    expect(cacheView(c, WED + 60 * MIN, 0, null).state).toBe('cold')
+    expect(cacheView(c, WED + 61 * MIN, 0, null).label).toBe('cold')
+    const v = cacheView(c, WED + 30 * MIN, 0, null)
+    expect(v.label).toBe('30:00')
+    expect(Math.abs(v.frac - 0.5)).toBeLessThan(1e-9)
+  })
+
+  test('view: on a five-minute cache "soon" is capped at half the window', () => {
+    const c = at({ lastAt: WED, detected: 5 })
+    expect(cacheView(c, WED + 60_000, 0, null).state).toBe('warm')
+    expect(cacheView(c, WED + 2.6 * MIN, 0, null).state).toBe('soon')
+  })
+
+  test('clock text', () => {
+    expect(clockText(0)).toBe('0:00')
+    expect(clockText(65_000)).toBe('1:05')
+    expect(clockText(42 * MIN + 10_000)).toBe('42:10')
+    expect(clockText(3_904_000)).toBe('1:05:04')
+    expect(clockText(-5)).toBe('0:00')
+  })
+
+  test('cost of the next message: cache read warm, cache write cold (1.25x for 5m, 2x for 1h)', () => {
+    const price = { input: 2, output: 10 }
+    const hour = nextCost(200_000, price, 60)
+    expect(Math.abs(hour.warm - 0.04)).toBeLessThan(1e-9)
+    expect(Math.abs(hour.cold - 0.8)).toBeLessThan(1e-9)
+    expect(Math.abs(nextCost(200_000, price, 5).cold - 0.5)).toBeLessThan(1e-9)
+    expect(hour.cold).toBeGreaterThan(hour.warm * 10)
+  })
+
+  test('prices by model id', () => {
+    expect(priceOf('claude-sonnet-5-5')).toEqual({ input: 2, output: 10 })
+    expect(priceOf('claude-haiku-5-5')?.input).toBe(0.1)
+    expect(priceOf('something-else')).toBeNull()
+    expect(money(0.04)).toBe('$0.04')
+    expect(money(0.004)).toBe('$0.0040')
+  })
+
+  test('model: cache meter with costs, or with only the window when the price is unknown', () => {
+    const state = at({ lastAt: WED - 18 * MIN })
+    const priced = model({ ...data(20), cache: { state, price: { input: 2, output: 10 } } })
+    expect(priced.cache?.view.label).toBe('42:00')
+    expect(priced.cache?.sub).toContain('Next msg $0.04')
+    expect(priced.cache?.sub).toContain('cold $0.80')
+    const unpriced = model({ ...data(20), cache: { state, price: null } })
+    expect(unpriced.cache?.sub).toContain('window')
+    expect(model(data(20)).cache).toBeUndefined()
+  })
+})
+
+describe('band with the cache meter', () => {
+  const withCache = (d: Data, state: CacheState): Data => ({ ...d, cache: { state, price: { input: 2, output: 10 } } })
+  const warm = { ...CACHE_INITIAL, lastAt: WED - 18 * MIN }
+
+  test('four columns: seven track bars become eight, and everything stays on the canvas', () => {
+    for (const cols of [60, 100, 140, 200]) {
+      const { source, width } = bandSvg(bandWidth(cols), model(withCache(data(100, 100, 100), warm)))
+      const tracks = tags(source, 'rect').filter(r => r.includes('fill-opacity="0.25"'))
+      expect(tracks.length).toBe(8)
+      expect(source).not.toContain('NaN')
+      for (const r of tags(source, 'rect')) expect(attr(r, 'x') + attr(r, 'width')).toBeLessThanOrEqual(width + 0.1)
+    }
+  })
+
+  test('the cache fill drains with the time left', () => {
+    const half = bandSvg(1000, model(withCache(data(0, 0, 0), { ...CACHE_INITIAL, lastAt: WED - 30 * MIN })))
+    const rects = tags(half.source, 'rect')
+    const track = rects.filter(r => r.includes('fill-opacity="0.25"'))[7] ?? ''
+    const fill = rects.filter(r => !r.includes('fill-opacity="0.25"')).at(-1) ?? ''
+    expect(Math.abs(attr(fill, 'width') / attr(track, 'width') - 0.5)).toBeLessThan(0.01)
+  })
+
+  test('the cold cache is red text on an empty bar', () => {
+    const cold = bandSvg(1000, model(withCache(data(0, 0, 0), { ...CACHE_INITIAL, lastAt: WED - 90 * MIN })))
+    expect(cold.source).toContain('>cold<')
+  })
+
+  test('cost text is shown in full on a wide band and shortened on a narrow one', () => {
+    const wide = bandSvg(1200, model(withCache(data(), warm))).source
+    expect(wide).toContain('Next msg $')
+    const narrow = bandSvg(380, model(withCache(data(), warm))).source
+    expect(narrow).not.toContain('Next msg $')
+  })
+
+  test('a long warning fits on the band whole when there is room', () => {
+    const wide = bandSvg(1200, model(withCache(data(55, 10, 10), warm)))
+    expect(wide.source).toContain('quality may start to slip')
+    expect(wide.source).not.toContain('…')
+  })
+
+  test('side panel with the cache column has no NaN and five weekly slots', () => {
+    const { source } = sideSvg(210, model(withCache(data(), warm)))
+    expect(source).not.toContain('NaN')
+    // context + 5-hour + five weekly slots + cache
+    expect(tags(source, 'rect').filter(r => r.includes('fill-opacity="0.25"')).length).toBe(8)
+  })
+
+  test('divider is a single hairline', () => {
+    const d = dividerSvg(600)
+    expect(d.source.match(/<rect/g)?.length).toBe(1)
+    expect(d.height).toBeGreaterThan(8)
   })
 })

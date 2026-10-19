@@ -2,12 +2,16 @@
 
 export type Fill = { tokens: number; window: number; percent: number }
 export type Limit = { kind: string; percentUsed: number; resetsAt?: string }
-export type Data = { fill: Fill | null; limits: Limit[]; now: number }
 
+// The context bar warns twice: orange from WARN_PAST percent (quality can start to slip), red past RED_PAST.
+// A window can be 1M, so percent alone says "fine" long after every message has become expensive and
+// long: LARGE_TOKENS is the same orange warning by size.
+export const WARN_PAST = 50
 export const RED_PAST = 80
-// A window can be 1M, so percent alone says "fine" long after every message
-// has become expensive: this is where the legend starts to suggest a fresh session.
 export const LARGE_TOKENS = 150_000
+
+export type Thresholds = { warnPercent: number; redPercent: number; warnTokens: number }
+export const DEFAULT_LIMITS: Thresholds = { warnPercent: WARN_PAST, redPercent: RED_PAST, warnTokens: LARGE_TOKENS }
 
 export const DAYS = ['M', 'T', 'W', 'T', 'F'] as const
 export const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'] as const
@@ -86,34 +90,136 @@ export function weekColor(usedPercent: number, ms: number): string {
   return C.green
 }
 
-export type Legend = { tone: 'calm' | 'warn' | 'alert'; text: string }
+export type Level = 'calm' | 'warn' | 'alert'
+export type Legend = { tone: Level; text: string; short: string }
 
-/** The legend under the context meter: when a fresh session is worth starting. */
-export function legendFor(percent: number, tokens: number): Legend {
-  if (percent > RED_PAST) {
-    return { tone: 'alert', text: 'Nearly full. Start a fresh session (/clear) to save tokens.' }
+export function levelOf(percent: number, tokens: number, t: Thresholds = DEFAULT_LIMITS): Level {
+  if (percent > t.redPercent) return 'alert'
+  if (percent >= t.warnPercent || tokens >= t.warnTokens) return 'warn'
+  return 'calm'
+}
+
+/** The legend under the context meter: what the color means and what to do about it. */
+export function legendFor(percent: number, tokens: number, t: Thresholds = DEFAULT_LIMITS): Legend {
+  const level = levelOf(percent, tokens, t)
+  if (level === 'alert') {
+    return { tone: 'alert', text: `${pct(percent)} full. Hand off or /clear now.`, short: 'Nearly full. Hand off now.' }
   }
-  if (tokens >= LARGE_TOKENS) {
-    return {
-      tone: 'warn',
-      text: `Large context: every message re-reads ${kilo(tokens)}. A fresh session costs less.`,
-    }
+  if (level === 'warn') {
+    return percent >= t.warnPercent
+      ? { tone: 'warn', text: `${pct(percent)} full: quality may start to slip. Plan a handoff.`, short: 'Quality may slip. Plan a handoff.' }
+      : { tone: 'warn', text: `${kilo(tokens)} re-read each message: quality may slip. Consider a handoff.`, short: 'Long context. Consider a handoff.' }
   }
+  return { tone: 'calm', text: `Warns at ${t.warnPercent}% or ${kilo(t.warnTokens)} tokens.`, short: `Warns at ${t.warnPercent}%.` }
+}
+
+const toneColor = (t: Level) => (t === 'alert' ? C.red : t === 'warn' ? C.orange : C.gray)
+
+// ---------- the prompt cache ----------
+
+export type Price = { input: number; output: number }
+
+/** List price, dollars per million tokens, by model id or alias as the session names it; null if unknown. */
+export function priceOf(id: string): Price | null {
+  const m = id.toLowerCase().replace(/\[.*\]$/, '')
+  const isOld = /(?:^|[^\d])4[-.]\d/.test(m)
+  if (m.includes('fable') || m.includes('mythos')) return { input: 10, output: 50 }
+  if (m.includes('opus')) return isOld || /opus-5(?!-5)/.test(m) ? { input: 5, output: 25 } : { input: 4, output: 20 }
+  if (m.includes('sonnet')) return isOld && m.includes('4-6') ? { input: 3, output: 15 } : { input: 2, output: 10 }
+  if (m.includes('haiku')) return /haiku-4/.test(m) ? { input: 1, output: 5 } : { input: 0.1, output: 0.5 }
+  return null
+}
+
+export function money(usd: number): string {
+  return usd < 0.01 ? `$${usd.toFixed(4)}` : `$${usd.toFixed(2)}`
+}
+
+/** What the cache is known to be: learned from the API's own behaviour, else the user's setting. */
+export type CacheState = {
+  lastAt: number // ms of the last main-loop response; 0 before the first
+  detected: 5 | 60 | null
+  misses: number // consecutive full misses after an idle gap that a 1-hour cache would have survived
+  notifiedAt: number // the lastAt a "going cold" notice was already sent for
+  override: number | null // minutes the user set with /cache
+  fallback: number // minutes when nothing is known (60)
+}
+
+export const CACHE_INITIAL: CacheState = { lastAt: 0, detected: null, misses: 0, notifiedAt: 0, override: null, fallback: 60 }
+
+export const windowMinutes = (c: CacheState): number => c.override ?? c.detected ?? c.fallback
+
+export type StepUsage = { input: number; read: number; create: number }
+
+/**
+ * Learns the cache window from one request that followed an idle gap. The API reports no TTL, so:
+ * a hit after more than five minutes proves the one-hour cache; two full misses inside the hour,
+ * each after more than five minutes, mean the five-minute one. A proven hour is never undone.
+ */
+export function learnWindow(c: CacheState, gapMs: number, u: StepUsage): CacheState {
+  const gap = gapMs / 60_000
+  const total = u.input + u.read + u.create
+  if (total <= 0 || gap <= 5.5) return c
+  if (u.read > 0 && u.read >= 0.5 * total) return { ...c, detected: 60, misses: 0 }
+  if (c.detected === 60) return c
+  if (gap < 59 && u.read === 0 && u.create >= 0.5 * total) {
+    const misses = c.misses + 1
+    return { ...c, misses, detected: misses >= 2 ? 5 : c.detected }
+  }
+  return c
+}
+
+export type CacheState3 = 'unknown' | 'warm' | 'soon' | 'cold'
+
+export type CacheView = {
+  state: CacheState3
+  leftMs: number
+  frac: number // share of the window still left, 0..1
+  windowMin: number
+  isLearned: boolean
+  label: string // 42:10, 1:04:00, cold, -
+  warmUsd: number | null
+  coldUsd: number | null
+}
+
+export function clockText(ms: number): string {
+  const t = Math.max(0, Math.floor(ms / 1000))
+  const h = Math.floor(t / 3600)
+  const m = Math.floor((t % 3600) / 60)
+  const sec = String(t % 60).padStart(2, '0')
+  return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${sec}` : `${m}:${sec}`
+}
+
+/** Input-side cost of the next request over `tokens` of context: cache read if warm, cache write if cold. */
+export function nextCost(tokens: number, price: Price, windowMin: number): { warm: number; cold: number } {
   return {
-    tone: 'calm',
-    text: `Fresh session advised past ${RED_PAST}% or ${kilo(LARGE_TOKENS)} tokens.`,
+    warm: (tokens * price.input * 0.1) / 1e6,
+    cold: (tokens * price.input * (windowMin > 5 ? 2 : 1.25)) / 1e6,
   }
 }
 
-const toneColor = (t: Legend['tone']) => (t === 'alert' ? C.red : t === 'warn' ? C.orange : C.gray)
+export function cacheView(c: CacheState, now: number, tokens: number, price: Price | null, soonMin = 5): CacheView {
+  const windowMin = windowMinutes(c)
+  const cost = price && tokens > 0 ? nextCost(tokens, price, windowMin) : null
+  const base = { windowMin, isLearned: c.override === null && c.detected !== null, warmUsd: cost?.warm ?? null, coldUsd: cost?.cold ?? null }
+  if (c.lastAt <= 0) return { ...base, state: 'unknown', leftMs: 0, frac: 0, label: '-' }
+  const leftMs = c.lastAt + windowMin * 60_000 - now
+  if (leftMs <= 0) return { ...base, state: 'cold', leftMs: 0, frac: 0, label: 'cold' }
+  const frac = clamp(leftMs / (windowMin * 60_000), 0, 1)
+  const isSoon = leftMs <= Math.min(soonMin, windowMin / 2) * 60_000
+  return { ...base, state: isSoon ? 'soon' : 'warm', leftMs, frac, label: clockText(leftMs) }
+}
+
+const cacheColor = (v: CacheView): string => (v.state === 'warm' ? C.green : v.state === 'soon' ? C.orange : v.state === 'cold' ? C.red : C.gray)
 
 // ---------- the model ----------
 
 /** Text drawn in one or more colors; the options of a value go longest first. */
 export type Parts = { t: string; fill: string }[]
 
+export type CacheModel = { view: CacheView; color: string; value: Parts[]; sub: string; subShort: string }
+
 export type Model = {
-  ctx: { percent: number; color: string; value: Parts[]; legend: Legend }
+  ctx: { percent: number; level: Level; color: string; value: Parts[]; legend: Legend }
   five: { used: number; color: string; value: Parts[]; sub: string }
   week: {
     used: number
@@ -123,17 +229,24 @@ export type Model = {
     paceText: string
     paceColor: string
   }
+  cache?: CacheModel
 }
+
+export type CacheInput = { state: CacheState; price: Price | null; soonMin?: number }
+export type Data = { fill: Fill | null; limits: Limit[]; now: number; cache?: CacheInput; limitsAt?: Thresholds }
 
 export function model(d: Data): Model {
   const g = (t: string, fill = C.gray) => [{ t, fill }]
+  const t = d.limitsAt ?? DEFAULT_LIMITS
 
   const percent = d.fill?.percent ?? 0
   const tokens = d.fill?.tokens ?? 0
-  const legend = legendFor(percent, tokens)
+  const legend = legendFor(percent, tokens, t)
+  const level = levelOf(percent, tokens, t)
   const ctx = {
     percent,
-    color: percent > RED_PAST ? C.red : C.blue,
+    level,
+    color: level === 'alert' ? C.red : level === 'warn' ? C.orange : C.blue,
     value: d.fill
       ? [g(`${pct(percent)} · ${kilo(tokens)} / ${kilo(d.fill.window)}`), g(pct(percent))]
       : [g('-')],
@@ -171,18 +284,43 @@ export function model(d: Data): Model {
       : [g('-')],
   }
 
-  return { ctx, five, week }
+  let cache: CacheModel | undefined
+  if (d.cache) {
+    const v = cacheView(d.cache.state, d.now, tokens, d.cache.price, d.cache.soonMin)
+    const color = cacheColor(v)
+    const win = `${v.windowMin >= 60 ? v.windowMin / 60 + 'h' : v.windowMin + 'm'}${v.isLearned ? '' : ' (set)'}`
+    const costs = v.warmUsd !== null && v.coldUsd !== null
+    cache = {
+      view: v,
+      color,
+      value: [g(v.label, color)],
+      sub:
+        v.state === 'unknown'
+          ? 'Starts after the first reply'
+          : costs
+            ? `Next msg ${money(v.warmUsd ?? 0)} · cold ${money(v.coldUsd ?? 0)}`
+            : `${win} window`,
+      subShort: costs ? `${money(v.warmUsd ?? 0)} / ${money(v.coldUsd ?? 0)} cold` : win,
+    }
+  }
+
+  return { ctx, five, week, cache }
 }
 
 export function altText(m: Model): string {
-  return `Context ${pct(m.ctx.percent)} full, 5-hour limit ${pct(m.five.used)} used, weekly limit ${pct(m.week.used)} used (${m.week.paceText})`
+  const cache = m.cache ? `, prompt cache ${m.cache.view.state === 'cold' ? 'cold' : m.cache.view.label}` : ''
+  return `Context ${pct(m.ctx.percent)} full, 5-hour limit ${pct(m.five.used)} used, weekly limit ${pct(m.week.used)} used (${m.week.paceText})${cache}`
 }
 
 // ---------- SVG ----------
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
-const estimate = (s: string, size: number) => s.length * size * 0.6
+// Average glyph width as a share of the font size, for the system sans faces the band names.
+// Measured text is not available to a mod, so this is an estimate; 0.54 sits between SF Pro and Segoe UI.
+const EST = 0.54
+
+const estimate = (s: string, size: number) => s.length * size * EST
 
 const joined = (p: Parts) => p.map(x => x.t).join('')
 
@@ -190,14 +328,36 @@ const joined = (p: Parts) => p.map(x => x.t).join('')
 function fit(options: Parts[], room: number, size: number): Parts {
   for (const o of options) if (estimate(joined(o), size) <= room) return o
   const last = options[options.length - 1] ?? []
-  const max = Math.max(1, Math.floor(room / (size * 0.6)))
+  const max = Math.max(1, Math.floor(room / (size * EST)))
   const text = joined(last)
   return text.length <= max ? last : [{ t: text.slice(0, max - 1) + '…', fill: last[0]?.fill ?? C.gray }]
 }
 
 function clip(text: string, room: number, size: number): string {
-  const max = Math.max(1, Math.floor(room / (size * 0.6)))
+  const max = Math.max(1, Math.floor(room / (size * EST)))
   return text.length <= max ? text : text.slice(0, max - 1) + '…'
+}
+
+/** Breaks `text` into at most `maxLines` lines of `room` px, or null when it will not fit. */
+export function wrapLines(text: string, room: number, size: number, maxLines: number): string[] | null {
+  const per = Math.max(4, Math.floor(room / (size * EST)))
+  const lines: string[] = []
+  let cur = ''
+  for (const word of text.split(' ')) {
+    const next = cur === '' ? word : `${cur} ${word}`
+    if (next.length <= per) cur = next
+    else {
+      if (cur !== '') lines.push(cur)
+      cur = word
+    }
+  }
+  if (cur !== '') lines.push(cur)
+  return lines.length <= maxLines && lines.every(l => l.length <= per) ? lines : null
+}
+
+/** The full message if it fits in `maxLines` lines, else the short one, clipped as a last resort. */
+export function legendLines(l: Legend, room: number, size: number, maxLines: number): string[] {
+  return wrapLines(l.text, room, size, maxLines) ?? wrapLines(l.short, room, size, maxLines) ?? [clip(l.short, room, size)]
 }
 
 type TextOpts = { size?: number; anchor?: 'start' | 'middle' | 'end'; fill?: string; weight?: number }
@@ -222,94 +382,121 @@ function wrapSvg(width: number, height: number, body: string): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" font-family="${FONT}">${body}</svg>`
 }
 
+// A terminal column is about this many CSS pixels on the desktop app. The band is drawn this wide and the
+// Svg element is given no width of its own, so the app shrinks it to the slot instead of clipping it.
+const PX_PER_COLUMN = 8
+
 export function bandWidth(columns: number): number {
-  return clamp(Math.round(columns * 7), 300, 980)
+  return clamp(Math.round(columns * PX_PER_COLUMN), 320, 1600)
 }
 
-/** One slim band: three meters side by side, a few lines tall. */
+const LEGEND_SIZE = 9
+const LINE = 10
+
+/** One slim band: the meters side by side, a few lines tall. */
 export function bandSvg(width: number, m: Model): { source: string; width: number; height: number } {
-  const gap = 28
-  const gw = Math.floor((width - 2 * gap) / 3)
-  const height = 46
+  // Context and Weekly carry the most text (a warning, the pace); 5-hour the least.
+  const weights = m.cache ? [1.2, 0.85, 1.2, 1] : [1, 1, 1]
+  const gap = 24
+  const usable = width - (weights.length - 1) * gap
+  const total = weights.reduce((a, b) => a + b, 0)
+  const widths = weights.map(w => Math.floor((usable * w) / total))
+  const xs = widths.map((_, i) => widths.slice(0, i).reduce((a, b) => a + b + gap, 0))
+  const [x0 = 0, x1 = 0, x2 = 0, x3 = 0] = xs
+  const [w0 = 0, w1 = 0, w2 = 0, w3 = 0] = widths
   let out = ''
 
-  const x0 = 0
-  const x1 = gw + gap
-  const x2 = 2 * (gw + gap)
-
-  // Context
+  // Context: the legend takes up to two lines under the bar, so a long warning is read whole.
+  const legend = legendLines(m.ctx.legend, w0, LEGEND_SIZE, 2)
   out += text(x0, 11, 'Context', { size: 11 })
-  out += parts(x0 + gw, 11, fit(m.ctx.value, gw - 52, 11), { anchor: 'end' })
-  out += rect(x0, 17, gw, 7, C.gray, TRACK)
-  if (m.ctx.percent > 0) out += rect(x0, 17, Math.max(7, (gw * clamp(m.ctx.percent, 0, 100)) / 100), 7, m.ctx.color)
-  out += text(x0, 40, clip(m.ctx.legend.text, gw, 10), {
-    size: 10,
-    fill: toneColor(m.ctx.legend.tone),
+  out += parts(x0 + w0, 11, fit(m.ctx.value, w0 - 52, 11), { anchor: 'end' })
+  out += rect(x0, 17, w0, 7, C.gray, TRACK)
+  if (m.ctx.percent > 0) out += rect(x0, 17, Math.max(7, (w0 * clamp(m.ctx.percent, 0, 100)) / 100), 7, m.ctx.color)
+  legend.forEach((l, i) => {
+    out += text(x0, 38 + i * LINE, l, { size: LEGEND_SIZE, fill: toneColor(m.ctx.legend.tone) })
   })
+  const height = 38 + (legend.length - 1) * LINE + 7
 
   // 5-hour
   out += text(x1, 11, '5-hour', { size: 11 })
-  out += parts(x1 + gw, 11, fit(m.five.value, gw - 46, 11), { anchor: 'end' })
-  out += rect(x1, 17, gw, 7, C.gray, TRACK)
-  if (m.five.used > 0) out += rect(x1, 17, Math.max(7, (gw * clamp(m.five.used, 0, 100)) / 100), 7, m.five.color)
-  out += text(x1, 40, clip(m.five.sub, gw, 10), { size: 10 })
+  out += parts(x1 + w1, 11, fit(m.five.value, w1 - 46, 11), { anchor: 'end' })
+  out += rect(x1, 17, w1, 7, C.gray, TRACK)
+  if (m.five.used > 0) out += rect(x1, 17, Math.max(7, (w1 * clamp(m.five.used, 0, 100)) / 100), 7, m.five.color)
+  out += text(x1, 38, clip(m.five.sub, w1, LEGEND_SIZE), { size: LEGEND_SIZE })
 
   // Weekly: five slots with a clear gap between them, a day letter centered under each
   out += text(x2, 11, 'Weekly', { size: 11 })
-  out += parts(x2 + gw, 11, fit(m.week.value, gw - 46, 11), { anchor: 'end' })
+  out += parts(x2 + w2, 11, fit(m.week.value, w2 - 46, 11), { anchor: 'end' })
   const slotGap = 4
-  const slotW = (gw - 4 * slotGap) / 5
+  const slotW = (w2 - 4 * slotGap) / 5
   DAYS.forEach((letter, i) => {
     const sx = x2 + i * (slotW + slotGap)
     out += rect(sx, 17, slotW, 7, C.gray, TRACK)
     const f = sliceFrac(m.week.used, i)
     if (f > 0) out += rect(sx, 17, Math.max(7, slotW * f), 7, m.week.color)
-    out += text(sx + slotW / 2, 40, letter, {
-      size: 10,
+    out += text(sx + slotW / 2, 38, letter, {
+      size: LEGEND_SIZE,
       anchor: 'middle',
       fill: i === m.week.today ? C.blue : C.gray,
       weight: i === m.week.today ? 700 : 400,
     })
   })
 
+  // Prompt cache: a bar that drains, the time left, and what the next message costs warm and cold
+  if (m.cache) {
+    const c = m.cache
+    out += text(x3, 11, 'Cache', { size: 11 })
+    out += parts(x3 + w3, 11, fit(c.value, w3 - 40, 11), { anchor: 'end' })
+    out += rect(x3, 17, w3, 7, C.gray, TRACK)
+    if (c.view.frac > 0) out += rect(x3, 17, Math.max(7, w3 * c.view.frac), 7, c.color)
+    const sub = estimate(c.sub, LEGEND_SIZE) <= w3 ? c.sub : c.subShort
+    out += text(x3, 38, clip(sub, w3, LEGEND_SIZE), { size: LEGEND_SIZE, fill: c.view.state === 'soon' ? C.orange : C.gray })
+  }
+
   return { source: wrapSvg(width, height, out), width, height }
 }
 
+/** A hairline with room above and below it, to set one band apart from the next. */
+export function dividerSvg(width: number): { source: string; width: number; height: number } {
+  const height = 15
+  return { source: wrapSvg(width, height, rect(0, 7, width, 1, C.gray, 0.35)), width, height }
+}
+
 export function sideWidth(columns: number): number {
-  return clamp(Math.round(columns * 7), 150, 220)
+  return clamp(Math.round(columns * PX_PER_COLUMN), 196, 260)
 }
 
 /** A vertical panel: bars rise from the bottom; the week is five stacked slots, Monday lowest. */
 export function sideSvg(width: number, m: Model): { source: string; width: number; height: number } {
-  const w = Math.max(168, width)
+  const w = Math.max(196, width)
   const top = 22
   const barH = 136
   const barW = 16
-  const cx = [Math.round(w * 0.16), Math.round(w * 0.46), Math.round(w * 0.74)]
+  const hasCache = m.cache !== undefined
+  const at = hasCache ? [0.12, 0.35, 0.6, 0.86] : [0.16, 0.46, 0.74]
+  const cx = at.map(f => Math.round(w * f))
   const bottom = top + barH
-  const height = 232
   let out = ''
 
   const column = (x: number, label: string, value: string, valueFill: string) => {
     out += text(x, 12, value, { size: 11, anchor: 'middle', fill: valueFill, weight: 600 })
     out += text(x, bottom + 15, label, { size: 10, anchor: 'middle' })
   }
+  const bar = (x: number, percent: number, color: string) => {
+    out += rect(x - barW / 2, top, barW, barH, C.gray, TRACK)
+    if (percent > 0) {
+      const h = Math.max(barW, (barH * clamp(percent, 0, 100)) / 100)
+      out += rect(x - barW / 2, bottom - h, barW, h, color)
+    }
+  }
 
   // Context
-  column(cx[0] ?? 0, 'Context', pct(m.ctx.percent), m.ctx.percent > RED_PAST ? C.red : C.gray)
-  out += rect((cx[0] ?? 0) - barW / 2, top, barW, barH, C.gray, TRACK)
-  if (m.ctx.percent > 0) {
-    const h = Math.max(barW, (barH * clamp(m.ctx.percent, 0, 100)) / 100)
-    out += rect((cx[0] ?? 0) - barW / 2, bottom - h, barW, h, m.ctx.color)
-  }
+  column(cx[0] ?? 0, 'Context', pct(m.ctx.percent), m.ctx.level === 'calm' ? C.gray : m.ctx.color)
+  bar(cx[0] ?? 0, m.ctx.percent, m.ctx.color)
 
   // 5-hour
   column(cx[1] ?? 0, '5-hour', pct(m.five.used), C.gray)
-  out += rect((cx[1] ?? 0) - barW / 2, top, barW, barH, C.gray, TRACK)
-  if (m.five.used > 0) {
-    const h = Math.max(barW, (barH * clamp(m.five.used, 0, 100)) / 100)
-    out += rect((cx[1] ?? 0) - barW / 2, bottom - h, barW, h, m.five.color)
-  }
+  bar(cx[1] ?? 0, m.five.used, m.five.color)
   const reset = m.five.sub.replace('Resets in ', '')
   if (reset && !m.five.sub.startsWith('Shows')) {
     out += text(cx[1] ?? 0, bottom + 28, reset, { size: 9, anchor: 'middle' })
@@ -340,22 +527,25 @@ export function sideSvg(width: number, m: Model): { source: string; width: numbe
     fill: m.week.paceColor,
   })
 
-  // The legend: two short lines under everything
-  const words = m.ctx.legend.text.split(' ')
-  const lines: string[] = ['']
-  const perLine = Math.floor((w - 8) / (9 * 0.6))
-  for (const word of words) {
-    const cur = lines[lines.length - 1] ?? ''
-    if ((cur + ' ' + word).trim().length <= perLine) lines[lines.length - 1] = (cur + ' ' + word).trim()
-    else lines.push(word)
+  // Prompt cache: drains from the top as time runs out
+  if (m.cache) {
+    const c = m.cache
+    const x = cx[3] ?? 0
+    column(x, 'Cache', c.view.label, c.color)
+    bar(x, c.view.frac * 100, c.color)
+    if (c.view.warmUsd !== null && c.view.coldUsd !== null) {
+      out += text(x, bottom + 28, money(c.view.warmUsd), { size: 9, anchor: 'middle' })
+      out += text(x, bottom + 39, `${money(c.view.coldUsd)} cold`, { size: 9, anchor: 'middle', fill: C.orange })
+    }
   }
-  lines.slice(0, 2).forEach((line, i) => {
-    out += text(w / 2, bottom + 46 + i * 12, line, {
-      size: 9,
-      anchor: 'middle',
-      fill: toneColor(m.ctx.legend.tone),
-    })
+
+  // The legend: up to three short lines under everything
+  const legend = legendLines(m.ctx.legend, w - 12, LEGEND_SIZE, 3)
+  const legendTop = bottom + (m.cache ? 56 : 46)
+  legend.forEach((line, i) => {
+    out += text(w / 2, legendTop + i * 12, line, { size: LEGEND_SIZE, anchor: 'middle', fill: toneColor(m.ctx.legend.tone) })
   })
+  const height = legendTop + (legend.length - 1) * 12 + 8
 
   return { source: wrapSvg(w, height, out), width: w, height }
 }
@@ -370,14 +560,14 @@ export function cells(percent: number, width: number): number {
   return Math.max(1, Math.round((p / 100) * width))
 }
 
-export function line(m: Model, bar = 8): Segment[] {
+export function line(m: Model, bar = m.cache ? 6 : 8): Segment[] {
   const out: Segment[] = []
-  const meter = (label: string, percent: number, color: string, tail = '') => {
+  const meter = (label: string, percent: number, color: string, tail = `${pct(percent)}`) => {
     const n = cells(percent, bar)
     out.push({ t: `${label} `, fill: C.gray })
     if (n > 0) out.push({ t: '━'.repeat(n), fill: color })
     out.push({ t: '━'.repeat(bar - n), fill: '#636366' })
-    out.push({ t: ` ${pct(percent)}${tail}`, fill: C.gray })
+    out.push({ t: ` ${tail}`, fill: C.gray })
   }
   meter('Context', m.ctx.percent, m.ctx.color)
   out.push({ t: '   ', fill: C.gray })
@@ -385,8 +575,12 @@ export function line(m: Model, bar = 8): Segment[] {
   out.push({ t: '   ', fill: C.gray })
   meter('Week', m.week.used, m.week.color)
   out.push({ t: ` ${m.week.paceText}`, fill: m.week.paceColor })
+  if (m.cache) {
+    out.push({ t: '   ', fill: C.gray })
+    meter('Cache', m.cache.view.frac * 100, m.cache.color, m.cache.view.label)
+  }
   if (m.ctx.legend.tone !== 'calm') {
-    const short = m.ctx.legend.tone === 'alert' ? 'start a fresh session' : 'long context'
+    const short = m.ctx.legend.tone === 'alert' ? 'nearly full: hand off now' : 'quality may slip'
     out.push({ t: `   ${short}`, fill: toneColor(m.ctx.legend.tone) })
   }
   return out

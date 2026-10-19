@@ -2,6 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import type { PlanSnap } from '../types'
+import { bandKey, stack } from './bands'
 import {
   EMPTY,
   PHASES,
@@ -139,7 +140,7 @@ export const register: Register = (on, options) => {
         : s.phase
 
     const mine = (
-      <Box flexDirection="column" paddingX={1}>
+      <Box key={bandKey('plan-progress')} flexDirection="column" paddingX={1}>
         <Text wrap="truncate">
           <Text bold color="cyan">Goal </Text>
           {clip(s.goal || 'working…', cols - 8)}
@@ -158,13 +159,6 @@ export const register: Register = (on, options) => {
       </Box>
     )
 
-    return below.type === 'engine' ? (
-      mine
-    ) : (
-      <Box flexDirection="column">
-        {below}
-        {mine}
-      </Box>
-    )
+    return stack(below, mine as never, Box)
   })
 }

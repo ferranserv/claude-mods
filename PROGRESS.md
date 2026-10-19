@@ -1,21 +1,27 @@
 # PROGRESS
 
-## Batch 1: new mods (done)
-- plan-progress: 8 tests pass, validate ok, tsc ok. No model calls.
-- prompt-enhancer: 6 tests pass, validate ok, tsc ok. 1 haiku call per Enhance.
-- mods-manager + sync.sh: tested install into `my-mods` (3 plugins, user scope). Idempotent; never overwrites newer ~/mods copy.
-- tools/audit-sessions.py: written, smoke-tested on 1 session only.
+## Session 2 (2026-10-19): saver + meters in the repo
+Done
+- meters tests: lib (pure), mount (desktop + terminal, side/top, survey, session restore), behavior (cache learning, notice, handoff, hotkeys, buttons), bands. 85 passing.
+- saver: 14 passing (stack, divider). plan-progress 14, prompt-enhancer 12. All four: `claude plugin validate` ok, tsc clean (strict).
+- Found and fixed: plan-progress and prompt-enhancer returned their tree without calling `next`, replacing any band beneath (meters, saver) while visible. All four now stack through `hooks/bands.tsx` by rank.
+- Layout: meters above saver, rule between them, legend wraps to 2 lines, font 9px, band up to 1400px (8 px per column; was 7 and 980 max).
+- Context bar: blue < 50%, orange from 50% or 150k tokens (quality warning), red past 80%. Thresholds are options.
+- Cache meter (4th column / `Cache` in the terminal line), `/cache`, going-cold notice, cost warm vs cold.
+- Handoff: `/handoff`, `/fresh`, buttons, `meta+h` / `meta+n`.
+- Side panel: inline (not docked) placement draws the band layout; person closing the pane is remembered.
 
-## Unblocked 2026-10-19: saver and meters are in this repo
-Pushed by the local session: `saver/` (7 tests) and `meters/` (context bar + 5-hour + weekly slots, band or `/meters side`). `meters` replaces the user's earlier context-bar and usage-limits mods, so the context-bar color/50%-warning work applies to `meters`. See `HANDOFF.md` for exact state, API gotchas and what is unverified.
+Not verified (see final report): anything on a real screen; `$.command.run('clear')` from a timer; `$.ui.notify` on the desktop; the real cache TTL; pasting after /clear; older Claude Code builds rejecting helpers that take `$`.
 
-## Blocked: needs user's existing mods (now partly resolved, see above)
-Waiting on: user pushes saver / context-lines / meters (side, top) mods to a branch of this repo, plus the screenshot pasted in chat.
-Then: layout fixes, context-bar colors (first warning 50%), smaller warnings + wider cutoff, meters check, cache countdown (+5 min notify, cost in/out of window), Handoff & Clear, `/handoff`, quality-degradation warning, hotkeys.
+## Next
+1. Owner: paste the screenshot, run the mods on the real app, report what cuts off or collides.
+2. Owner: run `python3 tools/audit-sessions.py`, pick an idea from the five.
+3. Confirm `meta+h` / `meta+n` / `meta+e` reach the prompt box in the owner's terminal.
 
 ## Open decisions
-- Enhance button cannot sit inside the prompt box (no API site). Band above prompt instead.
-- Dev-copy + installed copy of same mod can double-load in one session.
+- Enhance button cannot sit inside the prompt box (no API site): band above the prompt.
+- A dev (hot-reloaded) copy and the installed copy of the same mod can double-load.
+- Weekdays Mon-Fri only (weekend counts as Friday); weekly reset time not shown (kept from the handoff).
 
 ## Context refresher
-Mods are 3 files: `.claude-plugin/plugin.json`, `hooks/hooks.json`, `hooks/register.tsx`. Check: `claude plugin validate|test <dir>`.
+Mods are `.claude-plugin/plugin.json`, `hooks/hooks.json`, `hooks/register.tsx`. Check: `claude plugin validate|test <dir>`. A hook may pass `$` only to functions declared at the top of the file (CLI 2.1.303). Tests run only inside one plugin's folder, so band mods cannot be loaded together in one test.

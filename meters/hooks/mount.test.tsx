@@ -1,7 +1,9 @@
-import type { On } from 'claude-code'
 import { expect, mock, test } from 'claude-code/testing'
 
+import { world as worldAt } from './world'
+
 const WED = new Date(2026, 9, 21, 12).getTime()
+const world = (on: Parameters<typeof worldAt>[0], o: Parameters<typeof worldAt>[1] = {}) => worldAt(on, o)
 
 const props = (extra: Record<string, unknown> = {}) => ({
   hasSurvey: false,
@@ -84,32 +86,8 @@ test('a survey takes the band: meters draws nothing of its own', async ($, on) =
 })
 
 // The side panel: the app, not the mod, decides whether (and where) a docked pane is drawn.
-function world(on: On, isPlaced: boolean, stored: Record<string, unknown> = {}) {
-  const open: string[] = []
-  const closed: string[] = []
-  const writes: Record<string, unknown> = {}
-  mock.clock(on, { now: WED })
-  on('session.measure', (_, e) => ({ changed: e.changed }))
-  on('ui.render', () => ({ type: 'engine', ref: 0 }) as never)
-  on('store.get', (_, e) => ({ value: e.key in writes ? writes[e.key] : stored[e.key] }) as never)
-  on('store.set', (_, e) => {
-    writes[e.key] = e.value
-    return { value: undefined } as never
-  })
-  on('ui.open', (_, e) => {
-    open.push(e.id)
-    return { value: isPlaced ? { isPlaced: true } : { isPlaced: false, reason: 'too narrow' } } as never
-  })
-  on('ui.close', (_, e) => {
-    closed.push(e.id)
-    return { value: {} } as never
-  })
-  on('ui.panes', () => ({ value: open.length > closed.length && isPlaced ? [{ id: 'meters', title: 'Usage', isPlaced: true }] : [] }) as never)
-  return { open, closed, writes }
-}
-
 test('/meters side opens the pane and the band steps aside; /meters top brings it back', async ($, on) => {
-  const w = world(on, true)
+  const w = world(on, { isPlaced: true })
   await $.session.measure(measure(200_000, 40, 35) as never)
 
   const side = await $.command.run({ command: 'meters', args: 'side' } as never)
@@ -138,7 +116,7 @@ test('/meters side opens the pane and the band steps aside; /meters top brings i
 })
 
 test('/meters side where no pane can be drawn: says so and keeps the band', async ($, on) => {
-  world(on, false)
+  world(on, { isPlaced: false })
   const r = await $.command.run({ command: 'meters', args: 'side' } as never)
   const text = String((r as { text: string }).text)
   expect(text).toContain('not drawn here')
@@ -151,13 +129,13 @@ test('/meters side where no pane can be drawn: says so and keeps the band', asyn
 })
 
 test('/meters with a bad argument explains itself', async ($, on) => {
-  world(on, true)
+  world(on, { isPlaced: true })
   const r = await $.command.run({ command: 'meters', args: 'left' } as never)
   expect(String((r as { text: string }).text)).toContain('/meters side or /meters top')
 })
 
 test('terminal side pane is text, not SVG', async ($, on) => {
-  world(on, true)
+  world(on, { isPlaced: true })
   await $.session.measure(measure(100_000, 10, 20) as never)
   const ui = await $.ui.mount({ plugin: 'meters', surface: 'terminal', component: 'Pane', requestId: 'meters', props: PANE_PROPS } as never)
   expect(await ui.find({ type: 'Svg' })).toBeUndefined()
@@ -166,10 +144,7 @@ test('terminal side pane is text, not SVG', async ($, on) => {
 })
 
 test('a stored side preference reopens the pane at session start', async ($, on) => {
-  const w = world(on, true, { isSide: true })
-  on('session.usage', () => ({ value: { startedAt: 0, context: { tokens: 50_000, window: 1_000_000, percent: 5 }, rateLimits: [] } }) as never)
-  on('command.register', () => ({ value: { command: 'meters' } }) as never)
-  on('session.start', () => ({ cwd: '/tmp' }) as never)
+  const w = world(on, { isPlaced: true, stored: { isSide: true } })
   await $.session.start({ source: 'startup', cwd: '/tmp' } as never)
   expect(w.open).toEqual(['meters'])
 })

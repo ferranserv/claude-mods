@@ -27,3 +27,11 @@ Also read `REQUEST.md` and `PROGRESS.md`: they hold the owner's wider list (cach
 - A hook is `($, e, next)`; the module may not shadow `on`, `$` or `next`; `$` may only be used as `$.noun.method(...)` (do not pass `$` to helper functions: `claude plugin validate` rejects it).
 - Bars on the desktop are SVG (`Svg` element, width/height in CSS pixels); the terminal has no `Svg`.
 - A tree that does not validate is silently replaced by the engine's own drawing, so test with `$.ui.mount` and `ui.find`.
+
+
+## Session 2 result (cloud session)
+1. Validate + tests ran: saver 7 -> 14 tests, meters 0 -> 85. tsc strict is clean on all four band mods.
+2. `meters/hooks/lib.test.ts`, `mount.test.tsx`, `behavior.test.tsx`, `bands.test.tsx` added (tests need `hooks/world.ts`). The mount test pattern from this file works as written.
+3. Pane path reviewed: no side is promised; an inline (not docked) pane now draws the horizontal layout; closing the pane is remembered.
+4. 150k threshold is now an option (`warnTokens`); weekday and reset-time choices kept.
+5. Stacking: tested one mod at a time with a foreign tree beneath (a test may load only its own plugin folder; inline plugins go through a stricter loader that rejects the mods). Result and fix: see PROGRESS.md.
