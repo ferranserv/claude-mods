@@ -147,7 +147,7 @@ async function newWorktree($: EngineInterface, selfId: string): Promise<void> {
     // Cosmetic: the folder then shows as untracked in the main checkout.
   }
   await $.store.set('lastWorktree', path)
-  await say($, `Worktree ready: ${path} (branch claude/${slug}). Press Switch to move this session in, or Copy path.`)
+  await say($, `Worktree ready: claude/${slug}`)
 }
 
 async function switchInto($: EngineInterface): Promise<void> {
@@ -174,8 +174,8 @@ async function checkpoint($: EngineInterface, onDefault: boolean): Promise<void>
   if (!add.ok) return say($, `git add failed: ${add.err.trim().split('\n')[0] ?? ''}`, true)
   const c = await git($, repo.cwd, ['commit', '-m', checkpointMessage(pk.take.length, branch), '--', ...pk.take])
   if (!c.ok) return say($, `Commit failed: ${(c.err || c.out).trim().split('\n')[0] ?? ''}`, true)
-  const skipped = pk.secrets.length > 0 ? ` ${pk.secrets.length} secret-looking file(s) left alone.` : ''
-  await say($, `Checkpoint committed on ${branch} (${pk.take.length} files, not pushed). Undo: git reset --soft HEAD~1.${skipped}`)
+  const skipped = pk.secrets.length > 0 ? ` ${pk.secrets.length} secret left alone.` : ''
+  await say($, `Committed ${pk.take.length} files on ${branch}, not pushed.${skipped} Undo: git reset --soft HEAD~1`)
 }
 
 async function commitPeer($: EngineInterface, peerId: string): Promise<void> {
@@ -195,25 +195,27 @@ async function commitPeer($: EngineInterface, peerId: string): Promise<void> {
   const c = await git($, peer.cwd, ['commit', '-m', peerCommitMessage(pk.take.length, peerId, peer.branch), '--', ...pk.take])
   if (!c.ok) return say($, `Commit failed: ${(c.err || c.out).trim().split('\n')[0] ?? ''}`, true)
   const rest = pk.leave.length + pk.secrets.length
-  await say($, `Committed ${pk.take.length} files on ${peer.branch} for session ${short(peerId)} (local, not pushed). Undo: git -C "${peer.cwd}" reset --soft HEAD~1.${rest > 0 ? ` ${rest} other file(s) left alone.` : ''}`)
+  await say($, `Committed ${pk.take.length} files on ${peer.branch}, not pushed.${rest > 0 ? ` ${rest} left alone.` : ''} Undo: git -C "${peer.cwd}" reset --soft HEAD~1`)
 }
 
 // ---- the band ----
 
 const counts = (a: { add: number; del: number }) => (a.add + a.del > 0 ? ` (+${a.add} −${a.del})` : '')
+const files = (n: number) => `${n} file${n === 1 ? '' : 's'}`
 
+// Short on purpose: the whole band is one line.
 const label = (a: Advice): string => {
   switch (a.kind) {
     case 'shared-folder':
-      return `Another session (${a.peerIds.map(short).join(', ')}) is working in this same folder. Commits will collide.`
+      return 'Another session is in this folder'
     case 'main':
-      return `You are on ${a.branch}. Edits land on the shared branch.`
+      return `You are on ${a.branch}`
     case 'dirty':
-      return `${a.count} uncommitted change${a.count === 1 ? '' : 's'} before you start${counts(a)}.`
+      return `${files(a.count)} changed${counts(a)}`
     case 'peer-working':
-      return `Session ${short(a.peerId)} is working on ${a.branch}. Its files are not safe to commit yet.`
+      return `Session ${short(a.peerId)} is working`
     case 'peer-done':
-      return `Session ${short(a.peerId)} finished on ${a.branch}: ${a.take} file${a.take === 1 ? '' : 's'} uncommitted${counts(a)}${a.leave > 0 ? `, ${a.leave} not its` : ''}${a.secrets > 0 ? `, ${a.secrets} secret-looking skipped` : ''}.`
+      return `Session ${short(a.peerId)} finished: ${files(a.take)}${counts(a)}${a.secrets > 0 ? `, ${a.secrets} secret skipped` : ''}`
   }
 }
 
@@ -320,65 +322,55 @@ export const register: Register = on => {
     if (e.props.hasSurvey || e.props.isWorking) return below
     const list = await read($, advice)
     const note = await read($, notice)
-    if ((list.length === 0 || (await read($, isDismissed))) && !note) return below
+    if (!note && (list.length === 0 || (await read($, isDismissed)))) return below
 
     const { Box, Text, Button } = $.ui.resolve(e)
     const ask = await read($, pending)
-    const rows: RenderChildren[] = []
-
-    if (!(await read($, isDismissed))) {
-      for (const a of list) {
-        const warn = a.kind !== 'peer-working'
-        const buttons: RenderChildren[] = []
-        if (a.kind === 'shared-folder' || a.kind === 'main') {
-          buttons.push(<Button key={`wt-${a.kind}`} label="New worktree" onPress={act($, () => newWorktree($, S.selfId))} />)
-        }
-        if (a.kind === 'dirty') {
-          buttons.push(<Button key="cp" label={a.onDefault ? 'Checkpoint on a new branch' : 'Checkpoint commit'} onPress={act($, () => checkpoint($, a.onDefault))} />)
-        }
-        if (a.kind === 'peer-done' && a.take > 0) {
-          if (ask === a.peerId) {
-            buttons.push(<Button key="yes" label={`Yes, commit ${a.take}${counts(a)} on ${a.branch} (local only)`} onPress={act($, () => commitPeer($, a.peerId))} />)
-            buttons.push(<Button key="no" label="Cancel" onPress={() => void update($, pending, () => null)} />)
-          } else {
-            buttons.push(<Button key="ask" label={`Commit its ${a.take} file${a.take === 1 ? '' : 's'}`} onPress={() => void update($, pending, () => a.peerId)} />)
-          }
-        }
-        rows.push(
-          <Box key={`${a.kind}-${'peerId' in a ? a.peerId : ''}`} flexDirection="row" flexWrap="wrap">
-            <Text color={warn ? COLOR.warn : COLOR.dim}>● </Text>
-            <Text color={warn ? COLOR.text : COLOR.dim}>{label(a)} </Text>
-            {buttons}
-          </Box>,
-        )
-      }
-      if (list.length > 0) {
-        rows.push(
-          <Box key="close" flexDirection="row">
-            <Button key="recheck" label="Re-check" onPress={act($, async () => update($, notice, () => null).then(() => undefined))} />
-            <Button key="hide" label="Hide" onPress={() => void update($, isDismissed, () => true)} />
-          </Box>,
-        )
-      }
-    }
+    const items: RenderChildren[] = []
+    const sep = (k: string) => <Text key={`sep-${k}`} color={COLOR.dim}>{'  ·  '}</Text>
 
     if (note) {
-      rows.push(
-        <Box key="note" flexDirection="row" flexWrap="wrap">
-          <Text color={note.isError ? COLOR.warn : COLOR.ok}>{note.isError ? '! ' : '✓ '}</Text>
-          <Text color={COLOR.text}>{note.text} </Text>
-          {note.text.startsWith('Worktree ready') ? <Button key="sw" label="Switch" onPress={() => void switchInto($)} /> : null}
-          {note.text.startsWith('Worktree ready') ? (
-            <Button key="copy" label="Copy path" onPress={() => void $.store.get('lastWorktree').then(p => $.ui.copy({ text: String(p ?? ''), surface: e.surface }))} />
-          ) : null}
-          <Button key="ok" label="Dismiss" onPress={() => void update($, notice, () => null)} />
-        </Box>,
-      )
+      items.push(<Text key="note" color={note.isError ? COLOR.warn : COLOR.ok}>{note.isError ? '! ' : '✓ '}{note.text}</Text>)
+      if (note.text.startsWith('Worktree ready')) {
+        items.push(<Button key="sw" label="Switch" onPress={() => void switchInto($)} />)
+        items.push(<Button key="copy" label="Copy path" onPress={() => void $.store.get('lastWorktree').then(p => $.ui.copy({ text: String(p ?? ''), surface: e.surface }))} />)
+      }
+      items.push(<Button key="ok" label="OK" onPress={() => void update($, notice, () => null)} />)
+    } else {
+      list.forEach((a, i) => {
+        const warn = a.kind !== 'peer-working'
+        const id = `${a.kind}-${'peerId' in a ? a.peerId : ''}`
+        if (i > 0) items.push(sep(id))
+        const asking = a.kind === 'peer-done' && ask === a.peerId
+        items.push(
+          <Text key={id} color={warn ? COLOR.warn : COLOR.dim}>
+            {asking ? `Commit ${files(a.take)} on ${a.branch}? Not pushed.` : label(a)}
+          </Text>,
+        )
+        if (a.kind === 'shared-folder' || a.kind === 'main') {
+          items.push(<Button key={`wt-${a.kind}`} label="New worktree" onPress={act($, () => newWorktree($, S.selfId))} />)
+        }
+        if (a.kind === 'dirty') {
+          items.push(<Button key="cp" label={a.onDefault ? 'Commit to new branch' : 'Commit checkpoint'} onPress={act($, () => checkpoint($, a.onDefault))} />)
+        }
+        if (a.kind === 'peer-done' && a.take > 0) {
+          if (asking) {
+            items.push(<Button key="yes" label="Yes, commit" onPress={act($, () => commitPeer($, a.peerId))} />)
+            items.push(<Button key="no" label="No" onPress={() => void update($, pending, () => null)} />)
+          } else {
+            items.push(<Button key="ask" label="Commit its files" onPress={() => void update($, pending, () => a.peerId)} />)
+          }
+        }
+      })
+      items.push(sep('end'))
+      items.push(<Button key="hide" label="Hide" onPress={() => void update($, isDismissed, () => true)} />)
     }
 
+    // One line, a blank line below so the next band does not touch it.
     const mineBand = (
-      <Box key={KEY} flexDirection="column">
-        {rows}
+      <Box key={KEY} flexDirection="row" alignItems="center" gap={1} marginBottom={1}>
+        <Text color={COLOR.warn}>●</Text>
+        {items}
       </Box>
     )
     return stack(below, mineBand as never, Box)
