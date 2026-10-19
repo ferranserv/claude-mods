@@ -55,6 +55,21 @@ Unverified: all of the above on the app.
 - Owner ran the OLD saver (`/saver why` printed the 0.1.2 help): the fixes were not merged yet.
 - saver 0.2.0: strip hidden unless saver is on and the last answer was routed to Haiku (`/saver strip active|on|always`); the rule above it is saver's again (appears only with the strip); meters 0.2.5 draws no rule. 23 saver tests.
 
+## Session 4c: the update routine is documented
+- Owner's stale-versions problem: the app's saved marketplace copy is only pulled by hand. Routine now in `mods-manager/skills/sync-mods/SKILL.md` (top section), README ("Keeping the mods current"), `CLAUDE.md` (so every session reminds), and `tools/update-mods.cmd` (pull, print versions, say what to click; written for Windows, NOT run here).
+- Option not built: have mods-manager pull the marketplace copy itself at session start (the path is derivable from its plugin root). Needs `$.process.run` in the desktop app, unverified.
+
+## Session 5: QA round 3 fixes
+Passed: versions, cache label, side mode, warning levels, fresh and handoff buttons, /meters handoff|fresh, saver strip, sparkle and /enhance loaded (N6 steps 1-4).
+Fixed
+- N4e: the handoff copy was never written on Windows (looked up HOME only; Windows has USERPROFILE). Now HOME, USERPROFILE, HOMEDRIVE+HOMEPATH; the toast says where the copy is, or that it could not be saved.
+- N8: buttons showed while Claude worked because the app does not set `isWorking`: the mod now tracks turns itself. Timer frozen: a /goal continuation turn is not a typed prompt, so the clock never restarted; `turn.start` now restarts it.
+- N5: checklist empty although `update_plan` ran six times: the list is now found in any plan/todo/task/step-named tool with a list of {text, status} items; `/plan-debug` prints the last such call. Phase chips: full width, joined by lines, green for phases already visited. 
+- Requested: copy-handoff without clearing (button, `/newsession brief`, `/meters brief`).
+- N4c: could not reproduce (`/newsession paste` never clears in tests, now covered for several spellings). Probably `/newsession` was typed without `paste`.
+Not fixed: Alt hotkeys (app-level keys, not needed); the goal evaluator's re-prompt loop belongs to the app's /goal.
+Unverified on the app: all of it. Open: "draft missing from prompt box" in N8 is unexplained.
+
 ## Next
 1. Owner: paste the screenshot, run the mods on the real app, report what cuts off or collides.
 2. Owner: run `python3 tools/audit-sessions.py`, pick an idea from the five.

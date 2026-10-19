@@ -7,6 +7,7 @@ export const EMPTY: PlanSnap = {
   isGoalCmd: false,
   tasks: [],
   phase: 'researching',
+  visited: [],
   startedAt: 0,
   endedAt: 0,
   isRunning: false,
@@ -102,8 +103,37 @@ function startIfNew(s: PlanSnap, ctx: Ctx): PlanSnap {
   return { ...s, startedAt: ctx.promptAt || ctx.now, goal: s.goal || clip(firstLine(ctx.promptText), 200), isRunning: true }
 }
 
+/** Marks the current phase as visited: a phase you have been in and moved on from reads as done. */
+export function withVisited(s: PlanSnap): PlanSnap {
+  return s.visited.includes(s.phase) ? s : { ...s, visited: [...s.visited, s.phase] }
+}
+
+const SUBJECT_KEYS = ['step', 'content', 'subject', 'title', 'task', 'text', 'name', 'description', 'activeForm']
+
+/**
+ * The task list inside a tool call whatever it is called: the first array of objects that each carry some
+ * text and a status. Covers TodoWrite ({ todos }), update_plan ({ plan }) and shapes not seen yet.
+ */
+export function extractList(input: Record<string, unknown>): PlanTask[] | undefined {
+  for (const value of Object.values(input)) {
+    if (!Array.isArray(value) || value.length === 0) continue
+    const items = value.map(rec)
+    if (!items.every(t => 'status' in t && SUBJECT_KEYS.some(k => typeof t[k] === 'string'))) continue
+    return items.map((t, i) => {
+      const subject = SUBJECT_KEYS.map(k => t[k]).find(v => typeof v === 'string' && v.trim() !== '')
+      return { id: String(i + 1), subject: typeof subject === 'string' ? subject : `Step ${i + 1}`, status: statusOf(t.status) }
+    })
+  }
+  return undefined
+}
+
 /** Folds one finished tool call into the snapshot; unknown tools return `s` itself. */
 export function applyTool(s: PlanSnap, tool: string, input: Record<string, unknown>, result: unknown, ctx: Ctx): PlanSnap {
+  const next = applyToolInner(s, tool, input, result, ctx)
+  return next === s ? s : withVisited(next)
+}
+
+function applyToolInner(s: PlanSnap, tool: string, input: Record<string, unknown>, result: unknown, ctx: Ctx): PlanSnap {
   const name = norm(tool)
   const text = (...keys: string[]): string | undefined => {
     for (const k of keys) if (typeof input[k] === 'string' && (input[k] as string).trim() !== '') return input[k] as string
@@ -138,18 +168,15 @@ export function applyTool(s: PlanSnap, tool: string, input: Record<string, unkno
     return { ...s, tasks, phase }
   }
 
-  // The whole list at once: Claude Code's TodoWrite ({ todos: [{ content, status }] }) and the
-  // update_plan shape other agents use ({ plan: [{ step, status }] }).
-  const list = name === 'todowrite' || name === 'writetodos' ? input.todos : name === 'updateplan' ? input.plan : undefined
-  if (Array.isArray(list)) {
-    const tasks: PlanTask[] = list.map((raw, i) => {
-      const t = rec(raw)
-      const subject = [t.content, t.step, t.subject, t.title].find(v => typeof v === 'string' && v.trim() !== '')
-      return { id: String(i + 1), subject: typeof subject === 'string' ? subject : `Step ${i + 1}`, status: statusOf(t.status) }
-    })
-    const active = tasks.find(t => t.status === 'in_progress')
-    const phase = (active && phaseFromSubject(active.subject)) || s.phase
-    return startIfNew({ ...s, tasks, phase }, ctx)
+  // The whole list at once: TodoWrite ({ todos }), update_plan ({ plan }) and any tool with a plan, todo or
+  // task in its name that carries a list of { text, status } objects.
+  if (/todo|plan|task|step/.test(name)) {
+    const tasks = extractList(input)
+    if (tasks) {
+      const active = tasks.find(t => t.status === 'in_progress')
+      const phase = (active && phaseFromSubject(active.subject)) || s.phase
+      return startIfNew({ ...s, tasks, phase }, ctx)
+    }
   }
 
   return s
@@ -166,6 +193,11 @@ export function applyGoalCommand(s: PlanSnap, args: string, ctx: Ctx): PlanSnap 
   if (text === '') return s
   if (/^(clear|off|stop|cancel)$/i.test(text)) return EMPTY
   return { ...s, goal: clip(firstLine(text), 200), isGoalCmd: true, startedAt: s.startedAt || ctx.now, endedAt: 0, isRunning: true }
+}
+
+/** Any new main-loop turn (a goal's continuation, a hook's re-prompt) makes the clock run again. */
+export function applyTurnStart(s: PlanSnap): PlanSnap {
+  return isActive(s) && !s.isRunning ? { ...s, isRunning: true, endedAt: 0 } : s
 }
 
 export function applyTurnEnd(s: PlanSnap, now: number): PlanSnap {

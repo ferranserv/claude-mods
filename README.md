@@ -31,7 +31,7 @@ Cloud sessions on this repo load the mods from `.claude/settings.json`. For clou
 
 ## Keeping the mods current
 
-- **Installed from GitHub (the desktop app route above):** click **Update** on the Plugins page after each merge, then start a new session.
+- **Installed from GitHub (the desktop app route above):** the app keeps its own saved copy of the repo and does not refresh it. After each merge run `tools\update-mods.cmd` from that copy (`%USERPROFILE%\.claude\plugins\marketplaces\claude-mods\tools\update-mods.cmd`), or `git -C "$env:USERPROFILE\.claude\plugins\marketplaces\claude-mods" pull`, then click **Update** on the Plugins page and start a new session. Deleting and reinstalling plugins alone re-reads the stale copy. The same steps are in the `sync-mods` skill (`mods-manager`) and in `CLAUDE.md`.
 - **Installed from a local clone (CLI route):** `mods-manager` (0.2.0+) runs `git pull --ff-only` in that folder at session start (at most hourly), shows "Mods updated to <commit>. Start a new session to load them.", and `/updatemods` does it now. It only works where the app lets a mod run `git`; elsewhere it says so once. Manual fallback: `git -C "$env:USERPROFILE\mods" pull`, then a new session. Turn it off with the `autoUpdate` option. When the mods come from GitHub, the folder is not a git clone and it does nothing.
 - Anything merged to `main` is loaded from then on: the merge is the gate.
 
@@ -48,7 +48,7 @@ If you also keep the hot-reloaded dev copy enabled, a mod can load twice in that
 | `/meters side` / `/meters top` | Side panel, or back to the band. The app decides where a docked pane goes; no side is promised. Closing the panel with its own mark is remembered. |
 | `/handoff` | Writes a handoff brief, clears the session, pastes the brief into the fresh prompt box (review, then Enter). `/handoff paste` puts the last brief back in the prompt box (no clear). A copy is saved in `~/.claude/handoffs/`. |
 | `/fresh` | Clears the session, no brief. |
-| `/newsession` | Same as `/handoff`, for setups where `/handoff` already belongs to another skill. |
+| `/newsession` | Same as `/handoff`, for setups where `/handoff` already belongs to another skill. `/newsession brief` (also `/meters brief`, or the **Copy handoff, keep session** button) writes the brief into the prompt box and the clipboard WITHOUT clearing; `/newsession paste` puts the last brief back, no clear. |
 | `/meters warn 5`, `/meters red 70`, `/meters tokens 50k`, `/meters limits [reset]` | Change the context warning levels (orange / red / by size) from the prompt, no options screen needed; saved across sessions. |
 | `/meters status` | Lists which of the commands above the app accepted, and which it refused. |
 | `/meters cache`, `/meters handoff`, `/meters fresh` | The same actions through `/meters`, which always registers first: use them if the app refuses a command name. |
@@ -69,9 +69,10 @@ Cache window: Claude Code's API usage does not report the TTL, so `meters` learn
 - Claude Code has no render site inside the prompt box, so the Enhance button sits in a band directly above it, right-aligned. The hotkey and `/enhance` work anywhere.
 - Hotkey `meta+e` is Option+E on macOS only when the terminal sends Option as Meta. Change it in the mod's options.
 - The chime uses `afplay` on macOS and a PowerShell sound player on Windows (best effort: it needs the host to allow running commands). On Linux it plays nothing.
-- `plan-progress` shows only for a `/goal` or a task list of 2+ steps, so it is invisible in an ordinary chat. The ✕ on the panel or `/plan-reset` clears it; `/plan-debug` lists the tool names it has seen (use it when the checklist stays empty). It is drawn as SVG on the desktop, text in a terminal.
+- `plan-progress` shows only for a `/goal` or a task list of 2+ steps, so it is invisible in an ordinary chat. The ✕ on the panel or `/plan-reset` clears it; `/plan-debug` lists the tool names it has seen (use it when the checklist stays empty). It is drawn as SVG on the desktop, text in a terminal: five phase chips across the full width joined by lines (green once you have been in and left a phase, blue for the current one, grey ahead), a bar with percent, steps and time, and the checklist. It finds the task list in any tool whose name has plan, todo, task or step in it and carries a list of {text, status} items (TodoWrite, update_plan, ...); `/plan-debug` prints the last such call so an unknown shape can be read off. The goal evaluator's re-prompting loop after `/goal` is the app's, not this mod's.
 - `saver`: the strip is hidden unless saver is on AND the last answer was routed to Haiku. `/saver strip on` shows it whenever saver is on, `/saver strip always` even when off, `/saver strip active` is the default. `/saver why` says why the last prompt did or did not go to Haiku. Nothing is routed when your session model is already Haiku.
 - The rule above the saver strip belongs to `saver` (its own band, rank 25) and shows only when the strip does.
+- The Alt hotkeys do not work reliably in the desktop app (Alt+H does nothing, Alt+N is the app's own new-session tab): use the buttons or the commands.
 - `/handoff` is held by Anthropic skills (`handoff`, `design:design-handoff`) and is refused here; use `/newsession` or `/meters handoff`.
 - The cache label rounds UP to the step (60m right after a message), so it can read up to 5 minutes more than is left; `/cache` is exact.
 - The Enhance sparkle is always shown above the prompt (dim until you type a draft); `/enhance <draft>` works too.

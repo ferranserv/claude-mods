@@ -5,6 +5,7 @@ export type PlanSnap = {
   isGoalCmd: boolean
   tasks: PlanTask[]
   phase: PlanPhase
+  visited: PlanPhase[]
   startedAt: number
   endedAt: number
   isRunning: boolean
