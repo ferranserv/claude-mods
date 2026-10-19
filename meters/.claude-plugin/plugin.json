@@ -1,6 +1,6 @@
 {
   "name": "meters",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "author": {
     "name": "Ferran"
   },
@@ -35,6 +35,12 @@
       "type": "number",
       "title": "Warn before the cache goes cold (minutes)",
       "description": "A notice this long before the prompt cache expires. Capped at half the window.",
+      "default": 5
+    },
+    "cacheStepMinutes": {
+      "type": "number",
+      "title": "Cache countdown steps (minutes)",
+      "description": "The countdown redraws every this many minutes (55m, 50m, ...). It resets to the full window each time you send a message.",
       "default": 5
     },
     "handoffKey": {

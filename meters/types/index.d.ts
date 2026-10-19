@@ -2,6 +2,7 @@ export type Fill = { tokens: number; window: number; percent: number }
 export type Limit = { kind: string; percentUsed: number; resetsAt?: string }
 export type Cache = {
   lastAt: number
+  lastEndAt: number
   detected: 5 | 60 | null
   misses: number
   notifiedAt: number

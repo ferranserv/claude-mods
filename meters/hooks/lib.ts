@@ -136,7 +136,8 @@ export function money(usd: number): string {
 
 /** What the cache is known to be: learned from the API's own behaviour, else the user's setting. */
 export type CacheState = {
-  lastAt: number // ms of the last main-loop response; 0 before the first
+  lastAt: number // ms the cache was last used: set when you send a message and at each request; 0 before the first
+  lastEndAt: number // ms the last request finished: the idle gap the window is learned from
   detected: 5 | 60 | null
   misses: number // consecutive full misses after an idle gap that a 1-hour cache would have survived
   notifiedAt: number // the lastAt a "going cold" notice was already sent for
@@ -144,7 +145,7 @@ export type CacheState = {
   fallback: number // minutes when nothing is known (60)
 }
 
-export const CACHE_INITIAL: CacheState = { lastAt: 0, detected: null, misses: 0, notifiedAt: 0, override: null, fallback: 60 }
+export const CACHE_INITIAL: CacheState = { lastAt: 0, lastEndAt: 0, detected: null, misses: 0, notifiedAt: 0, override: null, fallback: 60 }
 
 export const windowMinutes = (c: CacheState): number => c.override ?? c.detected ?? c.fallback
 
@@ -197,16 +198,24 @@ export function nextCost(tokens: number, price: Price, windowMin: number): { war
   }
 }
 
-export function cacheView(c: CacheState, now: number, tokens: number, price: Price | null, soonMin = 5): CacheView {
+/**
+ * The countdown. `leftMs` is exact (the notice and /cache use it); `label` and `frac` move in steps of
+ * `stepMin` minutes (55m, 50m, ... then <5m), so the band redraws every few minutes, not every second.
+ */
+export function cacheView(c: CacheState, now: number, tokens: number, price: Price | null, soonMin = 5, stepMin = 5): CacheView {
   const windowMin = windowMinutes(c)
   const cost = price && tokens > 0 ? nextCost(tokens, price, windowMin) : null
   const base = { windowMin, isLearned: c.override === null && c.detected !== null, warmUsd: cost?.warm ?? null, coldUsd: cost?.cold ?? null }
   if (c.lastAt <= 0) return { ...base, state: 'unknown', leftMs: 0, frac: 0, label: '-' }
   const leftMs = c.lastAt + windowMin * 60_000 - now
   if (leftMs <= 0) return { ...base, state: 'cold', leftMs: 0, frac: 0, label: 'cold' }
-  const frac = clamp(leftMs / (windowMin * 60_000), 0, 1)
+  const step = Math.max(1, stepMin)
+  const stepMs = step * 60_000
+  const isWhole = leftMs >= stepMs
+  const shownMs = isWhole ? Math.floor(leftMs / stepMs) * stepMs : leftMs
+  const frac = clamp(shownMs / (windowMin * 60_000), 0, 1)
   const isSoon = leftMs <= Math.min(soonMin, windowMin / 2) * 60_000
-  return { ...base, state: isSoon ? 'soon' : 'warm', leftMs, frac, label: clockText(leftMs) }
+  return { ...base, state: isSoon ? 'soon' : 'warm', leftMs, frac, label: isWhole ? `${shownMs / 60_000}m` : `<${step}m` }
 }
 
 const cacheColor = (v: CacheView): string => (v.state === 'warm' ? C.green : v.state === 'soon' ? C.orange : v.state === 'cold' ? C.red : C.gray)
@@ -232,7 +241,7 @@ export type Model = {
   cache?: CacheModel
 }
 
-export type CacheInput = { state: CacheState; price: Price | null; soonMin?: number }
+export type CacheInput = { state: CacheState; price: Price | null; soonMin?: number; stepMin?: number }
 export type Data = { fill: Fill | null; limits: Limit[]; now: number; cache?: CacheInput; limitsAt?: Thresholds }
 
 export function model(d: Data): Model {
@@ -286,7 +295,7 @@ export function model(d: Data): Model {
 
   let cache: CacheModel | undefined
   if (d.cache) {
-    const v = cacheView(d.cache.state, d.now, tokens, d.cache.price, d.cache.soonMin)
+    const v = cacheView(d.cache.state, d.now, tokens, d.cache.price, d.cache.soonMin, d.cache.stepMin)
     const color = cacheColor(v)
     const win = `${v.windowMin >= 60 ? v.windowMin / 60 + 'h' : v.windowMin + 'm'}${v.isLearned ? '' : ' (set)'}`
     const costs = v.warmUsd !== null && v.coldUsd !== null

@@ -43,28 +43,26 @@ const cache = atom(cacheRef, CACHE_INITIAL as Cache)
 const modelId = atom(modelIdRef, '')
 const isBusy = atom(isBusyRef, false)
 
-// What the one-second timer needs without reading state each time.
-let isTicking = false
+// The countdown text last drawn: the band is redrawn only when it changes.
+let lastLabel = ''
 let isHandoffRunning = false
 
 function patchCache($: EngineInterface, fn: (c: Cache) => Cache) {
   return update($, cache, fn)
 }
 
-/** Once a second while a cache is counting down; once more when it goes cold. Sends the going-cold notice. */
-async function pulse($: EngineInterface, notifyMin: number) {
+/** Every 15 seconds: redraws the band when the countdown text changed, sends the going-cold notice. */
+async function pulse($: EngineInterface, notifyMin: number, stepMin: number) {
   const c = (await $.state.get(cacheRef)).value ?? CACHE_INITIAL
-  if (c.lastAt <= 0) {
-    isTicking = false
-    return
-  }
+  if (c.lastAt <= 0) return
   const now = await $.clock.now()
   const tokens = (await $.state.get(fillRef)).value?.tokens ?? 0
   const price = priceOf((await $.state.get(modelIdRef)).value ?? '')
-  const v = cacheView(c, now, tokens, price, notifyMin)
-  const wasTicking = isTicking
-  isTicking = v.state === 'warm' || v.state === 'soon'
-  if (isTicking || wasTicking) $.ui.invalidate('ui.render')
+  const v = cacheView(c, now, tokens, price, notifyMin, stepMin)
+  if (v.label !== lastLabel) {
+    lastLabel = v.label
+    $.ui.invalidate('ui.render')
+  }
 
   if (v.state === 'soon' && c.notifiedAt !== c.lastAt) {
     await patchCache($, s => ({ ...s, notifiedAt: s.lastAt }))
@@ -164,6 +162,7 @@ export const register: Register = (on, options) => {
   const limitsAt = thresholds(options)
   const fallbackMin = Math.max(1, Number(options.cacheMinutes ?? 60) || 60)
   const notifyMin = Math.max(1, Number(options.notifyMinutes ?? 5) || 5)
+  const stepMin = Math.max(1, Number(options.cacheStepMinutes ?? 5) || 5)
   const handoffChord = parseChord(typeof options.handoffKey === 'string' ? options.handoffKey : 'meta+h')
   const freshChord = parseChord(typeof options.freshKey === 'string' ? options.freshKey : 'meta+n')
   const handoffLabel = typeof options.handoffKey === 'string' ? options.handoffKey : 'meta+h'
@@ -208,7 +207,7 @@ export const register: Register = (on, options) => {
       void $.ui.open({ id: PANE, title: 'Usage' })
     }
 
-    $.clock.every(1000, () => void pulse($, notifyMin))
+    $.clock.every(15_000, () => void pulse($, notifyMin, stepMin))
     return next(e)
   })
 
@@ -229,7 +228,7 @@ export const register: Register = (on, options) => {
 
   // A /clear starts the context over: the old prefix is not what the next request re-reads.
   on('session.end', async ($, e, next) => {
-    if (e.reason === 'clear') await patchCache($, c => ({ ...c, lastAt: 0, notifiedAt: 0 }))
+    if (e.reason === 'clear') await patchCache($, c => ({ ...c, lastAt: 0, lastEndAt: 0, notifiedAt: 0 }))
     return next(e)
   })
 
@@ -243,6 +242,16 @@ export const register: Register = (on, options) => {
     return next(e)
   })
 
+  // Sending a message is what restarts the countdown: the next request re-reads (or re-writes) the whole
+  // prefix and the window starts over. Commands and hidden prompts send nothing.
+  on('prompt.submit', async ($, e, next) => {
+    if (!e.command && !e.isMeta) {
+      const now = await $.clock.now()
+      await patchCache($, c => ({ ...c, lastAt: now }))
+    }
+    return next(e)
+  }).catch(($, e, next) => next(e))
+
   // Every main-loop request touches the prompt cache. The API does not report its TTL, so the window is
   // learned from what the first request after an idle gap read from the cache.
   on('turn.step', async function* ($, e, next) {
@@ -250,22 +259,24 @@ export const register: Register = (on, options) => {
 
     const before = await read($, cache)
     const startedAt = await $.clock.now()
+    // The request is going out: whatever was cached is read now, which restarts the whole window.
+    await patchCache($, c => ({ ...c, lastAt: startedAt }))
     const response = yield* next(e)
     const endedAt = await $.clock.now()
 
     if (e.model !== (await read($, modelId))) await update($, modelId, () => e.model)
     const u = response.usage
     if (u) {
-      const gap = before.lastAt > 0 ? startedAt - before.lastAt : 0
+      // The idle gap is measured from the end of the previous request, not from its start.
+      const gap = before.lastEndAt > 0 ? startedAt - before.lastEndAt : 0
       await patchCache($, c => ({
         ...(gap > 0 ? learnWindow(c, gap, { input: u.input_tokens, read: u.cache_read_input_tokens, create: u.cache_creation_input_tokens }) : c),
-        lastAt: endedAt,
+        lastEndAt: endedAt,
       }))
       if (gap > 0) {
         const learned = (await read($, cache)).detected
         if (learned !== null) await $.store.set('cacheDetected', learned)
       }
-      isTicking = true
     }
     return response
   })
@@ -344,7 +355,7 @@ export const register: Register = (on, options) => {
     const c = await read($, cache)
     const now = await $.clock.now()
     const tokens = (await read($, fill))?.tokens ?? 0
-    const v = cacheView(c, now, tokens, priceOf(await read($, modelId)), notifyMin)
+    const v = cacheView(c, now, tokens, priceOf(await read($, modelId)), notifyMin, stepMin)
     const source = c.override !== null ? 'set by you' : c.detected !== null ? 'learned from the API' : `default, not learned yet (${c.misses} miss${c.misses === 1 ? '' : 'es'} seen)`
     const left = v.state === 'unknown' ? 'no reply yet' : v.state === 'cold' ? 'cold' : `${clockText(v.leftMs)} left`
     const cost = v.warmUsd !== null && v.coldUsd !== null ? ` Next message input: ${money(v.warmUsd)} warm, ${money(v.coldUsd)} cold.` : ''
@@ -380,7 +391,7 @@ export const register: Register = (on, options) => {
       fill: await read($, fill),
       limits: await read($, limits),
       now,
-      cache: { state: await read($, cache), price: priceOf(await read($, modelId)), soonMin: notifyMin },
+      cache: { state: await read($, cache), price: priceOf(await read($, modelId)), soonMin: notifyMin, stepMin },
       limitsAt,
     })
     const { Box, Button } = $.ui.resolve(e)
@@ -421,7 +432,7 @@ export const register: Register = (on, options) => {
       fill: await read($, fill),
       limits: await read($, limits),
       now,
-      cache: { state: await read($, cache), price: priceOf(await read($, modelId)), soonMin: notifyMin },
+      cache: { state: await read($, cache), price: priceOf(await read($, modelId)), soonMin: notifyMin, stepMin },
       limitsAt,
     })
     const { Box, Button } = $.ui.resolve(e)

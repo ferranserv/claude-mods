@@ -21,6 +21,11 @@ Fixed after the screenshots
 - plan-progress is conditional by design (needs `/goal` or 2+ tasks); chime has a Windows PowerShell fallback.
 Still unverified: sparkle position/size, hotkeys, handoff buttons and paste after clear, going-cold notification, plan-progress panel, chime on Windows.
 
+## Session 3b: countdown semantics (owner feedback)
+- Countdown now restarts when a message is sent (prompt.submit) and when each request goes out, not when a reply ends. Commands and hidden prompts do not restart it.
+- Display moves in 5-minute steps (option); redraw only when the label changes; the timer runs every 15 s instead of every second.
+- Window learning measures the idle gap from the end of the previous request (new field `lastEndAt`), so sending a message in between does not break it.
+
 ## Next
 1. Owner: paste the screenshot, run the mods on the real app, report what cuts off or collides.
 2. Owner: run `python3 tools/audit-sessions.py`, pick an idea from the five.

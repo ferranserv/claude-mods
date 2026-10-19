@@ -8,7 +8,7 @@
       "name": "meters",
       "source": "./meters",
       "description": "Context window, 5-hour, weekly usage and the prompt cache countdown as compact meters in one band above the prompt or a side panel, with warnings, a going-cold notice and one-click handoff to a fresh session.",
-      "version": "0.2.1"
+      "version": "0.2.2"
     },
     {
       "name": "mods-manager",
