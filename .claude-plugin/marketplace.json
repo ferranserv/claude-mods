@@ -1,0 +1,26 @@
+{
+  "name": "my-mods",
+  "owner": {
+    "name": "ferranserv"
+  },
+  "plugins": [
+    {
+      "name": "mods-manager",
+      "source": "./mods-manager",
+      "description": "Skill that keeps every mod you build installed from the my-mods marketplace, in every session.",
+      "version": "0.1.0"
+    },
+    {
+      "name": "plan-progress",
+      "source": "./plan-progress",
+      "description": "Panel above the prompt for multi-step work and /goal: goal, phase, task checklist, progress bar, elapsed time, and a chime when a turn ends. Zero model calls.",
+      "version": "0.1.0"
+    },
+    {
+      "name": "prompt-enhancer",
+      "source": "./prompt-enhancer",
+      "description": "A sparkle Enhance button and hotkey that rewrites your draft prompt in place: fitting skills, project details, decisions to ask you first, and what done looks like.",
+      "version": "0.1.0"
+    }
+  ]
+}

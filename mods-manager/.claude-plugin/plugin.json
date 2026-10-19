@@ -1,0 +1,5 @@
+{
+  "name": "mods-manager",
+  "version": "0.1.0",
+  "description": "Skill that keeps every mod you build installed from the my-mods marketplace, in every session."
+}
