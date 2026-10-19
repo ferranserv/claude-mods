@@ -10,6 +10,8 @@ import {
   bandWidth,
   dayKey,
   dividerSvg,
+  isStripShown,
+  parseMode,
   labelLocally,
   money,
   priceOf,
@@ -21,10 +23,14 @@ import type { Level } from './lib'
 const isOn = atom({ plugin: 'saver', key: 'isOn' } as const, true)
 const last = atom({ plugin: 'saver', key: 'last' } as const, null)
 const saved = atom({ plugin: 'saver', key: 'saved' } as const, { day: '', usd: 0 })
+const mode = atom({ plugin: 'saver', key: 'mode' } as const, 'active')
+const lastRouted = atom({ plugin: 'saver', key: 'lastRouted' } as const, false)
 
 export const register: Register = on => {
   // What the current turn was labelled; set when the prompt arrives, read at each step.
   let turnLevel: Level = 'hard'
+  // The last routing decision in words, for /saver why.
+  let why = 'No prompt seen yet this session.'
 
   on('session.start', async ($, e, next) => {
     await $.command.register({
@@ -35,6 +41,9 @@ export const register: Register = on => {
 
     const storedOn = await $.store.get('isOn')
     if (typeof storedOn === 'boolean') await update($, isOn, () => storedOn)
+
+    const storedMode = parseMode(await $.store.get('stripMode'))
+    if (storedMode) await update($, mode, () => storedMode)
 
     const storedSaved = (await $.store.get('saved')) as Saved | undefined
     if (storedSaved && typeof storedSaved.usd === 'number') {
@@ -51,8 +60,16 @@ export const register: Register = on => {
       await $.store.set('isOn', arg === 'on')
       return { text: `saver ${arg}` }
     }
+    if (arg === 'why') return { text: why }
+    if (arg.startsWith('strip')) {
+      const wanted = parseMode(arg.slice(5).trim())
+      if (!wanted) return { text: 'Use /saver strip active (only when it just routed to Haiku), /saver strip on (whenever saver is on) or /saver strip always.' }
+      await $.store.set('stripMode', wanted)
+      await update($, mode, () => wanted)
+      return { text: `The saver strip now shows: ${wanted === 'active' ? 'only when the last answer was routed to Haiku' : wanted === 'on' ? 'whenever saver is on' : 'always, even when off'}.` }
+    }
     const state = (await read($, isOn)) ? 'on' : 'off'
-    return { text: `saver is ${state}. Use /saver on or /saver off.` }
+    return { text: `saver is ${state}; the strip shows ${await read($, mode)}. Use /saver on, /saver off, /saver why or /saver strip active|on|always.` }
   })
 
   on('prompt.submit', async ($, e, next) => {
@@ -60,6 +77,7 @@ export const register: Register = on => {
     if (e.command || e.isMeta || e.turnId !== undefined) return next(e)
 
     turnLevel = 'hard'
+    if (!(await read($, isOn))) why = 'Saver is off: every prompt stays on your model.'
     if (await read($, isOn)) {
       turnLevel = labelLocally(e.text)
       if (turnLevel === 'unclear') {
@@ -81,6 +99,8 @@ export const register: Register = on => {
     if (e.agentId !== undefined) return yield* next(e)
 
     let isHaiku = false
+    if (turnLevel !== 'easy') why = `Stayed on ${e.model}: the prompt was labelled ${turnLevel}.`
+    else if (e.model.toLowerCase().includes('haiku')) why = `Nothing to route: the session model is already ${e.model}.`
     if (turnLevel === 'easy' && !e.model.toLowerCase().includes('haiku')) {
       let tokens = 0
       try {
@@ -89,9 +109,11 @@ export const register: Register = on => {
         tokens = CONTEXT_LIMIT
       }
       isHaiku = (await read($, isOn)) && tokens < CONTEXT_LIMIT
+      why = isHaiku ? `Routed to ${HAIKU_ID}: labelled easy, context ${tokens} tokens (< ${CONTEXT_LIMIT}), your model ${e.model}.` : `Stayed on ${e.model}: labelled easy but context is ${tokens} tokens (>= ${CONTEXT_LIMIT}) or saver is off.`
     }
 
     const response = yield* next(isHaiku ? { ...e, model: HAIKU_ID } : e)
+    await update($, lastRouted, () => isHaiku)
 
     const answered = response.usage?.model ?? (isHaiku ? HAIKU_ID : e.model)
     await update($, last, () => answered)
@@ -113,14 +135,16 @@ export const register: Register = on => {
     const below = await next(e)
     if (e.props.hasSurvey) return below
 
+    const isEnabled = await read($, isOn)
+    if (!isStripShown(await read($, mode), isEnabled, await read($, lastRouted))) return below
+
     const { Box, Text } = $.ui.resolve(e)
     const today = dayKey(await $.clock.now())
-    const isEnabled = await read($, isOn)
     const model = await read($, last)
     const total = await read($, saved)
     const usd = total.day === today ? total.usd : 0
 
-    // A rule with room around it, as a band of its own between the bars (rank 20) and this strip (rank 30).
+    // A rule above the strip, as a band of its own between the bars (rank 20) and the strip (rank 30).
     let rule
     if (e.surface === 'terminal') {
       rule = (
@@ -141,13 +165,13 @@ export const register: Register = on => {
     const mine = (
       <Box key={bandKey('saver')} justifyContent="center">
         <Text color={isEnabled ? COLOR.green : COLOR.track}>●</Text>
-        <Text color={COLOR.dim}> Saver {isEnabled ? 'on' : 'off'}</Text>
+        <Text color={isEnabled ? COLOR.dim : COLOR.track}> Saver {isEnabled ? 'on' : 'off'}</Text>
         <Text color={COLOR.track}>{'   |   '}</Text>
-        <Text color={COLOR.dim}>Answered by </Text>
-        <Text color={COLOR.text}>{model ? shortName(model) : '-'}</Text>
+        <Text color={isEnabled ? COLOR.dim : COLOR.track}>Answered by </Text>
+        <Text color={isEnabled ? COLOR.text : COLOR.track}>{model ? shortName(model) : '-'}</Text>
         <Text color={COLOR.track}>{'   |   '}</Text>
-        <Text color={COLOR.dim}>Saved today </Text>
-        <Text color={COLOR.green}>{money(usd)}</Text>
+        <Text color={isEnabled ? COLOR.dim : COLOR.track}>Saved today </Text>
+        <Text color={isEnabled ? COLOR.green : COLOR.track}>{money(usd)}</Text>
       </Box>
     )
 

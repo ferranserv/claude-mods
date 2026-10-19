@@ -20,6 +20,7 @@ declare module 'claude-code' {
       cache: Cache
       modelId: string
       isBusy: boolean
+      lim: { warnPercent: number; redPercent: number; warnTokens: number }
     }
   }
 }

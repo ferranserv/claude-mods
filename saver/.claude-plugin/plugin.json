@@ -1,9 +1,9 @@
 {
   "name": "saver",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "author": {
     "name": "Ferran"
   },
-  "description": "Sends easy prompts to Haiku 5.5 while context is under 100K, and shows what that saved today above the prompt, set apart from the bars by a rule.",
+  "description": "Sends easy prompts to Haiku 5.5 while context is under 100K. A strip above the prompt (hidden unless saver just routed an answer; /saver strip changes that) shows the model and what was saved today.",
   "types": "./types/index.d.ts"
 }

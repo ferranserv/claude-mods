@@ -415,19 +415,26 @@ describe('prompt cache', () => {
     expect(cacheView(c, WED + 2.6 * MIN, 0, null).state).toBe('soon')
   })
 
-  test('the countdown moves in five-minute steps, rounding down, then reads <5m', () => {
+  test('the countdown moves in five-minute steps, rounding up, then reads <5m', () => {
     const c = at({ lastAt: WED })
     const label = (min: number, step?: number) => cacheView(c, WED + min * MIN, 0, null, 5, step).label
     expect(label(0)).toBe('60m')
-    expect(label(0.5)).toBe('55m')
-    expect(label(2.1)).toBe('55m')
+    expect(label(0.5)).toBe('60m')
+    expect(label(2.1)).toBe('60m')
     expect(label(5)).toBe('55m')
-    expect(label(5.01)).toBe('50m')
-    expect(label(54.9)).toBe('5m')
+    expect(label(5.01)).toBe('55m')
+    expect(label(10.01)).toBe('50m')
+    expect(label(54.9)).toBe('10m')
     expect(label(55.1)).toBe('<5m')
     expect(label(59.9)).toBe('<5m')
     expect(label(3, 1)).toBe('57m')
     expect(label(59.5, 1)).toBe('<1m')
+  })
+
+  test('a 30-minute window reads 30m right after a message, and never more than the window', () => {
+    const c = at({ lastAt: WED, override: 30 })
+    expect(cacheView(c, WED + 0.4 * MIN, 0, null).label).toBe('30m')
+    expect(cacheView(at({ lastAt: WED, override: 7 }), WED + 0.1 * MIN, 0, null).label).toBe('7m')
   })
 
   test('the bar moves with the steps, not between them; exact time is still available', () => {
@@ -435,7 +442,7 @@ describe('prompt cache', () => {
     const a = cacheView(c, WED + 6 * MIN, 0, null)
     const b = cacheView(c, WED + 9 * MIN, 0, null)
     expect(a.frac).toBe(b.frac)
-    expect(Math.abs(a.frac - 50 / 60)).toBeLessThan(1e-9)
+    expect(Math.abs(a.frac - 55 / 60)).toBeLessThan(1e-9)
     expect(Math.abs(b.leftMs - 51 * MIN)).toBeLessThan(1)
   })
 
@@ -467,7 +474,7 @@ describe('prompt cache', () => {
   test('model: cache meter with costs, or with only the window when the price is unknown', () => {
     const state = at({ lastAt: WED - 18 * MIN })
     const priced = model({ ...data(20), cache: { state, price: { input: 2, output: 10 } } })
-    expect(priced.cache?.view.label).toBe('40m')
+    expect(priced.cache?.view.label).toBe('45m')
     expect(priced.cache?.sub).toContain('Next msg $0.04')
     expect(priced.cache?.sub).toContain('cold $0.80')
     const unpriced = model({ ...data(20), cache: { state, price: null } })

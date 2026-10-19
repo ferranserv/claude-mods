@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'claude-code/testing'
 
-import { costOf, dayKey, labelLocally, money, priceOf, savingOf, shortName } from './lib'
+import { costOf, dayKey, isStripShown, labelLocally, money, parseMode, priceOf, savingOf, shortName } from './lib'
 
 describe('labelLocally', () => {
   test('easy work stays easy', () => {
@@ -60,5 +60,21 @@ describe('display', () => {
     expect(money(0.00123)).toBe('$0.0012')
     expect(money(1.234)).toBe('$1.23')
     expect(dayKey(new Date(2026, 9, 19, 12).getTime())).toBe('2026-10-19')
+  })
+})
+
+describe('strip', () => {
+  test('active needs saver on AND the last answer routed; on needs saver on; always is always', () => {
+    expect(isStripShown('active', true, true)).toBe(true)
+    expect(isStripShown('active', true, false)).toBe(false)
+    expect(isStripShown('active', false, true)).toBe(false)
+    expect(isStripShown('on', true, false)).toBe(true)
+    expect(isStripShown('on', false, true)).toBe(false)
+    expect(isStripShown('always', false, false)).toBe(true)
+  })
+  test('modes parse', () => {
+    expect(parseMode('on')).toBe('on')
+    expect(parseMode('nope')).toBeNull()
+    expect(parseMode(undefined)).toBeNull()
   })
 })

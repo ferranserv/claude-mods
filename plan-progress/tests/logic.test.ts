@@ -91,3 +91,26 @@ test('formatting', async () => {
   expect(fmtTime(3_900_000)).toBe('1h05m')
   expect(bar(50, 10)).toBe('█████░░░░░')
 })
+
+import { norm } from '../hooks/logic'
+
+test('tool names are read the same however they are spelled; other plan shapes work', async () => {
+  expect(norm('task_create')).toBe('taskcreate')
+  expect(norm('Task-Update')).toBe('taskupdate')
+  let s: PlanSnap = EMPTY
+  s = applyTool(s, 'task_create', { title: 'Plan it' }, { task: { id: 7, subject: 'Plan it' } }, ctx)
+  expect(s.tasks[0]?.id).toBe('7')
+  s = applyTool(s, 'task_update', { id: 7, status: 'in-progress' }, {}, ctx)
+  expect(s.tasks[0]?.status).toBe('in_progress')
+  s = applyTool(s, 'update_plan', { plan: [{ step: 'Read code', status: 'completed' }, { step: 'Write tests', status: 'in_progress' }, { step: 'Ship', status: 'pending' }] }, {}, ctx)
+  expect(s.tasks.map(t => t.status)).toEqual(['completed', 'in_progress', 'pending'])
+  expect(s.phase).toBe('testing')
+})
+
+test('without an id in the result, new tasks get 1, 2, 3 so TaskUpdate "2" finds them', async () => {
+  let s: PlanSnap = EMPTY
+  s = applyTool(s, 'TaskCreate', { subject: 'a' }, undefined, ctx)
+  s = applyTool(s, 'TaskCreate', { subject: 'b' }, 'Task created', ctx)
+  s = applyTool(s, 'TaskUpdate', { taskId: '2', status: 'completed' }, {}, ctx)
+  expect(s.tasks.map(t => [t.id, t.status])).toEqual([['1', 'pending'], ['2', 'completed']])
+})

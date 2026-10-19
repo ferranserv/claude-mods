@@ -40,6 +40,21 @@ Still unverified: sparkle position/size, hotkeys, handoff buttons and paste afte
 - Migration is in README ("Moving from the old `my-mods` install"). Order matters: merge first, then remove the old marketplace, then add `ferranserv/claude-mods`.
 - Unverified: whether the app lists a GitHub marketplace's new versions without removing/re-adding it (Update button).
 
+## Session 4: QA results (owner's QA run)
+PASS: versions, band layout, /clear resets cache, notice (once, ~2:47 left), countdown continues across /cache, plain chat has no plan panel.
+Fixed
+- Cache label showed 55m right after a message (rounded down): now rounds up to the step (60m, 30m for a 30-min window).
+- Rule under the bars now belongs to meters (it left a dangling rule + strip in side mode); saver strip greys out entirely when off; `/saver why`.
+- Context warning levels settable with `/meters warn|red|tokens|limits` (the options screen is not reachable in the app), so S3/S4/S8 can run.
+- prompt-enhancer never loaded (no /enhance, no sparkle): the only event no working mod uses was `prompt.change`; removed (unconfirmed cause).
+- plan-progress: SVG panel on desktop like the meters; idle state; x button; tool-name variants (task_create, update_plan, ids); `/plan-debug`. Checklist never ticking is still undiagnosed: `/plan-debug` shows what the app sends.
+Not fixed / by design: /handoff is held by two skills (use /newsession); limits update only when a reply reports them; the panel appearing twice is probably the app's own /goal display.
+Unverified: all of the above on the app.
+
+## Session 4b: saver strip
+- Owner ran the OLD saver (`/saver why` printed the 0.1.2 help): the fixes were not merged yet.
+- saver 0.2.0: strip hidden unless saver is on and the last answer was routed to Haiku (`/saver strip active|on|always`); the rule above it is saver's again (appears only with the strip); meters 0.2.5 draws no rule. 23 saver tests.
+
 ## Next
 1. Owner: paste the screenshot, run the mods on the real app, report what cuts off or collides.
 2. Owner: run `python3 tools/audit-sessions.py`, pick an idea from the five.

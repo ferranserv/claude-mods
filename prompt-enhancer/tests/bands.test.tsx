@@ -46,11 +46,10 @@ describe('stack', () => {
     expect(bandsOf(t).map(b => (b.type === 'Text' ? String(b.children?.[0]) : String(b.props?.key)))).toEqual(['A', 'B', 'band:10:plan-progress', 'band:30:saver'])
   })
 
-  test("saver's rule lands between meters and saver, whichever of them is called first", () => {
-    const rule: Tree = { type: 'Box', props: { key: bandKey('saver-rule') }, children: ['rule'] }
-    // saver innermost (it cannot see meters), then meters; and the other way round
-    const a = stack(stack(engine, [rule, band('saver')], Box) as Tree, band('meters'), Box) as Tree
-    const b = stack(stack(engine, band('meters'), Box) as Tree, [rule, band('saver')], Box) as Tree
-    for (const t of [a, b]) expect(keys(t)).toEqual(['band:20:meters', 'band:25:saver-rule', 'band:30:saver'])
+  test('a mod can hand over several bands at once; each is sorted on its own rank', () => {
+    const extra: Tree = { type: 'Box', props: { key: 'band:25:extra' }, children: ['extra'] }
+    const a = stack(stack(engine, [extra, band('saver')], Box) as Tree, band('meters'), Box) as Tree
+    const b = stack(stack(engine, band('meters'), Box) as Tree, [band('saver'), extra], Box) as Tree
+    for (const t of [a, b]) expect(keys(t)).toEqual(['band:20:meters', 'band:25:extra', 'band:30:saver'])
   })
 })

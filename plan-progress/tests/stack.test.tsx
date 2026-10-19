@@ -19,7 +19,7 @@ test('stacks under another mod\'s band instead of replacing it', async ($, on) =
       props: { hasSurvey: false, isWorking: true, maxRows: 12, bodyColumns: 100, scroll: { bodyRows: 10 }, view: {} },
     } as never)
     expect(await ui.find({ type: 'Text', text: /OTHER-MOD-BAND/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /steps/ })).toBeDefined()
+    expect(await ui.find(surface === 'desktop' ? ({ type: 'Svg' } as never) : ({ type: 'Text', text: /steps/ } as never))).toBeDefined()
     await ui.unmount()
   }
 })

@@ -261,7 +261,7 @@ test('the cache meter counts down in the band, and shows cold after the window',
   await step($, w, usage(100, 0, 190_000))
   await w.clock.advance(18 * MIN)
   let ui = await $.ui.mount(band('terminal'))
-  expect(await ui.find({ type: 'Text', text: /40m/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /45m/ })).toBeDefined()
   await ui.unmount()
   await w.clock.advance(50 * MIN)
   ui = await $.ui.mount(band('terminal'))
@@ -311,4 +311,50 @@ test('/newsession does the same as /handoff', async ($, on) => {
   await w.clock.advance(5000)
   expect(w.commands).toEqual(['clear'])
   expect(w.fills.at(-1)).toBe('B')
+})
+
+test('/meters warn, red, tokens: change the context warning levels without the options screen', async ($, on) => {
+  const w = world(on)
+  await started($)
+  const at = (percent: number) => $.session.measure({ context: { tokens: percent * 100, window: 10_000, percent }, rateLimits: [], changed: ['context'] } as never)
+
+  await at(10)
+  let ui = await $.ui.mount(band('desktop'))
+  expect(await ui.find({ key: 'handoff' })).toBeUndefined() // 10% is calm at the default 50
+  await ui.unmount()
+
+  expect(text(await $.command.run({ command: 'meters', args: 'warn 5' } as never))).toContain('orange from 5%')
+  expect(w.writes.limitOverrides).toEqual({ warnPercent: 5 })
+  ui = await $.ui.mount(band('desktop'))
+  expect(await ui.find({ key: 'handoff' })).toBeDefined() // now it warns
+  await ui.unmount()
+
+  expect(text(await $.command.run({ command: 'meters', args: 'red 8' } as never))).toContain('red past 8%')
+  expect(text(await $.command.run({ command: 'meters', args: 'tokens 50k' } as never))).toContain('50k tokens')
+  expect(w.writes.limitOverrides).toEqual({ warnPercent: 5, redPercent: 8, warnTokens: 50_000 })
+
+  expect(text(await $.command.run({ command: 'meters', args: 'warn 0' } as never))).toContain('Use /meters warn')
+  expect(text(await $.command.run({ command: 'meters', args: 'warn lots' } as never))).toContain('Use /meters warn')
+  expect(text(await $.command.run({ command: 'meters', args: 'tokens 10' } as never))).toContain('at least 1000')
+
+  expect(text(await $.command.run({ command: 'meters', args: 'limits reset' } as never))).toContain('from the options')
+  expect(text(await $.command.run({ command: 'meters', args: 'limits' } as never))).toContain('orange from 50%')
+})
+
+test('saved warning levels come back at session start; red never sits below orange', async ($, on) => {
+  world(on, { stored: { limitOverrides: { warnPercent: 30, redPercent: 10 } } })
+  await started($)
+  expect(text(await $.command.run({ command: 'meters', args: 'limits' } as never))).toContain('orange from 30%')
+  expect(text(await $.command.run({ command: 'meters', args: 'limits' } as never))).toContain('red past 30%')
+})
+
+test('meters draws no rule of its own: it belongs to the saver strip, which is hidden unless active', async ($, on) => {
+  world(on)
+  await started($)
+  const ui = await $.ui.mount(band('terminal'))
+  expect(await ui.find({ type: 'Text', text: /^─+$/ })).toBeUndefined()
+  await ui.unmount()
+  const d = await $.ui.mount(band('desktop'))
+  expect(await d.find({ type: 'Svg' })).toBeDefined()
+  await d.unmount()
 })

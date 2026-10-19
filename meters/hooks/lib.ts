@@ -200,7 +200,8 @@ export function nextCost(tokens: number, price: Price, windowMin: number): { war
 
 /**
  * The countdown. `leftMs` is exact (the notice and /cache use it); `label` and `frac` move in steps of
- * `stepMin` minutes (55m, 50m, ... then <5m), so the band redraws every few minutes, not every second.
+ * `stepMin` minutes, rounded UP so a message you just sent reads the full window (60m, 55m, 50m, ... then
+ * <5m). It can read up to one step more than is left, never less; the last step and the notice are exact.
  */
 export function cacheView(c: CacheState, now: number, tokens: number, price: Price | null, soonMin = 5, stepMin = 5): CacheView {
   const windowMin = windowMinutes(c)
@@ -212,7 +213,7 @@ export function cacheView(c: CacheState, now: number, tokens: number, price: Pri
   const step = Math.max(1, stepMin)
   const stepMs = step * 60_000
   const isWhole = leftMs >= stepMs
-  const shownMs = isWhole ? Math.floor(leftMs / stepMs) * stepMs : leftMs
+  const shownMs = isWhole ? Math.min(Math.ceil(leftMs / stepMs) * stepMs, windowMin * 60_000) : leftMs
   const frac = clamp(shownMs / (windowMin * 60_000), 0, 1)
   const isSoon = leftMs <= Math.min(soonMin, windowMin / 2) * 60_000
   return { ...base, state: isSoon ? 'soon' : 'warm', leftMs, frac, label: isWhole ? `${shownMs / 60_000}m` : `<${step}m` }

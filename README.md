@@ -49,6 +49,7 @@ If you also keep the hot-reloaded dev copy enabled, a mod can load twice in that
 | `/handoff` | Writes a handoff brief, clears the session, pastes the brief into the fresh prompt box (review, then Enter). `/handoff paste` puts the last brief back in the prompt box (no clear). A copy is saved in `~/.claude/handoffs/`. |
 | `/fresh` | Clears the session, no brief. |
 | `/newsession` | Same as `/handoff`, for setups where `/handoff` already belongs to another skill. |
+| `/meters warn 5`, `/meters red 70`, `/meters tokens 50k`, `/meters limits [reset]` | Change the context warning levels (orange / red / by size) from the prompt, no options screen needed; saved across sessions. |
 | `/meters status` | Lists which of the commands above the app accepted, and which it refused. |
 | `/meters cache`, `/meters handoff`, `/meters fresh` | The same actions through `/meters`, which always registers first: use them if the app refuses a command name. |
 | `/cache`, `/cache 30`, `/cache auto` | Show the window and exact time left, set the window in minutes, or go back to learning it. |
@@ -68,7 +69,11 @@ Cache window: Claude Code's API usage does not report the TTL, so `meters` learn
 - Claude Code has no render site inside the prompt box, so the Enhance button sits in a band directly above it, right-aligned. The hotkey and `/enhance` work anywhere.
 - Hotkey `meta+e` is Option+E on macOS only when the terminal sends Option as Meta. Change it in the mod's options.
 - The chime uses `afplay` on macOS and a PowerShell sound player on Windows (best effort: it needs the host to allow running commands). On Linux it plays nothing.
-- `plan-progress` shows only for a `/goal` or a task list of 2+ steps, so it is invisible in an ordinary chat. `/plan-reset` clears it.
+- `plan-progress` shows only for a `/goal` or a task list of 2+ steps, so it is invisible in an ordinary chat. The ✕ on the panel or `/plan-reset` clears it; `/plan-debug` lists the tool names it has seen (use it when the checklist stays empty). It is drawn as SVG on the desktop, text in a terminal.
+- `saver`: the strip is hidden unless saver is on AND the last answer was routed to Haiku. `/saver strip on` shows it whenever saver is on, `/saver strip always` even when off, `/saver strip active` is the default. `/saver why` says why the last prompt did or did not go to Haiku. Nothing is routed when your session model is already Haiku.
+- The rule above the saver strip belongs to `saver` (its own band, rank 25) and shows only when the strip does.
+- `/handoff` is held by Anthropic skills (`handoff`, `design:design-handoff`) and is refused here; use `/newsession` or `/meters handoff`.
+- The cache label rounds UP to the step (60m right after a message), so it can read up to 5 minutes more than is left; `/cache` is exact.
 - The Enhance sparkle is always shown above the prompt (dim until you type a draft); `/enhance <draft>` works too.
 
 ## Audit

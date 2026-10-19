@@ -176,12 +176,6 @@ export const register: Register = (on, options) => {
     return r
   }).catch(($, e, next) => next(e))
 
-  on('prompt.change', async ($, e, next) => {
-    const r = await next(e)
-    await setDraft($, r.text)
-    return r
-  }).catch(($, e, next) => next(e))
-
   on('prompt.submit', async ($, e, next) => {
     lastHasDraft = false
     await patch($, { hasDraft: false, original: '' })

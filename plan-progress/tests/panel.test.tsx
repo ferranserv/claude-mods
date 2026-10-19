@@ -1,17 +1,8 @@
 import { expect, mock, test } from 'claude-code/testing'
 
-const BAND = (bodyColumns: number): Record<string, unknown> =>
-  ({
-    component: 'AbovePrompt',
-    props: {
-      hasSurvey: false,
-      isWorking: true,
-      maxRows: 12,
-      bodyColumns,
-      scroll: { bodyRows: 12 },
-      view: {},
-    },
-  })
+const BAND = {
+  props: { hasSurvey: false, isWorking: true, maxRows: 12, bodyColumns: 100, scroll: { bodyRows: 12 }, view: {} },
+}
 
 test('panel shows goal, phase, bar, percent and checklist on terminal and desktop', async ($, on) => {
   mock.clock(on, { now: 1_000 })
@@ -23,11 +14,19 @@ test('panel shows goal, phase, bar, percent and checklist on terminal and deskto
   await $.tool.call({ tool: 'TaskCreate', subject: 'Build API', description: 'd' } as never)
   await $.tool.call({ tool: 'TaskUpdate', taskId: 'Write schema', status: 'completed' } as never)
 
-  for (const surface of ['terminal', 'desktop'] as const) {
-    const ui = await $.ui.mount({ plugin: 'plan-progress', surface, ...BAND(80) } as never)
-    expect(await ui.find({ type: 'Text', text: /50%/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /1\/2 steps/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /Build API/ })).toBeDefined()
-    await ui.unmount()
-  }
+  const ui = await $.ui.mount({ plugin: 'plan-progress', surface: 'terminal', component: 'AbovePrompt', props: BAND.props, } as never)
+  expect(await ui.find({ type: 'Text', text: /50%/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /1\/2 steps/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /Build API/ })).toBeDefined()
+  await ui.unmount()
+
+  const d = await $.ui.mount({ plugin: 'plan-progress', surface: 'desktop', component: 'AbovePrompt', props: BAND.props } as never)
+  const svg = (await d.find({ type: 'Svg' })) as { props?: { source?: string } } | undefined
+  expect(svg).toBeDefined()
+  const source = String(svg?.props?.source)
+  expect(source).toContain('50% · 1/2 steps')
+  expect(source).toContain('Build API')
+  expect(source).toContain('Write schema')
+  expect(source).not.toContain('NaN')
+  await d.unmount()
 })

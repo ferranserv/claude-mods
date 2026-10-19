@@ -33,6 +33,7 @@ const tickRef = { plugin: 'meters', key: 'tick' } as const
 const cacheRef = { plugin: 'meters', key: 'cache' } as const
 const modelIdRef = { plugin: 'meters', key: 'modelId' } as const
 const isBusyRef = { plugin: 'meters', key: 'isBusy' } as const
+const limRef = { plugin: 'meters', key: 'lim' } as const
 
 const fill = atom(fillRef, null)
 const limits = atom(limitsRef, [])
@@ -42,6 +43,8 @@ const tick = atom(tickRef, 0)
 const cache = atom(cacheRef, CACHE_INITIAL as Cache)
 const modelId = atom(modelIdRef, '')
 const isBusy = atom(isBusyRef, false)
+// The context warning levels in force: the options, unless /meters warn|red|tokens changed them.
+const lim = atom(limRef, DEFAULT_LIMITS)
 
 // The countdown text last drawn: the band is redrawn only when it changes.
 let lastLabel = ''
@@ -182,8 +185,30 @@ const thresholds = (o: Record<string, unknown>): Thresholds => {
   return { warnPercent: warn, redPercent: Math.max(warn, n(o.redPercent, DEFAULT_LIMITS.redPercent)), warnTokens: n(o.warnTokens, DEFAULT_LIMITS.warnTokens) }
 }
 
+/** `/meters warn 5`, `/meters red 70`, `/meters tokens 50000`, `/meters limits`, `/meters limits reset`. */
+async function limitsReport($: EngineInterface, arg: string, defaults: Thresholds): Promise<string> {
+  const [what = '', value = ''] = arg.split(/\s+/)
+  const saved = (((await $.store.get('limitOverrides')) as Partial<Thresholds> | undefined) ?? {}) as Partial<Thresholds>
+  let next: Partial<Thresholds> = saved
+  if (what === 'limits' && value === 'reset') next = {}
+  else if (what === 'warn' || what === 'red' || what === 'tokens') {
+    const n = Number(value.replace(/k$/i, '')) * (/k$/i.test(value) ? 1000 : 1)
+    const isPercent = what !== 'tokens'
+    if (!Number.isFinite(n) || (isPercent && (n < 1 || n > 100)) || (!isPercent && n < 1000)) {
+      return isPercent ? `Use /meters ${what} <1 to 100>.` : 'Use /meters tokens <number, at least 1000>, e.g. /meters tokens 150k.'
+    }
+    next = { ...saved, [what === 'warn' ? 'warnPercent' : what === 'red' ? 'redPercent' : 'warnTokens']: n }
+  }
+  if (next !== saved) await $.store.set('limitOverrides', next)
+  const now: Thresholds = { ...defaults, ...next }
+  if (now.redPercent < now.warnPercent) now.redPercent = now.warnPercent
+  await update($, lim, () => now)
+  const source = Object.keys(next).length > 0 ? 'changed with /meters' : 'from the options'
+  return `Context warnings (${source}): orange from ${now.warnPercent}% or ${Math.round(now.warnTokens / 1000)}k tokens, red past ${now.redPercent}%. /meters limits reset goes back to the options.`
+}
+
 export const register: Register = (on, options) => {
-  const limitsAt = thresholds(options)
+  const defaults = thresholds(options)
   const fallbackMin = Math.max(1, Number(options.cacheMinutes ?? 60) || 60)
   const notifyMin = Math.max(1, Number(options.notifyMinutes ?? 5) || 5)
   const stepMin = Math.max(1, Number(options.cacheStepMinutes ?? 5) || 5)
@@ -222,6 +247,8 @@ export const register: Register = (on, options) => {
     } catch {
       failed.push('newsession')
     }
+
+    await limitsReport($, '', defaults)
 
     const usage = await $.session.usage()
     await update($, limits, () => usage.rateLimits)
@@ -363,6 +390,8 @@ export const register: Register = (on, options) => {
       return { text: 'Meters back in the band above the prompt.' }
     }
 
+    if (/^(warn|red|tokens|limits)\b/.test(arg)) return { text: await limitsReport($, arg, defaults) }
+
     if (arg === 'status') {
       const names = ['meters', 'cache', 'fresh', 'handoff', 'newsession']
       const ok = names.filter(n => !failed.includes(n))
@@ -381,7 +410,7 @@ export const register: Register = (on, options) => {
       return { text: 'Starting a fresh session…' }
     }
 
-    return { text: 'Use /meters side, top, cache, handoff, fresh or status.' }
+    return { text: 'Use /meters side, top, cache, handoff, fresh, limits or status.' }
   })
 
   on('command.run', { command: 'newsession' }, async ($, e) => {
@@ -434,7 +463,7 @@ export const register: Register = (on, options) => {
       limits: await read($, limits),
       now,
       cache: { state: await read($, cache), price: priceOf(await read($, modelId)), soonMin: notifyMin, stepMin },
-      limitsAt,
+      limitsAt: await read($, lim),
     })
     const { Box, Button } = $.ui.resolve(e)
     const actions = actionRow(m.ctx.level !== 'calm' && !e.props.isWorking, Box, Button, handoffLabel, freshLabel, () => handoff($, false), () => fresh($))
@@ -475,7 +504,7 @@ export const register: Register = (on, options) => {
       limits: await read($, limits),
       now,
       cache: { state: await read($, cache), price: priceOf(await read($, modelId)), soonMin: notifyMin, stepMin },
-      limitsAt,
+      limitsAt: await read($, lim),
     })
     const { Box, Button } = $.ui.resolve(e)
     const actions = actionRow(m.ctx.level !== 'calm', Box, Button, handoffLabel, freshLabel, () => handoff($, false), () => fresh($))
