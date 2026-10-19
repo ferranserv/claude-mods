@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Gathers mods into ~/mods, regenerates the my-mods marketplace, registers it, installs every mod.
+# Gathers mods into ~/mods, regenerates the claude-mods marketplace, registers it, installs every mod.
 # Idempotent. Needs: bash, python3, tar, claude.
 set -euo pipefail
 
 MODS_DIR="${MY_MODS_DIR:-$HOME/mods}"
-MARKET="my-mods"
+MARKET="claude-mods"
 QUIET=0 COMMIT=0 HOOK=0
 for a in "$@"; do
   case "$a" in

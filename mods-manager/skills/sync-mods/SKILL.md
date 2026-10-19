@@ -1,11 +1,11 @@
 ---
 name: sync-mods
-description: Install and load every mod the user builds, in every session. Use right after creating or editing a mod (a folder with .claude-plugin/plugin.json and hooks/), when the user says "install my mods", "sync mods", or "add this mod to my-mods", and at the end of any mod-building task.
+description: Install and load every mod the user builds, in every session. Use right after creating or editing a mod (a folder with .claude-plugin/plugin.json and hooks/), when the user says "install my mods", "sync mods", or "add this mod to claude-mods", and at the end of any mod-building task.
 ---
 
 # sync-mods
 
-The `my-mods` marketplace lives in `~/mods` (a git clone of `ferranserv/claude-mods`). Every mod there is installed at user scope, so it loads in every session.
+The `claude-mods` marketplace lives in `~/mods` (a git clone of `ferranserv/claude-mods`). Every mod there is installed at user scope, so it loads in every session.
 
 ## After you build or change a mod
 
@@ -19,8 +19,8 @@ The `my-mods` marketplace lives in `~/mods` (a git clone of `ferranserv/claude-m
    It does, in order, and is safe to repeat:
    - copies mods from `~/.claude/dev-mods/*/<mod>` into `~/mods/<mod>` when they are new or changed,
    - rewrites `~/mods/.claude-plugin/marketplace.json` from the mod folders present,
-   - adds or updates the `my-mods` marketplace,
-   - installs each mod as `<mod>@my-mods` at user scope if it is not installed yet.
+   - adds or updates the `claude-mods` marketplace,
+   - installs each mod as `<mod>@claude-mods` at user scope if it is not installed yet.
 3. Run `bash <base directory>/sync.sh --commit` when the user wants the change committed in `~/mods`. Pushing stays the user's call: `git -C ~/mods push`.
 4. Show the result with `claude plugin list` and tell the user `/reload-plugins` loads new mods in the current session; new sessions load them on their own.
 

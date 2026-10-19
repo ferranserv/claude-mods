@@ -1,6 +1,6 @@
 # claude-mods
 
-Personal Claude Code mods, published as the `my-mods` plugin marketplace.
+Personal Claude Code mods, published as the `claude-mods` plugin marketplace.
 
 | Mod | What it does |
 | --- | --- |
@@ -12,22 +12,28 @@ Personal Claude Code mods, published as the `my-mods` plugin marketplace.
 
 ## Install
 
-**Claude desktop app (no terminal needed):** in a local Code session click **+** next to the prompt box, **Plugins**, **Add marketplace** with `ferranserv/claude-mods`, then **Add plugin** for each mod. To update after a merge, update the `my-mods` marketplace from the same menu and start a new session.
+The marketplace is called `claude-mods` (plugin ids look like `meters@claude-mods`). It was called `my-mods` until 2026-10-19; an old local `my-mods` marketplace must be removed first (see below), or the app can keep reading its stale folder.
 
-**With the Claude Code CLI** (macOS/Linux, or Windows with Git Bash and Python):
+**Claude desktop app, from GitHub (recommended, no terminal):** in a local Code session click **+** next to the prompt box, **Plugins**, **Add marketplace** with `ferranserv/claude-mods`, then **Add plugin** for `meters`, `saver`, `plan-progress` and `prompt-enhancer` (`mods-manager` is only for the CLI flow below and does nothing useful installed this way). To update after a pull request is merged: open the Plugins page and click **Update** on each plugin that offers it, then start a new session. Every change bumps the plugin's version so the Update button appears.
+
+**Moving from the old `my-mods` install:** (1) merge the pull request that renamed the marketplace; (2) in the Plugins page remove the `my-mods` marketplace and its plugins; (3) optionally delete or rename the old local clone (`C:\Users\<you>\mods`); (4) add `ferranserv/claude-mods` as above.
+
+**With the Claude Code CLI** (macOS/Linux, or Windows with Git Bash and Python), as an alternative that installs from a local clone:
 
 ```bash
 git clone https://github.com/ferranserv/claude-mods ~/mods
 bash ~/mods/mods-manager/skills/sync-mods/sync.sh --install-hook
 ```
 
-That registers `~/mods` as the `my-mods` marketplace, installs every mod at user scope, and adds a SessionStart hook so mods you drop in later install themselves. Check with `/plugin` (or `claude plugin list`). `mods-manager` and `sync.sh` need `bash` and `python3`; they do nothing useful for desktop-app-only users.
+That registers `~/mods` as the `claude-mods` marketplace, installs every mod at user scope, and adds a SessionStart hook so mods you drop in later install themselves. Check with `/plugin` (or `claude plugin list`). Use either the GitHub marketplace or the local clone, not both: they share a name.
 
 Cloud sessions on this repo load the mods from `.claude/settings.json`. For cloud sessions on other repos, put the install lines above in the environment's setup script.
 
 ## Keeping the mods current
 
-If the app installed the mods from a local clone (for example `C:\Users\<you>\mods`), a merged pull request does not reach it by itself. `mods-manager` (0.2.0+) pulls that folder at session start and shows "Mods updated to <commit>. Start a new session to load them." The new files load in the *next* session, so there is one session of lag. It only works where the app lets a mod run `git`; if not, it says so once. Manual fallback: `git -C "$env:USERPROFILE\mods" pull`, then a new session. Anything merged to `main` is loaded automatically from then on: the merge is the gate. Turn it off with the mod's `autoUpdate` option.
+- **Installed from GitHub (the desktop app route above):** click **Update** on the Plugins page after each merge, then start a new session.
+- **Installed from a local clone (CLI route):** `mods-manager` (0.2.0+) runs `git pull --ff-only` in that folder at session start (at most hourly), shows "Mods updated to <commit>. Start a new session to load them.", and `/updatemods` does it now. It only works where the app lets a mod run `git`; elsewhere it says so once. Manual fallback: `git -C "$env:USERPROFILE\mods" pull`, then a new session. Turn it off with the `autoUpdate` option. When the mods come from GitHub, the folder is not a git clone and it does nothing.
+- Anything merged to `main` is loaded from then on: the merge is the gate.
 
 ## New mods
 

@@ -35,6 +35,11 @@ Still unverified: sparkle position/size, hotkeys, handoff buttons and paste afte
 - mods-manager 0.2.0: session-start `git pull --ff-only` in the plugins' folder (parent of the plugin root), throttled to 1/hour, toast when HEAD changed, one notice if git cannot run, `/updatemods`. 7 tests. UNVERIFIED: whether the desktop app lets a mod run git at all (the CLI docs say process.run is CLI only).
 - Needs one manual `git pull` to receive 0.2.0 itself; automatic afterwards.
 
+## Session 3e: marketplace renamed `my-mods` -> `claude-mods`
+- Owner chose a GitHub-only install. The old local `my-mods` marketplace (a clone at `C:\Users\fservitje\mods`) collided by name with the GitHub one, so re-adding kept reading the stale folder. New name = no collision. mods-manager 0.2.1 (description/names only).
+- Migration is in README ("Moving from the old `my-mods` install"). Order matters: merge first, then remove the old marketplace, then add `ferranserv/claude-mods`.
+- Unverified: whether the app lists a GitHub marketplace's new versions without removing/re-adding it (Update button).
+
 ## Next
 1. Owner: paste the screenshot, run the mods on the real app, report what cuts off or collides.
 2. Owner: run `python3 tools/audit-sessions.py`, pick an idea from the five.

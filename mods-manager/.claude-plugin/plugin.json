@@ -1,9 +1,19 @@
 {
   "name": "mods-manager",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Keeps your mods current: pulls the mods folder from GitHub at session start (/updatemods to do it now), and a skill that installs mods you build.",
   "userConfig": {
-    "autoUpdate": { "type": "boolean", "title": "Pull the mods folder at session start", "description": "Runs git pull --ff-only in the folder the mods are installed from, at most once per interval. New files load in the next session.", "default": true },
-    "minHours": { "type": "number", "title": "Hours between automatic pulls", "description": "0 pulls at every session start.", "default": 1 }
+    "autoUpdate": {
+      "type": "boolean",
+      "title": "Pull the mods folder at session start",
+      "description": "Runs git pull --ff-only in the folder the mods are installed from, at most once per interval. New files load in the next session.",
+      "default": true
+    },
+    "minHours": {
+      "type": "number",
+      "title": "Hours between automatic pulls",
+      "description": "0 pulls at every session start.",
+      "default": 1
+    }
   }
 }
