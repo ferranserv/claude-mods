@@ -31,7 +31,7 @@ Cloud sessions on this repo load the mods from `.claude/settings.json`. For clou
 
 ## Keeping the mods current
 
-- **Installed from GitHub (the desktop app route above):** click **Update** on the Plugins page after each merge, then start a new session.
+- **Installed from GitHub (the desktop app route above):** the app keeps its own saved copy of the repo and does not refresh it. After each merge run `tools\update-mods.cmd` from that copy (`%USERPROFILE%\.claude\plugins\marketplaces\claude-mods\tools\update-mods.cmd`), or `git -C "$env:USERPROFILE\.claude\plugins\marketplaces\claude-mods" pull`, then click **Update** on the Plugins page and start a new session. Deleting and reinstalling plugins alone re-reads the stale copy. The same steps are in the `sync-mods` skill (`mods-manager`) and in `CLAUDE.md`.
 - **Installed from a local clone (CLI route):** `mods-manager` (0.2.0+) runs `git pull --ff-only` in that folder at session start (at most hourly), shows "Mods updated to <commit>. Start a new session to load them.", and `/updatemods` does it now. It only works where the app lets a mod run `git`; elsewhere it says so once. Manual fallback: `git -C "$env:USERPROFILE\mods" pull`, then a new session. Turn it off with the `autoUpdate` option. When the mods come from GitHub, the folder is not a git clone and it does nothing.
 - Anything merged to `main` is loaded from then on: the merge is the gate.
 

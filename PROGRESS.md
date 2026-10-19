@@ -55,6 +55,10 @@ Unverified: all of the above on the app.
 - Owner ran the OLD saver (`/saver why` printed the 0.1.2 help): the fixes were not merged yet.
 - saver 0.2.0: strip hidden unless saver is on and the last answer was routed to Haiku (`/saver strip active|on|always`); the rule above it is saver's again (appears only with the strip); meters 0.2.5 draws no rule. 23 saver tests.
 
+## Session 4c: the update routine is documented
+- Owner's stale-versions problem: the app's saved marketplace copy is only pulled by hand. Routine now in `mods-manager/skills/sync-mods/SKILL.md` (top section), README ("Keeping the mods current"), `CLAUDE.md` (so every session reminds), and `tools/update-mods.cmd` (pull, print versions, say what to click; written for Windows, NOT run here).
+- Option not built: have mods-manager pull the marketplace copy itself at session start (the path is derivable from its plugin root). Needs `$.process.run` in the desktop app, unverified.
+
 ## Next
 1. Owner: paste the screenshot, run the mods on the real app, report what cuts off or collides.
 2. Owner: run `python3 tools/audit-sessions.py`, pick an idea from the five.

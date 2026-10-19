@@ -1,6 +1,6 @@
 {
   "name": "mods-manager",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Keeps your mods current: pulls the mods folder from GitHub at session start (/updatemods to do it now), and a skill that installs mods you build.",
   "userConfig": {
     "autoUpdate": {
