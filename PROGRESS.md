@@ -70,6 +70,12 @@ Fixed
 Not fixed: Alt hotkeys (app-level keys, not needed); the goal evaluator's re-prompt loop belongs to the app's /goal.
 Unverified on the app: all of it. Open: "draft missing from prompt box" in N8 is unexplained.
 
+## Session 6: preflight-guard 0.1.0 (new mod)
+- Rules in README ("preflight-guard: the rules"); pure rules in `preflight-guard/hooks/logic.ts`. 21 tests (15 rules, 6 flows with a fake git), tsc strict clean, validate ok. Click-commit commands also checked against a real git repo (deleted files, .env left, worktree add, switch -c).
+- Peers find each other through heartbeat files in `<git common dir>/preflight-guard/` (shared by all worktrees, never committed). No delete call exists, so an ended session overwrites its file with phase `ended`.
+- Band key `band:5:preflight-guard` is hand-written (top of the band) so the four shared `bands.tsx` copies stay identical; preflight-guard carries its own identical copy.
+- UNVERIFIED on the desktop app: `$.process.run` (docs say CLI only; without it the band stays empty and `/preflight` says all clear: check `/preflight` first), `turn.start`/`tool.call` heartbeats, Switch (asks Claude to call EnterWorktree with the path, one short turn).
+
 ## Next
 1. Owner: paste the screenshot, run the mods on the real app, report what cuts off or collides.
 2. Owner: run `python3 tools/audit-sessions.py`, pick an idea from the five.

@@ -23,6 +23,12 @@
       "version": "0.3.0"
     },
     {
+      "name": "preflight-guard",
+      "source": "./preflight-guard",
+      "description": "Warns when a session starts on main, with uncommitted changes, or beside another working session; offers a worktree, a commit checkpoint, and a click to commit what another session already finished.",
+      "version": "0.1.0"
+    },
+    {
       "name": "prompt-enhancer",
       "source": "./prompt-enhancer",
       "description": "A sparkle Enhance button and hotkey that rewrites your draft prompt in place: fitting skills, project details, decisions to ask you first, and what done looks like.",

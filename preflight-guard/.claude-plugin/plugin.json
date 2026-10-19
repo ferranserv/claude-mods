@@ -1,0 +1,9 @@
+{
+  "name": "preflight-guard",
+  "version": "0.1.0",
+  "author": {
+    "name": "Ferran"
+  },
+  "description": "Warns when a session starts on main, with uncommitted changes, or beside another working session; offers a worktree, a commit checkpoint, and a click to commit what another session already finished.",
+  "types": "./types/index.d.ts"
+}
