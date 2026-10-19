@@ -30,6 +30,18 @@ const statusOf = (v: unknown): PlanTask['status'] => {
 
 export const firstLine = (text: string): string => text.trim().split('\n')[0]?.trim() ?? ''
 
+/** A prompt without the app's own wrappers (<system-reminder>, <command-name>, ...), which are not the user's words. */
+export function cleanPrompt(text: string): string {
+  return text
+    .replace(/<([a-z][a-z-]*)>[\s\S]*?<\/\1>/gi, '')
+    .split('\n')
+    .filter(l => !/^\s*<\/?[a-z][a-z-]*>\s*$/i.test(l))
+    .join('\n')
+}
+
+/** The goal a prompt states: its first real line. */
+export const goalOf = (text: string): string => clip(firstLine(cleanPrompt(text)), 200)
+
 export const clip = (text: string, width: number): string =>
   text.length <= width ? text : text.slice(0, Math.max(0, width - 1)) + '…'
 
@@ -100,12 +112,17 @@ const rec = (v: unknown): Record<string, unknown> =>
 
 function startIfNew(s: PlanSnap, ctx: Ctx): PlanSnap {
   if (s.startedAt !== 0) return s
-  return { ...s, startedAt: ctx.promptAt || ctx.now, goal: s.goal || clip(firstLine(ctx.promptText), 200), isRunning: true }
+  return { ...s, startedAt: ctx.promptAt || ctx.now, goal: s.goal || goalOf(ctx.promptText), isRunning: true }
 }
 
-/** Marks the current phase as visited: a phase you have been in and moved on from reads as done. */
+/**
+ * Marks every phase up to the furthest one reached as visited: moving on from a phase reads as done, and one
+ * skipped on the way (research straight to building) is done too.
+ */
 export function withVisited(s: PlanSnap): PlanSnap {
-  return s.visited.includes(s.phase) ? s : { ...s, visited: [...s.visited, s.phase] }
+  const far = Math.max(PHASES.indexOf(s.phase), ...s.visited.map(p => PHASES.indexOf(p)))
+  const visited = PHASES.slice(0, far + 1)
+  return visited.length === s.visited.length ? s : { ...s, visited }
 }
 
 const SUBJECT_KEYS = ['step', 'content', 'subject', 'title', 'task', 'text', 'name', 'description', 'activeForm']
@@ -162,7 +179,13 @@ function applyToolInner(s: PlanSnap, tool: string, input: Record<string, unknown
     if (typeof input.status === 'string' && norm(input.status) === 'deleted') return { ...s, tasks: s.tasks.filter(t => t.id !== id) }
     const status = typeof input.status === 'string' ? statusOf(input.status) : undefined
     const renamed = text('subject', 'title', 'content')
-    const tasks = s.tasks.map(t => (t.id === id ? { ...t, status: status ?? t.status, subject: renamed ?? t.subject } : t))
+    const at = s.tasks.findIndex(t => t.id === id)
+    // Starting a step means the ones before it that were still running are finished.
+    const tasks = s.tasks.map((t, i) =>
+      t.id === id
+        ? { ...t, status: status ?? t.status, subject: renamed ?? t.subject }
+        : status === 'in_progress' && i < at && t.status === 'in_progress' ? { ...t, status: 'completed' as const } : t,
+    )
     const started = status === 'in_progress' ? tasks.find(t => t.id === id) : undefined
     const phase = (started && phaseFromSubject(started.subject)) || s.phase
     return { ...s, tasks, phase }
@@ -192,7 +215,7 @@ export function applyGoalCommand(s: PlanSnap, args: string, ctx: Ctx): PlanSnap 
   const text = args.trim()
   if (text === '') return s
   if (/^(clear|off|stop|cancel)$/i.test(text)) return EMPTY
-  return { ...s, goal: clip(firstLine(text), 200), isGoalCmd: true, startedAt: s.startedAt || ctx.now, endedAt: 0, isRunning: true }
+  return { ...s, goal: goalOf(text), isGoalCmd: true, startedAt: s.startedAt || ctx.now, endedAt: 0, isRunning: true }
 }
 
 /** Any new main-loop turn (a goal's continuation, a hook's re-prompt) makes the clock run again. */
@@ -214,8 +237,24 @@ export function windowTasks(tasks: readonly PlanTask[], rows: number): { shown: 
   return { shown: tasks.slice(start, start + room), hidden: tasks.length - room }
 }
 
-export const percent = (s: PlanSnap): number =>
-  s.tasks.length === 0 ? 0 : Math.round((s.tasks.filter(t => t.status === 'completed').length / s.tasks.length) * 100)
+/** Done steps count in full, the one running counts half, so the bar moves while a step is under way. */
+export const percent = (s: PlanSnap): number => {
+  if (s.tasks.length === 0) return 0
+  const done = s.tasks.filter(t => t.status === 'completed').length
+  const running = s.tasks.filter(t => t.status === 'in_progress').length
+  return Math.min(100, Math.round(((done + running * 0.5) / s.tasks.length) * 100))
+}
+
+export const isTaskTool = (tool: string): boolean => /todo|plan|task|step/.test(norm(tool))
+
+/** What to tell the model when the checklist has gone stale: `calls` tool calls since a task tool ran. */
+export function nudgeNote(s: PlanSnap, calls: number, after: number): string | undefined {
+  if (s.tasks.length === 0 || isAllDone(s) || calls < after) return undefined
+  const done = s.tasks.filter(t => t.status === 'completed').length
+  const now = s.tasks.find(t => t.status === 'in_progress')
+  const state = now ? `"${clip(firstLine(now.subject), 60)}" (#${now.id}) is marked in progress` : 'no step is marked in progress'
+  return `Plan Progress: ${done}/${s.tasks.length} checklist steps are done and ${state}. The user watches this checklist. If a step is finished, mark it completed now with the task tool, and mark the next one in progress.`
+}
 
 export const bar = (pct: number, width: number): string => {
   const filled = Math.round((Math.max(0, Math.min(100, pct)) / 100) * width)

@@ -20,7 +20,7 @@
       "name": "plan-progress",
       "source": "./plan-progress",
       "description": "Panel above the prompt for multi-step work and /goal: goal, phase, task checklist, progress bar, elapsed time, and a chime when a turn ends. Zero model calls.",
-      "version": "0.3.0"
+      "version": "0.4.0"
     },
     {
       "name": "preflight-guard",

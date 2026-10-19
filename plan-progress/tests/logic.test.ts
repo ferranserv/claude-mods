@@ -10,6 +10,9 @@ import {
   bar,
   fmtTime,
   isAllDone,
+  cleanPrompt,
+  goalOf,
+  nudgeNote,
   percent,
   phaseFromSubject,
   toolPhase,
@@ -113,4 +116,32 @@ test('without an id in the result, new tasks get 1, 2, 3 so TaskUpdate "2" finds
   s = applyTool(s, 'TaskCreate', { subject: 'b' }, 'Task created', ctx)
   s = applyTool(s, 'TaskUpdate', { taskId: '2', status: 'completed' }, {}, ctx)
   expect(s.tasks.map(t => [t.id, t.status])).toEqual([['1', 'pending'], ['2', 'completed']])
+})
+
+test('the goal skips the app wrappers around a prompt', async () => {
+  const wrapped = '<system-reminder>\nCodebase notes\n</system-reminder>\n<local-command-caveat>x</local-command-caveat>\nFix the importer\nand more'
+  expect(cleanPrompt(wrapped).trim()).toBe('Fix the importer\nand more')
+  expect(goalOf(wrapped)).toBe('Fix the importer')
+  expect(goalOf('<system-reminder>only a wrapper</system-reminder>')).toBe('')
+  const s = applyTool(EMPTY, 'TaskCreate', { subject: 'A' }, { task: { id: '1' } }, { now: 1, promptAt: 1, promptText: wrapped })
+  expect(s.goal).toBe('Fix the importer')
+})
+
+test('a running step counts half, and starting a step finishes the earlier one still running', async () => {
+  let s: PlanSnap = applyTool(EMPTY, 'update_plan', { plan: [{ step: 'A', status: 'in_progress' }, { step: 'B', status: 'pending' }, { step: 'C', status: 'pending' }, { step: 'D', status: 'pending' }] }, {}, ctx)
+  expect(percent(s)).toBe(13)
+  s = applyTool(s, 'TaskCreate', { subject: 'E' }, { task: { id: '5' } }, ctx)
+  s = applyTool(s, 'TaskUpdate', { taskId: '3', status: 'in_progress' }, {}, ctx)
+  expect(s.tasks.map(t => t.status)).toEqual(['completed', 'pending', 'in_progress', 'pending', 'pending'])
+  expect(percent(s)).toBe(30)
+})
+
+test('the nudge fires only for a stale, unfinished checklist', async () => {
+  const open: PlanSnap = applyTool(EMPTY, 'update_plan', { plan: [{ step: 'Read the code', status: 'in_progress' }, { step: 'B', status: 'pending' }] }, {}, ctx)
+  expect(nudgeNote(open, 5, 6)).toBeUndefined()
+  expect(nudgeNote(EMPTY, 9, 6)).toBeUndefined()
+  expect(nudgeNote(open, 6, 6)).toContain('"Read the code"')
+  expect(nudgeNote(open, 6, 6)).toContain('0/2')
+  const finished = applyTool(open, 'update_plan', { plan: [{ step: 'A', status: 'completed' }, { step: 'B', status: 'completed' }] }, {}, ctx)
+  expect(nudgeNote(finished, 20, 6)).toBeUndefined()
 })

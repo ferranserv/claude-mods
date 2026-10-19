@@ -1,6 +1,6 @@
 {
   "name": "plan-progress",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Panel above the prompt for multi-step work and /goal: goal, phase, task checklist, progress bar, elapsed time, and a chime when a turn ends. Zero model calls.",
   "types": "./types/index.d.ts",
   "userConfig": {
@@ -15,6 +15,18 @@
       "title": "Minimum steps before the panel shows",
       "description": "The panel shows for a /goal at any size, and for a task list once it has this many steps.",
       "default": 2
+    },
+    "nudge": {
+      "type": "boolean",
+      "title": "Remind the model to update its checklist",
+      "description": "After several tool calls without a task update, adds one short note for the model so steps get ticked off and the bar moves.",
+      "default": true
+    },
+    "nudgeAfter": {
+      "type": "number",
+      "title": "Tool calls between reminders",
+      "description": "How many tool calls without a task update before the reminder.",
+      "default": 10
     }
   }
 }
