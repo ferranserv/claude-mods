@@ -38,6 +38,9 @@ If you also keep the hot-reloaded dev copy enabled, a mod can load twice in that
 | `/meters side` / `/meters top` | Side panel, or back to the band. The app decides where a docked pane goes; no side is promised. Closing the panel with its own mark is remembered. |
 | `/handoff` | Writes a handoff brief, clears the session, pastes the brief into the fresh prompt box (review, then Enter). `/handoff paste` puts the last brief back in the prompt box (no clear). A copy is saved in `~/.claude/handoffs/`. |
 | `/fresh` | Clears the session, no brief. |
+| `/newsession` | Same as `/handoff`, for setups where `/handoff` already belongs to another skill. |
+| `/meters status` | Lists which of the commands above the app accepted, and which it refused. |
+| `/meters cache`, `/meters handoff`, `/meters fresh` | The same actions through `/meters`, which always registers first: use them if the app refuses a command name. |
 | `/cache`, `/cache 30`, `/cache auto` | Show the window and exact time left, set the window in minutes, or go back to learning it. |
 | Cache countdown | Resets to the full window the moment you send a message (and at each request Claude makes), never on its own. The band shows it in 5-minute steps (`55m`, `50m`, … `<5m`, `cold`) and redraws only when that changes; `cacheStepMinutes` changes the step. The going-cold notice still fires exactly `notifyMinutes` before the end. |
 | Buttons | **New session with handoff** (H) and **Fresh session** (N) appear under the bars once the context is at the first warning and Claude is idle. H / N work while the band has focus (ctrl+x tab). |

@@ -148,11 +148,15 @@ export const register: Register = (on, options) => {
   const chord = parseChord(hotkey)
 
   on('session.start', async ($, e, next) => {
-    await $.command.register({
-      name: 'enhance',
-      description: 'Rewrite a draft prompt with fitting skills, project context, questions and a definition of done.',
-      argumentHint: '<draft>',
-    })
+    try {
+      await $.command.register({
+        name: 'enhance',
+        description: 'Rewrite a draft prompt with fitting skills, project context, questions and a definition of done.',
+        argumentHint: '<draft>',
+      })
+    } catch {
+      // The name is taken: the sparkle and the hotkey work without the command.
+    }
     return next(e)
   })
 

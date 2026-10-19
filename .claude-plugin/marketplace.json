@@ -8,7 +8,7 @@
       "name": "meters",
       "source": "./meters",
       "description": "Context window, 5-hour, weekly usage and the prompt cache countdown as compact meters in one band above the prompt or a side panel, with warnings, a going-cold notice and one-click handoff to a fresh session.",
-      "version": "0.2.2"
+      "version": "0.2.3"
     },
     {
       "name": "mods-manager",
@@ -20,13 +20,13 @@
       "name": "plan-progress",
       "source": "./plan-progress",
       "description": "Panel above the prompt for multi-step work and /goal: goal, phase, task checklist, progress bar, elapsed time, and a chime when a turn ends. Zero model calls.",
-      "version": "0.1.2"
+      "version": "0.1.3"
     },
     {
       "name": "prompt-enhancer",
       "source": "./prompt-enhancer",
       "description": "A sparkle Enhance button and hotkey that rewrites your draft prompt in place: fitting skills, project details, decisions to ask you first, and what done looks like.",
-      "version": "0.1.2"
+      "version": "0.1.3"
     },
     {
       "name": "saver",

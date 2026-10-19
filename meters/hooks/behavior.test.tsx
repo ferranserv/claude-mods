@@ -269,3 +269,46 @@ test('the cache meter counts down in the band, and shows cold after the window',
   await ui.unmount()
   expect(WED).toBeGreaterThan(0)
 })
+
+test('every command registers; /meters status says so', async ($, on) => {
+  const w = world(on)
+  await started($)
+  expect(w.registered).toEqual(['meters', 'cache', 'fresh', 'handoff', 'newsession'])
+  expect(text(await $.command.run({ command: 'meters', args: 'status' } as never))).toBe('Commands registered: /meters /cache /fresh /handoff /newsession.')
+})
+
+test('a refused name does not stop the other commands or the rest of session start', async ($, on) => {
+  const w = world(on, { refuse: ['handoff', 'fresh'], stored: { isSide: true } })
+  await started($)
+  // /cache still registers after the refusals before it, and the side panel is still restored
+  expect(w.registered).toEqual(['meters', 'cache', 'newsession'])
+  expect(w.open).toEqual(['meters'])
+  const status = text(await $.command.run({ command: 'meters', args: 'status' } as never))
+  expect(status).toContain('Commands registered: /meters /cache /newsession')
+  expect(status).toContain('Refused by the app: /fresh /handoff')
+  expect(status).toContain('/meters')
+})
+
+test('/meters cache, /meters fresh and /meters handoff work when their own names are taken', async ($, on) => {
+  const w = world(on, { refuse: ['cache', 'fresh', 'handoff'] })
+  await started($)
+  expect(text(await $.command.run({ command: 'meters', args: 'cache' } as never))).toContain('Prompt cache window 60 min')
+  expect(text(await $.command.run({ command: 'meters', args: 'cache 30' } as never))).toContain('30 min (set by you)')
+  await $.command.run({ command: 'meters', args: 'fresh' } as never)
+  await w.clock.advance(100)
+  expect(w.commands).toEqual(['clear'])
+  w.commands.length = 0
+  await $.command.run({ command: 'meters', args: 'handoff' } as never)
+  await w.clock.advance(5000)
+  expect(w.commands).toEqual(['clear'])
+  expect(w.fills.at(-1)).toBeDefined()
+})
+
+test('/newsession does the same as /handoff', async ($, on) => {
+  const w = world(on, { brief: 'B' })
+  await started($)
+  await $.command.run({ command: 'newsession', args: '' } as never)
+  await w.clock.advance(5000)
+  expect(w.commands).toEqual(['clear'])
+  expect(w.fills.at(-1)).toBe('B')
+})

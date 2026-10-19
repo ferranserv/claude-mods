@@ -16,6 +16,7 @@ export type Log = {
   files: { path: string; text: string }[]
   asked: { kind: 'fork' | 'complete'; prompt: string; model?: string }[]
   box: { text: string }
+  registered: string[]
   usage: { input_tokens: number; output_tokens: number; cache_read_input_tokens: number; cache_creation_input_tokens: number; model: string }
 }
 
@@ -25,12 +26,13 @@ export type WorldOptions = {
   messages?: { role: string; text: string }[]
   brief?: string
   clock?: ReturnType<typeof mock.clock>
+  refuse?: string[] // command names the "app" refuses to register
 }
 
 export function world(on: On, o: WorldOptions = {}): Log & { clock: ReturnType<typeof mock.clock> } {
   const isPlaced = o.isPlaced ?? true
   const stored = o.stored ?? {}
-  const log: Log = { open: [], closed: [], writes: {}, toasts: [], notices: [], commands: [], fills: [], files: [], asked: [], box: { text: '' }, usage: { input_tokens: 100, output_tokens: 10, cache_read_input_tokens: 0, cache_creation_input_tokens: 190_000, model: 'claude-sonnet-5-5' } }
+  const log: Log = { open: [], closed: [], writes: {}, toasts: [], notices: [], commands: [], fills: [], files: [], asked: [], box: { text: '' }, registered: [], usage: { input_tokens: 100, output_tokens: 10, cache_read_input_tokens: 0, cache_creation_input_tokens: 190_000, model: 'claude-sonnet-5-5' } }
   const clock = o.clock ?? mock.clock(on, { now: WED })
 
   on('session.measure', (_, e) => ({ changed: e.changed }))
@@ -87,7 +89,12 @@ export function world(on: On, o: WorldOptions = {}): Log & { clock: ReturnType<t
   })
   on('prompt.read', () => ({ value: { text: log.box.text, cursor: log.box.text.length } }) as never)
   on('session.usage', () => ({ value: { startedAt: 0, context: { tokens: 200_000, window: 1_000_000, percent: 20 }, rateLimits: [] } }) as never)
-  on('command.register', () => ({ value: { command: 'x' } }) as never)
+  on('command.register', (_, e) => {
+    const name = String((e as { name?: string }).name)
+    if (o.refuse?.includes(name)) return { deny: `/${name} is already a command` } as never
+    log.registered.push(name)
+    return { value: { command: name } } as never
+  })
   on('session.start', () => ({ cwd: '/tmp' }) as never)
   // The request the stub "model" answers: tests change log.usage to say what the cache did.
   on('turn.step', async function* () {

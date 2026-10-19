@@ -52,7 +52,11 @@ export const register: Register = (on, options) => {
     $.clock.every(1000, () => {
       if (isTicking) $.ui.invalidate('ui.render')
     })
-    await $.command.register({ name: 'plan-reset', description: 'Clear the Plan Progress panel.' })
+    try {
+      await $.command.register({ name: 'plan-reset', description: 'Clear the Plan Progress panel.' })
+    } catch {
+      // The name is taken: the panel works without the command.
+    }
     return next(e)
   })
 

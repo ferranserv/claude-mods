@@ -26,6 +26,10 @@ Still unverified: sparkle position/size, hotkeys, handoff buttons and paste afte
 - Display moves in 5-minute steps (option); redraw only when the label changes; the timer runs every 15 s instead of every second.
 - Window learning measures the idle gap from the end of the previous request (new field `lastEndAt`), so sending a message in between does not break it.
 
+## Session 3c: `/cache` did not work in the desktop app (owner report)
+- Likely cause (not confirmed, no error text): `session.start` registered commands in a row and stopped at the first refusal (the owner has a `handoff` skill, so `/handoff` is probably refused). `/meters` registers first, so it worked while `/cache` never registered; the pulse timer and saved settings after it were skipped too.
+- Fix: each command registers on its own (meters, cache, fresh, handoff, newsession); plan-progress and prompt-enhancer wrapped the same way. `/meters status` lists refused names; `/meters cache|handoff|fresh` are fallbacks; `/newsession` aliases `/handoff`.
+
 ## Next
 1. Owner: paste the screenshot, run the mods on the real app, report what cuts off or collides.
 2. Owner: run `python3 tools/audit-sessions.py`, pick an idea from the five.
