@@ -1,0 +1,8 @@
+{
+  "name": "ferran-mods",
+  "owner": { "name": "Ferran" },
+  "plugins": [
+    { "name": "saver", "source": "./saver" },
+    { "name": "meters", "source": "./meters" }
+  ]
+}

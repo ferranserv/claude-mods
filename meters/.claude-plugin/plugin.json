@@ -1,0 +1,7 @@
+{
+  "name": "meters",
+  "version": "0.1.0",
+  "author": { "name": "Ferran" },
+  "description": "Context window, 5-hour and weekly usage as compact meters: one slim band above the prompt, or a vertical side panel (/meters side).",
+  "types": "./types/index.d.ts"
+}

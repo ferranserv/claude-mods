@@ -1,0 +1,7 @@
+{
+  "name": "saver",
+  "version": "0.1.0",
+  "author": { "name": "Ferran" },
+  "description": "Sends easy prompts to Haiku 5.5 while context is under 100K, and shows what that saved today above the prompt.",
+  "types": "./types/index.d.ts"
+}
