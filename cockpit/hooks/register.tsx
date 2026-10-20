@@ -1531,7 +1531,8 @@ export const register: Register = (on, options) => {
     } else {
       const { Svg } = $.ui.resolve(e)
       const svg = cockpitSvg(Math.max(320, bandWidth(e.props.bodyColumns) - 150), s.m, s.mascot, s.isOpen)
-      row = el(c.Box, { key: 'row', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, el(Svg, { key: 'svg', source: svg.source, alt: `${STATES[s.state].label}. ${altText(s.m)}`, isInteractive: true }), controls(s, c, fx, onToggle))
+      // An interactive Svg is drawn in a frame of its own: give it its real size, or the frame is far taller than the drawing.
+      row = el(c.Box, { key: 'row', flexDirection: 'row', alignItems: 'center', gap: 2 }, el(Svg, { key: 'svg', source: svg.source, alt: `${STATES[s.state].label}. ${altText(s.m)}`, isInteractive: true, width: svg.width, height: svg.height }), controls(s, c, fx, onToggle))
     }
 
     const mine = el(c.Box, { key: bandKey('cockpit'), flexDirection: 'column' }, row, ...(details(s, c, fx, e.surface) as never[]))
@@ -1553,7 +1554,7 @@ export const register: Register = (on, options) => {
     return el(
       c.Box,
       { flexDirection: 'column' },
-      el(c.Box, { key: 'svg', justifyContent: 'center' }, dock ? el(Svg, { source: svg.source, alt: altText(s.m), width: svg.width, height: svg.height }) : el(Svg, { source: svg.source, alt: altText(s.m), isInteractive: true })),
+      el(c.Box, { key: 'svg', justifyContent: 'center' }, dock ? el(Svg, { source: svg.source, alt: altText(s.m), width: svg.width, height: svg.height }) : el(Svg, { source: svg.source, alt: altText(s.m), isInteractive: true, width: svg.width, height: svg.height })),
       ...(rows as never[]),
     )
   })

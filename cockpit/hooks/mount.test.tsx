@@ -52,6 +52,11 @@ test('desktop band: SVG with the three meters, filled from measurements', async 
   expect(source).toContain('20%')
   expect(source).toContain('40%')
   expect(source).not.toContain('NaN')
+  // The frame is given the drawing's own size (an interactive Svg left unsized is drawn far too tall).
+  const props = (svg as { props?: { width?: number; height?: number } }).props
+  expect(props?.width).toBeGreaterThan(300)
+  expect(props?.height).toBeGreaterThan(30)
+  expect(props?.height).toBeLessThan(120)
   // Calm: the row is collapsed and keeps the small print out of the drawing.
   expect(source).not.toContain('Wed 25% under')
   await ui.unmount()
