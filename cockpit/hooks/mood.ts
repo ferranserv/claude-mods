@@ -2,7 +2,7 @@
 //
 // Several things are true at once, so there is an order. Fleeting events win over lasting conditions: they
 // play for a few seconds and the lasting state comes back by itself. Highest first:
-//   1. needs you now          hand (a permission prompt is open)
+//   1. needs you now          hand (a permission prompt is open), writing (a brief or a draft is being written)
 //   2. fleeting events        oops, bell, lab, love, idea, wand, coins, plug
 //   3. while it happens       dizzy (compacting), then building, reading, browse (the tool that is running)
 //   4. session start          walk, hello
@@ -16,7 +16,9 @@ export const FLEET_ORDER: readonly Fleet[] = ['oops', 'bell', 'lab', 'love', 'id
 export type ToolKind = 'building' | 'reading' | 'browse'
 
 /** How long each fleeting event plays, in ms. */
-export const FLEET_MS: Record<Fleet, number> = { oops: 4000, bell: 4000, lab: 4000, love: 5000, idea: 5000, wand: 4000, coins: 3000, plug: 6000 }
+export const FLEET_MS: Record<Fleet, number> = { oops: 5000, bell: 5000, lab: 5000, love: 5000, idea: 5000, wand: 5000, coins: 5000, plug: 6000 }
+/** Whatever state is shown stays at least this long, unless something more important arrives. */
+export const HOLD_MS = 5000
 /** A tool's state lingers this long after it ends, so quick calls are still seen. */
 export const TOOL_LINGER_MS = 1200
 export const START_MS = 5000
@@ -25,6 +27,7 @@ export const COFFEE_AFTER_MS = 120_000
 export type MoodInput = {
   now: number
   waiting: boolean
+  writing: boolean
   fleet: Partial<Record<Fleet, number>>
   compacting: boolean
   tool: { kind: ToolKind; until: number } | null
@@ -44,6 +47,7 @@ export type MoodInput = {
 
 export function pickState(i: MoodInput): StateId {
   if (i.waiting) return 'hand'
+  if (i.writing) return 'writing'
   for (const f of FLEET_ORDER) if ((i.fleet[f] ?? 0) > i.now) return f
   if (i.compacting) return 'dizzy'
   if (i.tool && i.tool.until > i.now) return i.tool.kind
@@ -83,6 +87,7 @@ export type BubbleInput = {
 export function bubbleFor(id: StateId, b: BubbleInput): Bubble | null {
   switch (id) {
     case 'hand': return { text: 'Needs your OK' }
+    case 'writing': return { text: 'Writing it down…' }
     case 'oops': return { text: b.detail !== '' ? `${b.detail} failed` : 'A tool failed' }
     case 'bell': return { text: 'Done.' }
     case 'lab': return { text: 'Tests passed' }
@@ -114,6 +119,13 @@ export function bubbleFor(id: StateId, b: BubbleInput): Bubble | null {
       return null
   }
 }
+
+/** Every state, most important first: a shown state is only interrupted by one earlier in this list. */
+export const ORDER: readonly StateId[] = [
+  'hand', 'writing', ...FLEET_ORDER, 'dizzy', 'building', 'reading', 'browse', 'walk', 'hello',
+  'asleep', 'mad', 'fire', 'detective', 'cold', 'hourglass', 'gauge', 'drunk', 'sleepy', 'coffee', 'typing', 'thinking', 'talk', 'idle',
+]
+export const rank = (id: StateId): number => ORDER.indexOf(id)
 
 /** HH:MM in the person's time, for the alarm clock and the bubble; `--:--` when there is no reset time. */
 export function clockOf(iso: string | undefined): string {

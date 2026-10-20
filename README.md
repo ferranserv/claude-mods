@@ -4,7 +4,7 @@ Personal Claude Code mods, published as the `claude-mods` plugin marketplace.
 
 | Mod | What it does |
 | --- | --- |
-| `cockpit` | One band above the prompt: Clawd the mascot (29 animated states, one per thing that is happening), context window, 5-hour limit, weekly limit (five weekday slots) and the **prompt cache countdown**, in one collapsed row. An arrow at the right opens the whole picture whenever you want it; it also opens by itself when something needs you. Every warning comes with the button that answers it. Also: saver (easy prompts go to Haiku 5.5), preflight (warns on main, uncommitted work, another session in the folder), prompt enhancer (✦ button and hotkey), and a chime when a turn ends. Replaces `meters`, `saver`, `preflight-guard` and `prompt-enhancer` (kept in `archive/`). |
+| `cockpit` | One band above the prompt: Clawd the mascot (30 animated states, one per thing that is happening), context window, 5-hour limit, weekly limit (five weekday slots) and the **prompt cache countdown**, in one collapsed row. An arrow at the right opens the whole picture whenever you want it; it also opens by itself when something needs you. Every warning comes with the button that answers it. Also: saver (easy prompts go to Haiku 5.5), preflight (warns on main, uncommitted work, another session in the folder), prompt enhancer (🪄 button), and a chime when a turn ends. Replaces `meters`, `saver`, `preflight-guard` and `prompt-enhancer` (kept in `archive/`). |
 
 ## Install
 
@@ -67,14 +67,14 @@ Several things can be true at once, so there is an order. Fleeting events win ov
 | 5 | asleep, mad, on fire, detective, frozen, hourglass, gauge low, tipsy, sleepy | 5-hour limit reached; over today's allowance; context 80%+; a preflight finding; cache cold; cache about to expire; allowance within 2%; context 50%+; 5-hour limit 80%+ |
 | 6 | coffee, typing, thinking, talk, beach lounge | turn over 2 minutes; turn running; waiting for the model; a notice is up; nothing going on |
 
-The cache states show only while Claude is idle (a running turn keeps the cache warm). The speech bubble under the row says what he is reacting to and carries the button for it; an open band shows the alert row instead, so nothing is said twice. Source of the drawings: `docs/mascot/clawd-sheet.html`.
+The cache states show only while Claude is idle (a running turn keeps the cache warm). The speech bubble floats out of Clawd over whatever is behind it (the band never grows); `/cockpit bubble inline` puts it in its own row instead. It says what he is reacting to and carries the button for it. A state stays at least 5 seconds unless something more important arrives; changes crossfade. When Claude writes into your prompt box (handoff brief, enhancer) he puts on glasses and writes with a quill; a permission ask shows a clipboard and pencil. Source of the drawings: `docs/mascot/clawd-sheet.html`.
 
 ## Limits
 
 - Claude Code has no render site inside the prompt box, so the Enhance button sits in the band above it. The hotkey and `/enhance` work anywhere.
 - The Alt hotkeys do not work reliably in the desktop app; use the buttons or the commands.
 - The chime uses `afplay` on macOS and a PowerShell sound player on Windows (best effort: it needs the host to allow running commands). On Linux it plays nothing.
-- Clawd animates by SVG animation in a sandboxed frame; if your build does not play it, you see the first frame of each state. `/cockpit demo` shows all 29 states, 4 seconds each (`/cockpit demo typing` for one, `/cockpit demo off` to stop). In the terminal there are no drawings: a short text face and the text row. Clawd belongs to Anthropic: personal use only.
+- Clawd animates by SVG animation in a sandboxed frame; if your build does not play it, you see the first frame of each state. `/cockpit demo` shows all 30 states, 4 seconds each (`/cockpit demo typing` for one, `/cockpit demo off` to stop). In the terminal there are no drawings: a short text face and the text row. Clawd belongs to Anthropic: personal use only.
 - The Enhance sparkle is always shown (dim until you type a draft) because the desktop app may not raise draft events.
 
 ## Audit

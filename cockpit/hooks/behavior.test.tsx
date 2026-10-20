@@ -562,6 +562,8 @@ test('an Edit shows the hammer while it runs and a moment after; then the lastin
   await ($ as unknown as Do).tool.call({ tool: 'Edit', file_path: '/r/app.ts', old_string: 'a', new_string: 'b' })
   expect(await altOf($)).toContain('hammer')
   await w.clock.advance(2000)
+  expect(await altOf($)).toContain('hammer') // a state stays on screen at least five seconds
+  await w.clock.advance(5000)
   expect(await altOf($)).toContain('on fire')
 })
 
@@ -572,7 +574,7 @@ test('reading and web tools get their own states', async ($, on) => {
   await w.clock.advance(6000)
   await ($ as unknown as Do).tool.call({ tool: 'Grep', pattern: 'x' })
   expect(await altOf($)).toContain('reading')
-  await w.clock.advance(2000)
+  await w.clock.advance(6000)
   await ($ as unknown as Do).tool.call({ tool: 'WebSearch', query: 'q' })
   expect(await altOf($)).toContain('searching the web')
 })
@@ -601,9 +603,11 @@ test('a permission prompt raises a hand until the call runs', async ($, on) => {
   await started($)
   await w.clock.advance(6000)
   await ($ as unknown as Do).tool.check({ tool: 'Bash', input: { command: 'rm -rf x' } })
-  expect(await altOf($)).toContain('raises a hand')
+  expect(await altOf($)).not.toContain('clipboard') // an ask settled at once by a rule shows nothing
+  await w.clock.advance(2000)
+  expect(await altOf($)).toContain('clipboard')
   await ($ as unknown as Do).tool.call({ tool: 'Bash', command: 'ls' })
-  expect(await altOf($)).not.toContain('raises a hand')
+  expect(await altOf($)).not.toContain('clipboard')
 })
 
 test('a finished turn rings the bell over a warning, then the warning returns', async ($, on) => {

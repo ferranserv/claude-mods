@@ -21,3 +21,15 @@ Everything below was tested in a cloud session without the desktop app. These ar
 | 15 | `/newsession` | A handoff brief lands in the prompt box; Clawd hugs himself | |
 
 Report anything off in plain words ("the palm tree overlaps", "no animation", "arrow does nothing"); each row maps to one place in the code.
+
+## 0.4.0 additions
+
+| # | Do | Expect | OK? |
+|---|---|---|---|
+| 16 | Ask for something that needs a permission OK | Clipboard and pencil, not a "!" | |
+| 17 | Let Claude write a handoff (`/handoff`) or press 🪄 | Clawd with glasses and quill writing | |
+| 18 | Watch any state change | Each state lasts 5 s or more; no jump | |
+| 19 | Trigger a bubble | It floats from Clawd; the band does not grow. If it looks wrong: `/cockpit bubble inline` | |
+| 20 | Collapse and open the band | Same meters; 5h shows "Resets at"; Week shows % and "under/over" | |
+| 21 | Narrow the window | Short labels, no clipped numbers, controls spread across the row | |
+| 22 | Look at the right-hand controls | One 🪄 button (no sparkle), then the arrow | |
