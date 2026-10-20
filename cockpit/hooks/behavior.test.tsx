@@ -662,3 +662,59 @@ test('/cockpit demo shows a state you ask for, and says when it does not know on
   await $.command.run({ command: 'cockpit', args: 'demo off' } as never)
   expect(await altOf($)).not.toContain('typing on a laptop')
 })
+
+// ---- Clawd's size: normal, small, off
+
+const svgOf = async ($: unknown) => {
+  const ui = await ($ as { ui: { mount: (i: unknown) => Promise<{ find: (q: unknown) => Promise<{ props?: { source?: string } } | undefined>; unmount: () => Promise<void> }> } }).ui.mount(band('desktop'))
+  const source = String((await ui.find({ type: 'Svg' }))?.props?.source ?? '')
+  await ui.unmount()
+  return source
+}
+const heightOf = (source: string) => Number(/ height="(\d+)"/.exec(source)?.[1])
+
+test('/cockpit mascot small and off shrink or remove Clawd, remember the choice, and keep the meters', async ($, on) => {
+  const w = world(on)
+  await started($)
+  await measureCtx($, 10)
+  await w.clock.advance(6000)
+  const normal = await svgOf($)
+  expect(normal).toContain('scale(2)')
+  expect(heightOf(normal)).toBe(56)
+
+  expect(text(await $.command.run({ command: 'cockpit', args: 'mascot small' } as never))).toContain('small')
+  expect(w.writes.mascot).toBe('small')
+  const small = await svgOf($)
+  expect(small).toContain('scale(1)')
+  expect(heightOf(small)).toBeLessThan(heightOf(normal))
+
+  expect(text(await $.command.run({ command: 'cockpit', args: 'mascot off' } as never))).toContain('hidden')
+  const off = await svgOf($)
+  expect(off).not.toContain('DA7758')
+  expect(off).toContain('Context')
+  expect(heightOf(off)).toBeLessThan(56)
+
+  expect(text(await $.command.run({ command: 'cockpit', args: 'mascot' } as never))).toContain('Use /cockpit mascot')
+  await $.command.run({ command: 'cockpit', args: 'mascot on' } as never)
+  expect(await svgOf($)).toContain('scale(2)')
+})
+
+test('a stored mascot choice is restored at session start', async ($, on) => {
+  const w = world(on, { stored: { mascot: 'off' } })
+  await started($)
+  await measureCtx($, 10)
+  await w.clock.advance(6000)
+  expect(await svgOf($)).not.toContain('DA7758')
+})
+
+test('with Clawd hidden the bubble still speaks and still carries its button', async ($, on) => {
+  const w = world(on, { stored: { mascot: 'off' } })
+  await started($)
+  await measureCtx($, 60)
+  await w.clock.advance(6000)
+  await $.command.run({ command: 'cockpit', args: 'close' } as never)
+  const ui = await $.ui.mount(band('desktop'))
+  expect(await ui.find({ key: 'bubble' })).toBeDefined()
+  expect(await ui.find({ key: 'handoff' })).toBeDefined()
+  await ui.unmount()
+})

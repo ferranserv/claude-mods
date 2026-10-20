@@ -1,6 +1,6 @@
 {
   "name": "cockpit",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "author": {
     "name": "Ferran"
   },
@@ -78,6 +78,12 @@
       "title": "Skills offered to the model",
       "description": "At most this many installed skills are sent with the draft, the best word matches first.",
       "default": 12
+    },
+    "mascot": {
+      "type": "string",
+      "title": "Clawd's size",
+      "description": "normal (68 x 56 px), small (34 x 28 px) or off. /cockpit mascot changes it from the prompt and remembers it.",
+      "default": "normal"
     }
   }
 }
