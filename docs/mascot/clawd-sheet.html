@@ -44,6 +44,7 @@ h2.sec { font-size: 22px; margin: 14px 0 0; }
 .chips { display: flex; gap: 8px; flex-wrap: wrap; min-width: 0; }
 .note { border: 1px solid var(--rule); border-left: 4px solid var(--accent); border-radius: 8px; background: var(--card); padding: 14px 16px; margin: 0; max-width: 86ch; }
 .stress { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.prio { margin: 0 0 8px; padding-left: 20px; display: grid; gap: 6px; font-size: 14px; }
 @media (max-width: 640px) { .hero { grid-template-columns: 1fr; } }
 @media (prefers-reduced-motion: reduce) { svg * { animation: none !important; } }
 </style>
@@ -59,6 +60,20 @@ h2.sec { font-size: 22px; margin: 14px 0 0; }
 
   <h2 class="sec">States</h2>
   <div class="grid" id="grid"></div>
+
+  <h2 class="sec">Priority: which state wins when several are true</h2>
+  <div class="card">
+    <p class="lede">Fleeting states outrank lasting ones: they play for a few seconds, then the lasting state comes back. Highest first.</p>
+    <ol class="prio">
+      <li><b>Needs you now:</b> raised hand (a permission prompt is open).</li>
+      <li><b>Fleeting events (3 to 5 s):</b> oops (a tool failed), bell (turn finished), lab (tests passed), love (handoff saved), idea (plan ready), wizard (draft enhanced), coins (saver routed), unplugged (a connector failed).</li>
+      <li><b>While it happens (and 1 s after):</b> dizzy (compacting), then building, reading, browsing (the tool that is running).</li>
+      <li><b>Session start (5 s):</b> hello, walk.</li>
+      <li><b>Lasting warnings, worst first:</b> asleep (5-hour limit reached), mad (over the daily allowance), on fire (context 80%+), detective (preflight finding), frozen (cache cold), hourglass (cache about to expire), gauge low (allowance within 2%), tipsy (context 50%+), sleepy (5-hour 80%+).</li>
+      <li><b>Background:</b> coffee (turn over 2 minutes), typing (turn running), thinking (waiting on the model before any tool), idle (beach).</li>
+    </ol>
+    <p class="lede">So a warning never hides a tool you can see working, a finished-turn bell never gets lost behind a warning, and the warning is back as soon as the moment passes. "Reviewed" is in the sheet but has no signal in the plugin API, so it will not ship.</p>
+  </div>
 
   <h2 class="sec">Bubble stress test</h2>
   <div class="stress" id="stress"></div>
@@ -96,7 +111,7 @@ const PAT = {
   FLAKE: ['#.#.#', '.###.', '#####', '.###.', '#.#.#'],
   FLAME: [['...#...', '..##...', '..###..', '.#####.', '.#####.', '#######', '#######'], ['..#....', '..###..', '.####..', '.#####.', '#######', '#######', '#######'], ['....#..', '...##..', '..###..', '.#####.', '#######', '#######', '#######']],
   NOTE: [['.#', '.#', '.#', '##', '##'], ['.##', '.#.', '.#.', '##.', '##.']],
-  BULB: ['.###.', '#####', '#####', '#####', '.###.', '..B..'],
+  BULB: ['.###.', '#####', '#####', '#####', '.###.'],
   COIN: ['.###.', '#sss#', '#s#s#', '#sss#', '.###.'],
   SPIRAL: ['#######', '#.....#', '#.###.#', '#.#.#.#', '#.#...#', '#.#####', '#......'],
   SPIRAL2: ['#######', '#.....#', '#.###.#', '#.#.#.#', '#...#.#', '#####.#', '......#'],
@@ -114,19 +129,21 @@ function clawd(o) {
   // ---- scenery behind him
   if (o.beach !== undefined) {
     const w = o.beach;
-    for (let y = 6; y < F; y++) fill(1 + (y > 14 ? 0 : (y > 10 ? 0 : 1)), y, 3, 1, 'x');            // trunk
-    for (let y = 8; y < F; y += 3) fill(1, y, 4, 1, 'X');                                              // trunk rings
-    const leaf = (x, y, w2) => fill(x, y, w2, 1, 'G');
-    leaf(0, 3, 4); leaf(0, 4, 8); leaf(1, 5, 10); leaf(3, 6, 8); leaf(3, 2, 7); leaf(4, 1, 5); leaf(6, 3, 6); leaf(2, 7, 4); leaf(8, 4, 3);   // fronds
-    fill(5, 5, 3, 2, 'l'); set(0, 5, 'G'); set(0, 6, 'G');
-    fill(X + 24, 0, 5, 5, 's'); if (w % 2) { fill(X + 23, 2, 1, 1, 's'); fill(X + 28, 2, 1, 1, 's'); fill(X + 26, 5, 1, 1, 's'); }
+    for (let y = 9; y < F; y++) fill(y < 13 ? 4 : y < 18 ? 3 : 2, y, 3, 1, y % 3 === 0 ? 'X' : 'x');   // curved trunk
+    const frond = (pts) => { for (let i = 0; i < pts.length - 1; i++) { const [x0, y0] = pts[i], [x1, y1] = pts[i + 1], n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)); for (let t = 0; t <= n; t++) { const x = Math.round(x0 + ((x1 - x0) * t) / n), y = Math.round(y0 + ((y1 - y0) * t) / n); fill(x, y, 2, 2, 'G'); if ((x + y) % 2 === 0) set(x, y, 'l'); } } };
+    frond([[4, 7], [3, 5], [1, 4], [0, 5], [0, 8]]);
+    frond([[5, 6], [5, 3], [7, 1], [10, 1]]);
+    frond([[6, 7], [9, 5], [12, 5], [13, 8]]);
+    frond([[3, 8], [1, 10], [0, 13]]);
+    frond([[6, 8], [9, 10], [10, 13]]);
+    fill(4, 8, 3, 2, 'X');   // coconuts
+    fill(X + 21, 1, 5, 5, 's'); if (w % 2) { set(X + 20, 3, 's'); set(X + 26, 3, 's'); set(X + 23, 0, 's'); set(X + 23, 6, 's'); }
   }
-
   if (o.spinner !== undefined) { const cx = X + 12, cy = Y - 5, t = o.spinner; SPIN.forEach(([dx, dy], i) => { const a = (i - t + 8) % 8; set(cx + dx, cy + dy, a === 0 ? 'u' : a === 1 ? 'u' : a === 2 ? 'U' : a < 5 ? 'v' : null); }); }
   // ---- body from the canonical grid
   ART.forEach((row, cy) => [...row].forEach((ch, cx) => {
     if (ch === '.') return;
-    if (cy >= 6) { if (o.legsUp?.includes(cx) && cy === 7) return; fill(X + cx * 2, OY + cy * 2 + (o.sit ? 0 : 0), 2, 2, 'c'); }
+    if (cy >= 6) { if (o.legsUp?.includes(cx) && cy === 7) return; fill(OX + cx * 2, OY + cy * 2, 2, 2, 'c'); }
     else fill(X + cx * 2, Y + cy * 2, 2, 2, 'c');
   }));
   const clearArm = (side) => { const x0 = side === 'L' ? X : X + 20; for (let j = 4; j < 8; j++) for (let i = 0; i < 4; i++) set(x0 + i, Y + j, null); return x0; };
@@ -161,7 +178,8 @@ function clawd(o) {
     if (kind === 'mask') { /* drawn as a prop */ }
   };
   const ek = o.eyes || 'open';
-  eye(X + 6, ek, false); eye(X + 16, ek, true);
+  eye(X + 6, o.eyeL || ek, false); eye(X + 16, o.eyeR || ek, true);
+  if (o.blush) { fill(X + 4, Y + 5, 3, 1, 'p'); fill(X + 17, Y + 5, 3, 1, 'p'); }
   // little white mouth (the shape seen on the reference sheet)
   const mc = X + 10, my = Y + 5;
   if (o.mouth === 'smile') { fill(mc, my, 4, 1, 'w'); set(mc - 1, my - 1, 'w'); set(mc + 4, my - 1, 'w'); }
@@ -184,8 +202,7 @@ function clawd(o) {
     fill(X + 10, Y + 4, 4, 1, 'c'); fill(X + 11, Y + 5, 2, 3, 'c'); fill(X + 9, Y + 4, 1, 2, 'v'); fill(X + 14, Y + 4, 1, 2, 'v');
     fill(X + 5, Y + 8, 3, 2, 'v'); fill(X + 16, Y + 8, 3, 2, 'v'); fill(X + 12, Y + 8, 1, 3, 'v'); set(X + 11, Y + 9, 'g'); set(X + 11, Y + 6, 'g');
   }
-  if (o.flask) { const fx = X + 22, fy = Y - 3, t = o.flask; fill(fx + 2, fy, 3, 3, 'i'); fill(fx + 1, fy + 3, 5, 1, 'i'); fill(fx, fy + 4, 7, 3, 'i'); fill(fx + 1, fy + 5, 5, 3, 'l'); fill(fx + 2, fy + 8, 3, 1, 'l');
-    fill(fx + 1, fy + 3, 1, 4, 'v'); set(fx + 3 - (t % 2), fy - 1 - t % 3, 'l'); set(fx + 4, fy - 3 + (t % 2), 'l'); set(fx + 2, fy + 5, 'w'); set(fx + 4, fy + 6, 'w'); }
+  if (o.flask) { const t = o.flask, one = (fx, fy, liquid) => { fill(fx + 2, fy, 3, 3, 'i'); fill(fx + 1, fy + 3, 5, 1, 'i'); fill(fx, fy + 4, 7, 3, 'i'); fill(fx + 1, fy + 5, 5, 3, liquid); fill(fx + 2, fy + 8, 3, 1, liquid); fill(fx + 1, fy + 3, 1, 4, 'v'); set(fx + 3 - (t % 2), fy - 1 - t % 3, liquid); set(fx + 4, fy - 3 + (t % 2), liquid); set(fx + 2, fy + 5, 'w'); set(fx + 4, fy + 6, 'w'); }; one(X + 22, Y - 3, 'l'); one(X - 5, Y - 3, 'h'); }
   if (o.tubes) { const tx = X - 4; for (let i = 0; i < 3; i++) { fill(tx + i * 3, Y + 6, 2, 7, 'i'); fill(tx + i * 3, Y + 9 - (i % 2), 2, 4 + (i % 2), ['q', 'h', 'y'][i]); } fill(tx - 1, Y + 13, 9, 1, 'X'); }
   if (o.laptop) { fill(X + 3, OY + 11, 18, 8, 'L'); fill(X + 3, OY + 11, 18, 1, 'M'); fill(X + 11, OY + 14, 2, 2, 'M'); }
   if (o.bell !== undefined) {
@@ -195,6 +212,8 @@ function clawd(o) {
     if (s2 > 0) { set(bx - 7, Y + 7, 's'); set(bx - 8, Y + 8, 's'); } if (s2 < 0) { set(bx + 6, Y + 7, 's'); set(bx + 6, Y + 8, 's'); }
   }
   if (o.notes !== undefined) { const t = o.notes; px(PAT.NOTE[0], X + 26, Y - 6 + (t % 3) * 2, 'z'); px(PAT.NOTE[1], X - 3, Y - 6 + ((t + 1) % 3) * 2, 'h'); px(PAT.NOTE[0], X + 6, Y - 7 + ((t + 2) % 3) * 2, 'u'); }
+  if (o.bottle) { const bx = X + 22 + (o.bottle > 1 ? 1 : 0), by2 = Y - 1; fill(bx + 1, by2, 2, 3, 'G'); fill(bx, by2 + 3, 4, 8, 'G'); fill(bx + 1, by2 + 6, 2, 3, 'K'); set(bx + 1, by2 + 4, 'l'); fill(bx + 1, by2 - 1, 2, 1, 'X'); }
+  if (o.bubbles !== undefined) { const t = o.bubbles; [[X + 20, Y - 2 - (t % 3) * 2], [X + 23, Y - 3 - ((t + 1) % 3) * 2], [X + 18, Y - 4 - ((t + 2) % 3) * 2]].forEach(([x, y], i) => { set(x, y, 'v'); if (i === 0) set(x + 1, y, 'v'); }); }
   if (o.hourglass) {
     const hx = X + 20, hy = Y + 4, up = [7, 7, 5, 3, 1], sd = o.sand || 0;
     fill(hx, hy, 9, 2, 'X'); fill(hx, hy + 14, 9, 2, 'X');
@@ -227,10 +246,13 @@ function clawd(o) {
     set(X + 4, Y - 4, 'g'); set(X + 4, Y - 3, 'g'); set(X + 20, Y - 4, 'g'); set(X + 20, Y - 3, 'g');
     if (t) { set(X + 11, Y - 7, 's'); set(X + 12, Y - 6, 's'); set(X + 13, Y - 5, 's'); set(X + 12, Y - 4, 's'); }
   }
-  if (o.bulb) { const bx = X + 10, by2 = 1, g = o.bulb; px(PAT.BULB, bx, by2, 'y'); set(bx + 1, by2 + 1, 'w'); set(bx + 1, by2 + 2, 'w');
-    px(['#...#', '.....', '.....'], bx, by2 - 1, 'K');
-    [[-3, 2], [7, 2], [-3, 4], [7, 4], [2, -1]].forEach(([dx, dy]) => fill(bx + dx, by2 + dy, 1, 1, g > 1 ? 'y' : 'K'));
-    if (g > 1) { fill(bx - 5, by2 + 3, 2, 1, 'y'); fill(bx + 8, by2 + 3, 2, 1, 'y'); fill(bx + 1, 0, 3, 1, 'y'); } }
+  if (o.bulb) {
+    const bx = X + 10, by2 = 2, g = o.bulb, cx = bx + 2;
+    px(PAT.BULB, bx, by2, 'y'); set(bx + 1, by2 + 1, 'w'); set(bx + 1, by2 + 2, 'w');
+    const ray = (pts, c) => pts.forEach(([x, y]) => set(x, y, c));
+    ray([[cx, 0], [cx, 1], [bx - 3, 4], [bx - 2, 4], [bx + 6, 4], [bx + 7, 4], [bx - 2, 2], [bx - 1, 1], [bx + 6, 2], [bx + 5, 1]], g > 1 ? 's' : 'K');
+    if (g > 1) ray([[bx - 5, 4], [bx - 4, 4], [bx + 8, 4], [bx + 9, 4], [bx - 2, 6], [bx - 1, 7], [bx + 6, 6], [bx + 5, 7]], 'y');
+  }
   if (o.coins !== undefined) { const t = o.coins; px(PAT.COIN, X + 21, Y - 5 + (t % 2), 's'); px(PAT.COIN, X - 2, Y - 3 - (t % 2) * 1, 's'); fill(X + 8, F - 1, 8, 1, 'B'); fill(X + 9, F - 2, 6, 1, 'b'); fill(X + 10, F - 3, 4, 1, 'b'); }
   if (o.spiral) px(o.spiral === 1 ? PAT.SPIRAL : PAT.SPIRAL2, X + 9, Y - 8, 'n');
   if (o.bolt) { px(PAT.BOLT, X + 3, Y - 8, 'y'); px(PAT.BOLT, X + 17, Y - 8, 'y'); }
@@ -283,8 +305,8 @@ const S = [
     f: [{ legsUp: [2, 7], mouth: 'smile' }, { dy: -1, mouth: 'smile' }, { legsUp: [4, 9], mouth: 'smile' }, { dy: -1, mouth: 'smile' }], d: .2, drift: 1 },
   { id: 'talk', t: 'Talks', s: 'A warning with its action', say: 'Context 52%. Hand off to a fresh session?', btn: 'Handoff', n: 'Arms gesture, the little white mouth opens and closes.',
     f: [{ armR: 'half', mouth: 'open' }, { armR: 'out', mouth: 'flat' }, { armR: 'half', armL: 'half', mouth: 'open' }, { armR: 'out', mouth: 'flat' }], d: .22 },
-  { id: 'uneasy', t: 'Uneasy', s: 'Context 50%+ (warning)', say: 'Quality may slip. Handoff?', btn: 'Handoff', n: 'Nervous: darting eyes, trembling, sweat on his forehead, wiping it with a handkerchief.',
-    f: [0, 1, 2, 1].map((t, i) => ({ eyes: 'wide', look: i % 2 ? 'right' : 'left', mouth: 'grim', forehead: i, armL: 'up', handkerchief: t, armR: 'half', dx: i % 2 })), d: .3 },
+  { id: 'drunk', t: 'Tipsy', s: 'Context 50%+ (warning)', say: 'Quality may slip. Handoff?', btn: 'Handoff', n: 'Drunk and wobbly: swaying on planted feet, flushed cheeks, lopsided eyes, a bottle, hiccup bubbles.',
+    f: [-2, -1, 0, 1, 2, 1, 0, -1].map((dx, i) => ({ dx, eyeL: i % 2 ? 'half' : 'wide', eyeR: i % 2 ? 'wide' : 'half', brows: 0, blush: 1, mouth: i % 3 === 0 ? 'o' : 'smile', armR: 'hold', bottle: i % 2 + 1, bubbles: i, dy: i % 4 === 2 ? 1 : 0 })), d: .22 },
   { id: 'fire', t: 'On fire', s: 'Context 80%+ (high)', say: 'Handoff now!', btn: 'Handoff now', n: 'Flames all around, forehead sweat, both arms waving.',
     f: [0, 1, 2, 1].map((t, i) => ({ eyes: 'wide', mouth: 'o', flame: i % 3, forehead: i, armL: i % 2 ? 'half' : 'high', armR: i % 2 ? 'high' : 'half', dy: i % 2 })), d: .16 },
   { id: 'hourglass', t: 'Hourglass', s: 'Cache about to expire', say: 'Cache cold in 4m', btn: 'Handoff', n: 'Holds a big hourglass under his hand and watches the sand run.',
@@ -323,8 +345,8 @@ const S = [
     f: [0, 1].map(t => ({ plug: t, eyes: 'sad', mouth: 'grim', armL: 'half', armR: 'half', dy: t })), d: .4 },
   { id: 'dizzy', t: 'Dizzy', s: 'Compacting the context', say: 'Compacting...', n: 'Swirl over his head, swirl eyes, wobble.',
     f: [{ spiral: 1, eyes: 'dizzy', dx: -1, mouth: 'o' }, { spiral: 2, eyes: 'dizzy', dx: 1, mouth: 'o' }], d: .3 },
-  { id: 'lab', t: 'Lab results', s: 'Tests passed', say: 'All green', n: 'Lab coat, a bubbling flask, a rack of test tubes.',
-    f: [0, 1, 2].map(t => ({ coat: 1, flask: t + 1, tubes: 1, mouth: 'smile', eyes: t === 1 ? 'happy' : 'open' })), d: .35 },
+  { id: 'lab', t: 'Lab results', s: 'Tests passed', say: 'All green', n: 'Two bubbling flasks, one in each hand side.',
+    f: [0, 1, 2].map(t => ({ flask: t + 1, mouth: 'smile', eyes: t === 1 ? 'happy' : 'open' })), d: .35 },
   { id: 'reviewed', t: 'Reviewed', s: 'Review finished with no findings', say: 'Looks good to me', n: 'Glasses and a green check.',
     f: [{ glasses: 1, check: 1, mouth: 'smile', armR: 'up' }, { glasses: 1, check: 1, mouth: 'smile', eyes: 'happy', dy: 1 }], d: .5 },
   { id: 'hand', t: 'Needs your approval', s: 'A permission prompt is waiting', say: 'Needs your OK', btn: 'Open prompt', n: 'Raises a hand, alert mark.',

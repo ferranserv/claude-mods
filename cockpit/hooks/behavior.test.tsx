@@ -530,3 +530,135 @@ test('a warning with no action to offer is dropped: saver already on, 5-hour at 
   expect(await ui.find({ key: 'alert-five' })).toBeUndefined()
   await ui.unmount()
 })
+
+// ---- Clawd: the state on screen follows what is happening, in priority order (hooks/mood.ts)
+
+type Do = { tool: { call: (i: unknown) => Promise<unknown>; check: (i: unknown) => Promise<unknown> }; turn: { start: (i: unknown) => Promise<unknown>; complete: (i: unknown) => Promise<unknown> } }
+const altOf = async ($: unknown, isWorking = false): Promise<string> => {
+  const ui = await ($ as { ui: { mount: (i: unknown) => Promise<{ find: (q: unknown) => Promise<{ props?: { alt?: string } } | undefined>; unmount: () => Promise<void> }> } }).ui.mount(band('desktop', isWorking))
+  const alt = String((await ui.find({ type: 'Svg' }))?.props?.alt ?? '')
+  await ui.unmount()
+  return alt
+}
+const ok = () => ({ ref: 0, result: {}, text: 'ok' }) as never
+
+test('Clawd lounges on the beach when nothing is going on; the session starts with a walk', async ($, on) => {
+  const w = world(on)
+  expect(await altOf($)).toContain('lounging on a beach')
+  await started($)
+  await measureCtx($, 10)
+  expect(await altOf($)).toContain('walks in')
+  await w.clock.advance(6000)
+  expect(await altOf($)).toContain('lounging')
+})
+
+test('an Edit shows the hammer while it runs and a moment after; then the lasting state is back', async ($, on) => {
+  const w = world(on)
+  on('tool.call', ok)
+  await started($)
+  await w.clock.advance(6000)
+  await measureCtx($, 90) // fire
+  expect(await altOf($)).toContain('on fire')
+  await ($ as unknown as Do).tool.call({ tool: 'Edit', file_path: '/r/app.ts', old_string: 'a', new_string: 'b' })
+  expect(await altOf($)).toContain('hammer')
+  await w.clock.advance(2000)
+  expect(await altOf($)).toContain('on fire')
+})
+
+test('reading and web tools get their own states', async ($, on) => {
+  const w = world(on)
+  on('tool.call', ok)
+  await started($)
+  await w.clock.advance(6000)
+  await ($ as unknown as Do).tool.call({ tool: 'Grep', pattern: 'x' })
+  expect(await altOf($)).toContain('reading')
+  await w.clock.advance(2000)
+  await ($ as unknown as Do).tool.call({ tool: 'WebSearch', query: 'q' })
+  expect(await altOf($)).toContain('searching the web')
+})
+
+test('a failed tool is an oops, a passing test run is the lab, an approved plan is an idea', async ($, on) => {
+  const w = world(on)
+  let next: unknown = { ref: 0, result: {}, text: 'x', isError: true }
+  on('tool.call', () => next as never)
+  await started($)
+  await w.clock.advance(6000)
+  await ($ as unknown as Do).tool.call({ tool: 'Bash', command: 'false' })
+  expect(await altOf($)).toContain('oops')
+  await w.clock.advance(5000)
+  next = ok()
+  await ($ as unknown as Do).tool.call({ tool: 'Bash', command: 'pnpm test' })
+  expect(await altOf($)).toContain('bubbling flasks')
+  await w.clock.advance(5000)
+  await ($ as unknown as Do).tool.call({ tool: 'ExitPlanMode', plan: 'p' })
+  expect(await altOf($)).toContain('idea')
+})
+
+test('a permission prompt raises a hand until the call runs', async ($, on) => {
+  const w = world(on)
+  on('tool.check', () => ({ decision: 'ask' }) as never)
+  on('tool.call', ok)
+  await started($)
+  await w.clock.advance(6000)
+  await ($ as unknown as Do).tool.check({ tool: 'Bash', input: { command: 'rm -rf x' } })
+  expect(await altOf($)).toContain('raises a hand')
+  await ($ as unknown as Do).tool.call({ tool: 'Bash', command: 'ls' })
+  expect(await altOf($)).not.toContain('raises a hand')
+})
+
+test('a finished turn rings the bell over a warning, then the warning returns', async ($, on) => {
+  const w = world(on)
+  on('turn.complete', (_, e) => ({ text: e.answer }) as never)
+  await started($)
+  await w.clock.advance(6000)
+  await measureCtx($, 90)
+  await ($ as unknown as Do).turn.start({ text: 'go', turnId: 't1' })
+  expect(await altOf($, true)).toContain('on fire')
+  await ($ as unknown as Do).turn.complete({ reason: 'answer', answer: 'x', durationMs: 5, isAborted: false, turnId: 't1' })
+  expect(await altOf($)).toContain('rings a bell')
+  await w.clock.advance(5000)
+  expect(await altOf($)).toContain('on fire')
+})
+
+test('thinking before any tool, typing after, coffee when the turn drags on', async ($, on) => {
+  const w = world(on)
+  on('tool.call', ok)
+  await started($)
+  await measureCtx($, 10)
+  await w.clock.advance(6000)
+  await ($ as unknown as Do).turn.start({ text: 'go', turnId: 't1' })
+  expect(await altOf($, true)).toContain('thinking')
+  await ($ as unknown as Do).tool.call({ tool: 'Bash', command: 'ls' })
+  await w.clock.advance(2000)
+  expect(await altOf($, true)).toContain('typing')
+  await w.clock.advance(125_000)
+  expect(await altOf($, true)).toContain('coffee')
+})
+
+test('a collapsed band speaks through the bubble, with the button; an open band shows the alert once', async ($, on) => {
+  const w = world(on)
+  await started($)
+  await measureCtx($, 60)
+  await w.clock.advance(6000)
+  await $.command.run({ command: 'cockpit', args: 'close' } as never)
+  let ui = await $.ui.mount(band('desktop'))
+  expect(await ui.find({ key: 'bubble' })).toBeDefined()
+  expect(await ui.find({ key: 'handoff' })).toBeDefined()
+  expect(await ui.find({ key: 'alert-ctx' })).toBeUndefined()
+  await ui.unmount()
+  await $.command.run({ command: 'cockpit', args: 'auto' } as never)
+  ui = await $.ui.mount(band('desktop'))
+  expect(await ui.find({ key: 'alert-ctx' })).toBeDefined()
+  expect(await ui.find({ key: 'bubble' })).toBeUndefined()
+  await ui.unmount()
+})
+
+test('/cockpit demo shows a state you ask for, and says when it does not know one', async ($, on) => {
+  world(on)
+  await started($)
+  expect(text(await $.command.run({ command: 'cockpit', args: 'demo typing' } as never))).toContain('typing')
+  expect(await altOf($)).toContain('typing on a laptop')
+  expect(text(await $.command.run({ command: 'cockpit', args: 'demo nonsense' } as never))).toContain('No state called')
+  await $.command.run({ command: 'cockpit', args: 'demo off' } as never)
+  expect(await altOf($)).not.toContain('typing on a laptop')
+})

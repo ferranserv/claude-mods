@@ -112,6 +112,11 @@ Not verified (owner on the desktop app): SMIL animation of Clawd; band height wi
 Next: owner checks PR 1 on screen, then PR 2 (30 mascot states from docs/mascot/clawd-sheet.html).
 Tokens: about 1.2M this session in total (design 0.9M, PR 1 0.3M).
 
+## Session 10 (2026-10-20): PR 2, Clawd's states (stacked on PR #13)
+- Sheet v4 (owner's round 3): palm tree behind him and inside the canvas, sun inside, tipsy replaces uneasy, bulb glow clean, lab without the coat, priority section.
+- cockpit 0.2.0: 29 states, `mood.ts` priority and bubbles, signals from tool.call, tool.check, session.compact, mcp.connect and the turn/session events; `/cockpit demo`. 182 tests pass.
+- Not verified on the app: animation playback, which tools/events actually reach the hooks on the desktop build (permission ask, compaction, MCP), band height.
+
 ## Next
 1. Owner: paste the screenshot, run the mods on the real app, report what cuts off or collides.
 2. Owner: run `python3 tools/audit-sessions.py`, pick an idea from the five.

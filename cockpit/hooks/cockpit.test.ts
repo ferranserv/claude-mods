@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'claude-code/testing'
 
 import { alertsOf, attentionOf, cockpitSvg, model } from './lib'
-import { MASCOT, idleMarkup } from './mascot'
+import { stateMarkup } from './states'
 
 const NOW = new Date(2026, 9, 21, 12).getTime() // a Wednesday: 60% of the week is allotted
 const m = (percent: number, five = 0, week = 0) =>
@@ -43,10 +43,10 @@ describe('alertsOf: every warning has an action', () => {
 })
 
 describe('cockpitSvg', () => {
-  const mascot = { markup: idleMarkup(), ...MASCOT }
+  const mascot = stateMarkup('idle')
   test('the collapsed row is as tall as the mascot and keeps the small print out', () => {
     const closed = cockpitSvg(800, m(60, 41, 35), mascot, false)
-    expect(closed.height).toBe(MASCOT.height)
+    expect(closed.height).toBe(mascot.height)
     expect(closed.source).not.toContain('quality may start to slip')
     expect(closed.source).not.toContain('NaN')
   })
@@ -56,7 +56,7 @@ describe('cockpitSvg', () => {
     expect(open.source).not.toContain('NaN')
   })
   test('the mascot loop animates by swapping frames', () => {
-    expect(idleMarkup()).toContain('attributeName="opacity"')
-    expect(idleMarkup()).toContain('repeatCount="indefinite"')
+    expect(mascot.markup).toContain('attributeName="opacity"')
+    expect(mascot.markup).toContain('repeatCount="indefinite"')
   })
 })
