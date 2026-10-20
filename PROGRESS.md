@@ -95,6 +95,12 @@ Next
 Open: SMIL in the desktop app; band height with a 48 px mascot; whether draft events reach the app (sparkle trim).
 Tokens so far this session: about 0.9M (mostly mascot design).
 
+## Session 8 (2026-10-20): Clawd revised, PR #12 merged
+- PR #12 merged, chime confirmed working by the owner. Branch restarted from main.
+- Clawd sheet v2 (docs/mascot/clawd-sheet.html): owner's notes applied (loading circle, big bell with notes, forehead sweat and handkerchief, hourglass under the hand, static frozen with wide ice, bed with eye mask and alarm clock, fedora and real magnifier, wizard hat, beach idle) and 11 new scenarios added. Canvas 34 x 28 (asleep 56 wide). No pixel outside the canvas, bubbles wrap.
+- Owner will send more reference pictures for extra poses.
+Next: PR 1 Batch 0 (spike) once the owner says go.
+
 ## Next
 1. Owner: paste the screenshot, run the mods on the real app, report what cuts off or collides.
 2. Owner: run `python3 tools/audit-sessions.py`, pick an idea from the five.
