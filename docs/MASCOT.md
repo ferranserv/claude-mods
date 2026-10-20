@@ -26,6 +26,9 @@ While a turn runs the cache is warm, so cache states do not apply; tool states w
 ## Canvas and bubble
 Canvas 34 x 28 px (asleep: 56 x 28), drawn at 2x (68 x 56). Every state is checked by the sheet for pixels outside the canvas (red tag, none now). The speech bubble sits right of him with a tail, wraps text (long text and narrow widths tested), and carries the action button for that warning.
 
+## Status
+PR 1 (cockpit 0.1.0) ships the idle loop only: plain Clawd, blink and bob, no scenery (`cockpit/hooks/mascot.ts`). The beach idle and the 29 other states are built in PR 2 from the sheet.
+
 ## Rendering
 SVG per frame set, frames swapped by SMIL (`animate` on opacity, `isInteractive: true`). Speech bubble beside him, text from the active warning, its action button next to it. Terminal surface (no SVG): one-line text face. `prefers-reduced-motion`: first frame only. No model calls; redraw only when the state changes.
 

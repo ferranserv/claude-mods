@@ -6,4 +6,5 @@ To bring one back: `git mv archive/<mod> <mod>`, add it to `.claude-plugin/marke
 
 | Mod | Why archived |
 | --- | --- |
+| `meters`, `saver`, `preflight-guard`, `prompt-enhancer`, `mods-manager` | Merged into `cockpit` (0.1.0), which replaces all of them. `mods-manager` did nothing useful in the desktop route; its update routine is now `docs/UPDATING.md`. |
 | `plan-progress` | Panel above the prompt for `/goal` and task lists; not useful enough for the space. Its chime moved into `meters` (`sound` option). |
