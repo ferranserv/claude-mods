@@ -10,6 +10,7 @@ import { matchesChord, parseChord } from './keys'
 import {
   CACHE_INITIAL,
   DEFAULT_LIMITS,
+  allottedThrough,
   alertsOf,
   altText,
   attentionOf,
@@ -27,7 +28,8 @@ import {
   windowMinutes,
 } from './lib'
 import type { ActionId, Alert, Model, Thresholds } from './lib'
-import { MASCOT, idleMarkup } from './mascot'
+import { COFFEE_AFTER_MS, FLEET_MS, START_MS, TOOL_LINGER_MS, bubbleFor, clockOf, pickState } from './mood'
+import type { Bubble, Fleet, ToolKind } from './mood'
 import {
   WRITE_TOOLS,
   advise,
@@ -48,6 +50,8 @@ import {
 import type { Change, Facts, Peer, Phase, Stat } from './preflight-logic'
 import { COLOR, CONTEXT_LIMIT, HAIKU_ID, dayKey, isStripShown, labelLocally, parseMode, savingOf, shortName } from './saver-logic'
 import type { Level } from './saver-logic'
+import { STATES, STATE_IDS, stateMarkup } from './states'
+import type { StateId } from './states'
 
 // ======================================================================================================
 // One file on purpose: a hook may pass `$` only to functions declared in the same file, and an event can
@@ -105,6 +109,92 @@ const safe = async (fn: () => Promise<unknown>): Promise<void> => {
     await fn()
   } catch {
     // One feature failing must not stop the others on the same event.
+  }
+}
+
+// ---- what Clawd reacts to: signals the hooks leave here, read when the band is drawn (order: hooks/mood.ts)
+const mood = {
+  waiting: false, // a permission prompt is open
+  compacting: false,
+  fleet: {} as Partial<Record<Fleet, number>>, // fleeting events, by the time they end
+  tool: null as { kind: ToolKind; until: number } | null,
+  toolNote: '',
+  failNote: '',
+  walkUntil: 0,
+  helloUntil: 0,
+  isFirstPrompt: true,
+  busySince: 0,
+  hasTool: false,
+  demo: null as { id: StateId; until: number } | null,
+  demoRun: 0,
+}
+
+/** Redraw now, and again when a timed state ends. */
+function poke($: EngineInterface, ms = 0): void {
+  $.ui.invalidate('ui.render')
+  if (ms > 0) $.clock.after(ms + 80, () => $.ui.invalidate('ui.render'))
+}
+
+async function flash($: EngineInterface, id: Fleet): Promise<void> {
+  mood.fleet[id] = (await $.clock.now()) + FLEET_MS[id]
+  poke($, FLEET_MS[id])
+}
+
+type ToolInput = { tool?: string; file_path?: string; notebook_path?: string; pattern?: string; command?: string }
+const TEST_COMMAND = /\b(pytest|vitest|jest|mocha|rspec|phpunit|ctest|go test|cargo test|npm (run )?test|pnpm (run )?test|yarn test|plugin test)\b/i
+const baseName = (p: string) => p.replace(/\\/g, '/').split('/').filter(Boolean).pop() ?? ''
+
+function toolKind(tool: string): ToolKind | null {
+  if (['Edit', 'Write', 'MultiEdit', 'NotebookEdit'].includes(tool)) return 'building'
+  if (['Read', 'Grep', 'Glob', 'NotebookRead', 'LS'].includes(tool)) return 'reading'
+  if (['WebSearch', 'WebFetch'].includes(tool)) return 'browse'
+  return null
+}
+
+/** A tool call starts: Clawd shows what kind of work it is for as long as it runs. */
+function toolStarts($: EngineInterface, input: ToolInput): void {
+  const tool = String(input.tool ?? '')
+  mood.hasTool = true
+  mood.waiting = false
+  const kind = toolKind(tool)
+  if (kind) {
+    mood.tool = { kind, until: Number.MAX_SAFE_INTEGER }
+    mood.toolNote = baseName(String(input.file_path ?? input.notebook_path ?? input.pattern ?? ''))
+  }
+  poke($)
+}
+
+/** It ends: the tool state lingers a moment; a failed call, a passing test run and an approved plan flash. */
+async function toolEnds($: EngineInterface, input: ToolInput, r: { isError?: boolean } | undefined): Promise<void> {
+  const tool = String(input.tool ?? '')
+  const now = await $.clock.now()
+  if (mood.tool) {
+    mood.tool = { kind: mood.tool.kind, until: now + TOOL_LINGER_MS }
+    poke($, TOOL_LINGER_MS)
+  }
+  if (r?.isError) {
+    mood.failNote = tool
+    await flash($, 'oops')
+  } else if (tool === 'ExitPlanMode') await flash($, 'idea')
+  else if (tool === 'Bash' && TEST_COMMAND.test(String(input.command ?? ''))) await flash($, 'lab')
+}
+
+/** `/cockpit demo`: shows every state for four seconds each, so you can check them on your own screen. */
+async function demoLoop($: EngineInterface, ids: StateId[]): Promise<void> {
+  const run = ++mood.demoRun
+  try {
+    for (const id of ids) {
+      if (run !== mood.demoRun) return
+      mood.demo = { id, until: (await $.clock.now()) + 4000 }
+      poke($)
+      await $.clock.sleep(4000)
+    }
+    if (run === mood.demoRun) {
+      mood.demo = null
+      poke($)
+    }
+  } catch {
+    // The session ended while the demo was playing.
   }
 }
 
@@ -226,6 +316,7 @@ async function handoff($: EngineInterface, mode: HandoffMode) {
       } catch {
         isCopied = false
       }
+      await safe(() => flash($, 'love'))
       $.ui.toast(`Handoff brief ${isCopied ? 'copied and ' : ''}placed in the prompt box. Your session is unchanged.${where}`)
       return
     }
@@ -239,6 +330,7 @@ async function handoff($: EngineInterface, mode: HandoffMode) {
       await $.prompt.fill({ text: brief, mode: 'replace' })
       isPasted = (await $.prompt.read()).text === brief
     }
+    if (isPasted) await safe(() => flash($, 'love'))
     $.ui.toast(isPasted ? `Handoff brief is in the prompt box: review, then Enter.${where}` : `The brief could not be pasted. /newsession paste retries.${where}`)
   } catch {
     $.ui.toast('Handoff failed. Nothing was cleared unless the session looks new.')
@@ -654,6 +746,7 @@ async function enhance($: EngineInterface, cfg: Cfg, given?: string): Promise<st
     }
     await patch($, { original: draft, hasDraft: true })
     lastHasDraft = true
+    await safe(() => flash($, 'wand'))
     $.ui.toast('Enhanced. Edit it, then press Enter. ↩ restores your draft.')
     return 'Enhanced draft placed in the prompt box.'
   } catch (err) {
@@ -690,6 +783,9 @@ type Snap = {
   note: Notice | null
   ask: string | null
   enh: EnhancerState
+  state: StateId
+  bubble: Bubble | null
+  clock: string
 }
 
 /** Reads every feature's state once and decides what is shown and whether the band is open. */
@@ -713,6 +809,43 @@ async function snapshot($: EngineInterface, propsWorking: boolean): Promise<Snap
   const day = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
   const saved = await read($, saverSaved)
   const routed = await read($, lastRouted)
+  const clock = clockOf((await read($, limits)).find(l => l.kind === 'five_hour')?.resetsAt)
+  const weekRoom = allottedThrough(now) - m.week.used
+  const state: StateId =
+    mood.demo && mood.demo.until > now
+      ? mood.demo.id
+      : pickState({
+          now,
+          waiting: mood.waiting,
+          fleet: mood.fleet,
+          compacting: mood.compacting,
+          tool: mood.tool,
+          walkUntil: mood.walkUntil,
+          helloUntil: mood.helloUntil,
+          ctx: m.ctx.level,
+          cache: m.cache?.view.state ?? 'unknown',
+          fiveUsed: m.five.used,
+          weekRoom,
+          hasAdvice: rows.length > 0,
+          hasNote: note !== null,
+          busy: isWorking,
+          busyMs: mood.busySince > 0 ? now - mood.busySince : 0,
+          hasTool: mood.hasTool,
+        })
+  const usd = saved.day === day ? saved.usd : 0
+  const bubble = bubbleFor(state, {
+    ctxPercent: m.ctx.percent,
+    ctxText: m.ctx.legend.text,
+    cacheLabel: m.cache?.view.label ?? '',
+    fiveUsed: m.five.used,
+    fiveReset: clock,
+    weekPace: m.week.paceText,
+    weekRoom,
+    saverOn: isOn,
+    detail: state === 'oops' ? mood.failNote : mood.toolNote,
+    savedUsd: usd > 0 ? money(usd) : '',
+    hasAdvice: rows.length > 0,
+  })
   return {
     m,
     now,
@@ -725,6 +858,9 @@ async function snapshot($: EngineInterface, propsWorking: boolean): Promise<Snap
     note,
     ask: await read($, pending),
     enh: await read($, stateAtom),
+    state,
+    bubble,
+    clock,
   }
 }
 
@@ -751,16 +887,26 @@ type Comps = { Box: never; Text: never; Button: never }
 const el = (type: unknown, props: Record<string, unknown>, ...children: unknown[]) => h(type as never, props as never, ...(children as never[])) as never
 
 /** One alert: its words and the buttons that answer it. Handoff and fresh wait while Claude works. */
+/** One action button; `short` is the compact label used in Clawd's speech bubble. */
+function actionButton(id: ActionId, c: Comps, fx: Fx, short: boolean) {
+  if (id === 'handoff') return el(c.Button, { key: 'handoff', hotkey: 'h', variant: 'primary', onPress: () => fx.handoff('full') }, short ? 'Handoff' : `New session with handoff (H · ${handoffLabel})`)
+  if (id === 'copy') return el(c.Button, { key: 'copy', hotkey: 'c', onPress: () => fx.handoff('brief') }, short ? 'Copy handoff' : 'Copy handoff, keep session (C)')
+  if (id === 'fresh') return el(c.Button, { key: 'fresh', hotkey: 'n', onPress: () => fx.fresh() }, short ? 'Fresh session' : `Fresh session (N · ${freshLabel})`)
+  return el(c.Button, { key: 'saver', variant: 'primary', onPress: () => fx.saver(true) }, 'Turn saver on')
+}
+
+/** One alert: its words and the buttons that answer it. Handoff and fresh wait while Claude works. */
 function alertRow(a: Alert, c: Comps, fx: Fx, isWorking: boolean) {
   const tone = a.tone === 'alert' ? COLORS.alert : COLORS.warn
-  const button = (id: ActionId) => {
-    if (id === 'handoff') return el(c.Button, { key: 'handoff', hotkey: 'h', variant: 'primary', onPress: () => fx.handoff('full') }, `New session with handoff (H · ${handoffLabel})`)
-    if (id === 'copy') return el(c.Button, { key: 'copy', hotkey: 'c', onPress: () => fx.handoff('brief') }, 'Copy handoff, keep session (C)')
-    if (id === 'fresh') return el(c.Button, { key: 'fresh', hotkey: 'n', onPress: () => fx.fresh() }, `Fresh session (N · ${freshLabel})`)
-    return el(c.Button, { key: 'saver', variant: 'primary', onPress: () => fx.saver(true) }, 'Turn saver on')
-  }
   const wanted = a.actions.filter(id => !(isWorking && id !== 'saverOn'))
-  return el(c.Box, { key: `alert-${a.id}`, flexDirection: 'row', alignItems: 'center', gap: 1, flexWrap: 'wrap' }, el(c.Text, { key: 't', color: tone }, `● ${a.text}`), ...wanted.map(button))
+  return el(c.Box, { key: `alert-${a.id}`, flexDirection: 'row', alignItems: 'center', gap: 1, flexWrap: 'wrap' }, el(c.Text, { key: 't', color: tone }, `● ${a.text}`), ...wanted.map(id => actionButton(id, c, fx, false)))
+}
+
+/** Clawd's speech bubble: what he is reacting to, and the button that answers it when there is one. */
+function bubbleRow(b: Bubble, c: Comps, fx: Fx, isWorking: boolean) {
+  const items: unknown[] = [el(c.Text, { key: 'tail', dimColor: true }, '◂'), el(c.Text, { key: 't' }, b.text)]
+  if (b.action && !(isWorking && b.action !== 'saverOn')) items.push(actionButton(b.action, c, fx, true))
+  return el(c.Box, { key: 'bubble', flexDirection: 'row', alignItems: 'center', gap: 1, flexWrap: 'wrap' }, ...items)
 }
 
 const files = (n: number) => `${n} file${n === 1 ? '' : 's'}`
@@ -824,6 +970,8 @@ function controls(s: Snap, c: Comps, fx: Fx, onToggle: () => void) {
 /** What sits under the main row: alerts, preflight, notice, saver. Collapsed shows only what needs you. */
 function details(s: Snap, c: Comps, fx: Fx, surface: string) {
   const rows: unknown[] = []
+  // An open band already shows the alert the bubble stands for, with its buttons: say it once.
+  if (s.bubble && !(s.isOpen && s.bubble.alertId !== undefined && s.alerts.some(a => a.id === s.bubble?.alertId))) rows.push(bubbleRow(s.bubble, c, fx, s.isWorking))
   if (s.isOpen) for (const a of s.alerts) rows.push(alertRow(a, c, fx, s.isWorking))
   if (s.note) rows.push(noticeRow(s.note, c, fx, surface))
   else if (!s.isWorking) {
@@ -951,8 +1099,11 @@ async function startEnhancer($: EngineInterface): Promise<void> {
 }
 
 async function startBand($: EngineInterface): Promise<void> {
-  await tryRegister($, { name: 'cockpit', description: 'The band above the prompt: /cockpit open, close or auto (open when something needs you)', argumentHint: 'open|close|auto' })
+  await tryRegister($, { name: 'cockpit', description: 'The band above the prompt: /cockpit open, close or auto (open when something needs you)', argumentHint: 'open|close|auto|demo' })
   if ((await $.store.get('pinnedOpen')) === true) await update($, pinnedOpen, () => true)
+  mood.walkUntil = (await $.clock.now()) + START_MS
+  mood.isFirstPrompt = true
+  poke($, START_MS)
 }
 
 export const register: Register = (on, options) => {
@@ -1000,7 +1151,15 @@ export const register: Register = (on, options) => {
   })
 
   on('turn.start', async ($, e, next) => {
-    if (e.agentId === undefined) await update($, isBusy, () => true)
+    if (e.agentId === undefined) {
+      await update($, isBusy, () => true)
+      mood.busySince = await $.clock.now()
+      mood.hasTool = false
+      mood.waiting = false
+      mood.tool = null
+      mood.toolNote = ''
+      poke($, COFFEE_AFTER_MS + 500)
+    }
     void beat($, 'working')
     return next(e)
   })
@@ -1008,7 +1167,12 @@ export const register: Register = (on, options) => {
   on('turn.complete', async ($, e, next) => {
     if (e.agentId === undefined) {
       await update($, isBusy, () => false)
+      mood.waiting = false
+      mood.tool = null
+      mood.compacting = false
       if (hasSound && e.reason !== 'aborted') await chime($)
+      if (e.reason !== 'aborted') await safe(() => flash($, 'bell'))
+      else poke($)
     }
     await safe(() => beat($, 'idle'))
     void refresh($)
@@ -1045,6 +1209,12 @@ export const register: Register = (on, options) => {
       lastHasDraft = false
       await patch($, { hasDraft: false, original: '' })
     })
+    await safe(async () => {
+      if (e.command || e.isMeta || !mood.isFirstPrompt) return
+      mood.isFirstPrompt = false
+      mood.helloUntil = (await $.clock.now()) + START_MS
+      poke($, START_MS)
+    })
     return next(e)
   })
 
@@ -1053,6 +1223,7 @@ export const register: Register = (on, options) => {
   on('turn.step', async function* ($, e, next) {
     if (e.agentId !== undefined) return yield* next(e)
 
+    mood.waiting = false
     const before = await read($, cache)
     const startedAt = await $.clock.now()
     // The request is going out: whatever was cached is read now, which restarts the whole window.
@@ -1077,6 +1248,7 @@ export const register: Register = (on, options) => {
 
     await safe(async () => {
       await update($, lastRouted, () => isHaiku)
+      if (isHaiku) await flash($, 'coins')
       await update($, saverLast, () => response.usage?.model ?? (isHaiku ? HAIKU_ID : e.model))
       const mainPrice = priceOf(e.model)
       if (isHaiku && response.usage && mainPrice) {
@@ -1146,7 +1318,38 @@ export const register: Register = (on, options) => {
     } else if ((await $.clock.now()) - S.lastWrite > 30_000) {
       void beat($, 'working')
     }
-    return next(e)
+    toolStarts($, input)
+    const r = await next(e)
+    await safe(() => toolEnds($, input, r as { isError?: boolean }))
+    return r
+  }).catch(($, e, next) => next(e))
+
+  // A permission prompt is about to be put to the person: Clawd raises a hand until the call runs or the turn moves on.
+  on('tool.check', async ($, e, next) => {
+    const r = await next(e)
+    if (r.decision === 'ask') {
+      mood.waiting = true
+      poke($)
+    }
+    return r
+  }).catch(($, e, next) => next(e))
+
+  on('session.compact', async ($, e, next) => {
+    mood.compacting = true
+    poke($)
+    try {
+      return await next(e)
+    } finally {
+      mood.compacting = false
+      poke($)
+    }
+  })
+
+  on('mcp.connect', async ($, e, next) => {
+    const r = await next(e)
+    const v = 'value' in r ? r.value : undefined
+    if (v && v.isConnected === false && v.reason === 'failed') await safe(() => flash($, 'plug'))
+    return r
   }).catch(($, e, next) => next(e))
 
   // ---- commands
@@ -1253,11 +1456,24 @@ export const register: Register = (on, options) => {
 
   on('command.run', { command: 'cockpit' }, async ($, e) => {
     const arg = e.args.trim().toLowerCase()
+    if (arg === 'demo' || arg.startsWith('demo ')) {
+      const which = arg.slice(4).trim()
+      if (which === 'off') {
+        mood.demoRun++
+        mood.demo = null
+        poke($)
+        return { text: 'Demo stopped.' }
+      }
+      const ids = which === '' ? STATE_IDS : STATE_IDS.filter(id => id === which)
+      if (ids.length === 0) return { text: `No state called "${which}". They are: ${STATE_IDS.join(', ')}.` }
+      void demoLoop($, [...ids])
+      return { text: `Showing ${ids.length === 1 ? ids[0] : `all ${ids.length} states`}, 4 seconds each. /cockpit demo off stops it.` }
+    }
     if (arg === 'open' || arg === 'close' || arg === 'auto') {
       await setView($, arg)
       return { text: arg === 'open' ? 'Cockpit kept open.' : arg === 'close' ? 'Cockpit collapsed. /cockpit auto lets it open by itself again.' : 'Cockpit opens by itself when something needs you.' }
     }
-    return { text: `Cockpit is ${(await read($, pinnedOpen)) ? 'pinned open' : 'automatic'}. Use /cockpit open, close or auto.` }
+    return { text: `Cockpit is ${(await read($, pinnedOpen)) ? 'pinned open' : 'automatic'}. Use /cockpit open, close or auto, or /cockpit demo [state] to see Clawd's states.` }
   })
 
   // The person closed the side panel with its own close mark: remember it, or the next session reopens it.
@@ -1296,11 +1512,11 @@ export const register: Register = (on, options) => {
 
     let row
     if (e.surface === 'terminal') {
-      row = el(c.Box, { key: 'row', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, el(c.Box, { key: 'meters' }, ...line(s.m).map((seg, i) => el(c.Text, { key: `s${i}`, color: seg.fill }, seg.t))), controls(s, c, fx, onToggle))
+      row = el(c.Box, { key: 'row', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, el(c.Box, { key: 'meters' }, el(c.Text, { key: 'face', dimColor: true }, `${STATES[s.state].face}  `), ...line(s.m).map((seg, i) => el(c.Text, { key: `s${i}`, color: seg.fill }, seg.t))), controls(s, c, fx, onToggle))
     } else {
       const { Svg } = $.ui.resolve(e)
-      const svg = cockpitSvg(Math.max(320, bandWidth(e.props.bodyColumns) - 150), s.m, { markup: idleMarkup(), ...MASCOT }, s.isOpen)
-      row = el(c.Box, { key: 'row', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, el(Svg, { key: 'svg', source: svg.source, alt: altText(s.m), isInteractive: true }), controls(s, c, fx, onToggle))
+      const svg = cockpitSvg(Math.max(320, bandWidth(e.props.bodyColumns) - 150), s.m, stateMarkup(s.state, s.clock), s.isOpen)
+      row = el(c.Box, { key: 'row', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, el(Svg, { key: 'svg', source: svg.source, alt: `${STATES[s.state].label}. ${altText(s.m)}`, isInteractive: true }), controls(s, c, fx, onToggle))
     }
 
     const mine = el(c.Box, { key: bandKey('cockpit'), flexDirection: 'column' }, row, ...(details(s, c, fx, e.surface) as never[]))
@@ -1318,7 +1534,7 @@ export const register: Register = (on, options) => {
     }
     const { Svg } = $.ui.resolve(e)
     const dock = e.props.placement === 'dock'
-    const svg = dock ? sideSvg(sideWidth(e.props.bodyColumns), s.m) : cockpitSvg(bandWidth(e.props.bodyColumns), s.m, { markup: idleMarkup(), ...MASCOT }, true)
+    const svg = dock ? sideSvg(sideWidth(e.props.bodyColumns), s.m) : cockpitSvg(bandWidth(e.props.bodyColumns), s.m, stateMarkup(s.state, s.clock), true)
     return el(
       c.Box,
       { flexDirection: 'column' },

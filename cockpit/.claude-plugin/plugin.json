@@ -1,10 +1,10 @@
 {
   "name": "cockpit",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": {
     "name": "Ferran"
   },
-  "description": "One band above the prompt: context window, 5-hour and weekly limits, prompt cache countdown, saver routing, preflight warnings and the prompt enhancer, with an expand arrow, a warning-with-action for every alert, and a chime when a turn ends. Replaces meters, saver, preflight-guard and prompt-enhancer.",
+  "description": "One band above the prompt with Clawd, the Claude Code mascot, who reacts to what is happening: context, cache, 5-hour and weekly limits, tools at work, finished turns, permission prompts. Collapsed row of meters with an expand arrow, a speech bubble with the button for every warning, saver routing, preflight warnings, the prompt enhancer, and a chime. Replaces meters, saver, preflight-guard and prompt-enhancer.",
   "types": "./types/index.d.ts",
   "userConfig": {
     "warnPercent": {
