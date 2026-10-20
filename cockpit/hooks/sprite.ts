@@ -227,7 +227,7 @@ function pathsOf(grid, pal) {
 }
 
 /** The frames of one state, swapped by SMIL opacity (a sandboxed Svg with isInteractive plays it; elsewhere frame one shows). */
-export function renderFrames(frames: Pose[], fd: number, w: number, drift: boolean): string {
+export function renderFrames(frames: Pose[], fd: number, w: number, drift: boolean, scale = 2): string {
   const n = frames.length
   const keyTimes = frames.map((_, i) => (i / n).toFixed(4)).join(';')
   const dur = (n * fd).toFixed(2)
@@ -239,7 +239,7 @@ export function renderFrames(frames: Pose[], fd: number, w: number, drift: boole
     })
     .join('')
   const move = drift ? `<animateTransform attributeName="transform" type="translate" values="-4 0;4 0;-4 0" dur="${(n * fd * 4).toFixed(2)}s" repeatCount="indefinite"/>` : ''
-  return `<g shape-rendering="crispEdges" transform="scale(2)"><g>${move}${groups}</g></g>`
+  return `<g shape-rendering="crispEdges" transform="scale(${scale})"><g>${move}${groups}</g></g>`
 }
 
 /** Pixels any frame of the state draws outside the canvas (must be none). */

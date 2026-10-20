@@ -101,6 +101,8 @@ let handoffLabel = 'meta+h'
 let freshLabel = 'meta+n'
 let enhanceLabel = 'meta+e'
 let hasSound = true
+// How Clawd is drawn: normal (2x), small (1x) or off. The option sets the start; /cockpit mascot changes and remembers it.
+let mascotMode: 'normal' | 'small' | 'off' = 'normal'
 let enhancerCfg: Cfg = { model: 'haiku', maxSkills: 12 }
 let enhancerChord: ReturnType<typeof parseEnhancerChord>
 
@@ -786,6 +788,7 @@ type Snap = {
   state: StateId
   bubble: Bubble | null
   clock: string
+  mascot: { markup: string; width: number; height: number }
 }
 
 /** Reads every feature's state once and decides what is shown and whether the band is open. */
@@ -861,6 +864,7 @@ async function snapshot($: EngineInterface, propsWorking: boolean): Promise<Snap
     state,
     bubble,
     clock,
+    mascot: mascotMode === 'off' ? { markup: '', width: 0, height: 0 } : stateMarkup(state, clock, mascotMode === 'small' ? 1 : 2),
   }
 }
 
@@ -1099,8 +1103,10 @@ async function startEnhancer($: EngineInterface): Promise<void> {
 }
 
 async function startBand($: EngineInterface): Promise<void> {
-  await tryRegister($, { name: 'cockpit', description: 'The band above the prompt: /cockpit open, close or auto (open when something needs you)', argumentHint: 'open|close|auto|demo' })
+  await tryRegister($, { name: 'cockpit', description: 'The band above the prompt: /cockpit open, close or auto (open when something needs you)', argumentHint: 'open|close|auto|mascot|demo' })
   if ((await $.store.get('pinnedOpen')) === true) await update($, pinnedOpen, () => true)
+  const storedMascot = await $.store.get('mascot')
+  if (storedMascot === 'normal' || storedMascot === 'small' || storedMascot === 'off') mascotMode = storedMascot
   mood.walkUntil = (await $.clock.now()) + START_MS
   mood.isFirstPrompt = true
   poke($, START_MS)
@@ -1116,6 +1122,7 @@ export const register: Register = (on, options) => {
   handoffChord = parseChord(handoffLabel)
   freshChord = parseChord(freshLabel)
   hasSound = options.sound !== false
+  mascotMode = options.mascot === 'small' || options.mascot === 'off' ? options.mascot : 'normal'
   enhanceLabel = typeof options.hotkey === 'string' ? options.hotkey : 'meta+e'
   enhancerChord = parseEnhancerChord(enhanceLabel)
   enhancerCfg = {
@@ -1469,11 +1476,19 @@ export const register: Register = (on, options) => {
       void demoLoop($, [...ids])
       return { text: `Showing ${ids.length === 1 ? ids[0] : `all ${ids.length} states`}, 4 seconds each. /cockpit demo off stops it.` }
     }
+    if (arg === 'mascot' || arg.startsWith('mascot ')) {
+      const wanted = arg.slice(6).trim()
+      if (wanted !== 'on' && wanted !== 'normal' && wanted !== 'small' && wanted !== 'off') return { text: `Clawd is ${mascotMode === 'normal' ? 'full size' : mascotMode}. Use /cockpit mascot on, small or off.` }
+      mascotMode = wanted === 'on' ? 'normal' : wanted
+      await $.store.set('mascot', mascotMode)
+      poke($)
+      return { text: mascotMode === 'off' ? 'Clawd is hidden. The speech bubble and the meters stay. /cockpit mascot on brings him back.' : mascotMode === 'small' ? 'Clawd is small.' : 'Clawd is full size.' }
+    }
     if (arg === 'open' || arg === 'close' || arg === 'auto') {
       await setView($, arg)
       return { text: arg === 'open' ? 'Cockpit kept open.' : arg === 'close' ? 'Cockpit collapsed. /cockpit auto lets it open by itself again.' : 'Cockpit opens by itself when something needs you.' }
     }
-    return { text: `Cockpit is ${(await read($, pinnedOpen)) ? 'pinned open' : 'automatic'}. Use /cockpit open, close or auto, or /cockpit demo [state] to see Clawd's states.` }
+    return { text: `Cockpit is ${(await read($, pinnedOpen)) ? 'pinned open' : 'automatic'}. Use /cockpit open, close or auto, /cockpit mascot on, small or off, or /cockpit demo [state] to see Clawd's states.` }
   })
 
   // The person closed the side panel with its own close mark: remember it, or the next session reopens it.
@@ -1512,10 +1527,10 @@ export const register: Register = (on, options) => {
 
     let row
     if (e.surface === 'terminal') {
-      row = el(c.Box, { key: 'row', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, el(c.Box, { key: 'meters' }, el(c.Text, { key: 'face', dimColor: true }, `${STATES[s.state].face}  `), ...line(s.m).map((seg, i) => el(c.Text, { key: `s${i}`, color: seg.fill }, seg.t))), controls(s, c, fx, onToggle))
+      row = el(c.Box, { key: 'row', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, el(c.Box, { key: 'meters' }, ...(mascotMode === 'off' ? [] : [el(c.Text, { key: 'face', dimColor: true }, `${STATES[s.state].face}  `)]), ...line(s.m).map((seg, i) => el(c.Text, { key: `s${i}`, color: seg.fill }, seg.t))), controls(s, c, fx, onToggle))
     } else {
       const { Svg } = $.ui.resolve(e)
-      const svg = cockpitSvg(Math.max(320, bandWidth(e.props.bodyColumns) - 150), s.m, stateMarkup(s.state, s.clock), s.isOpen)
+      const svg = cockpitSvg(Math.max(320, bandWidth(e.props.bodyColumns) - 150), s.m, s.mascot, s.isOpen)
       row = el(c.Box, { key: 'row', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, el(Svg, { key: 'svg', source: svg.source, alt: `${STATES[s.state].label}. ${altText(s.m)}`, isInteractive: true }), controls(s, c, fx, onToggle))
     }
 
@@ -1534,7 +1549,7 @@ export const register: Register = (on, options) => {
     }
     const { Svg } = $.ui.resolve(e)
     const dock = e.props.placement === 'dock'
-    const svg = dock ? sideSvg(sideWidth(e.props.bodyColumns), s.m) : cockpitSvg(bandWidth(e.props.bodyColumns), s.m, stateMarkup(s.state, s.clock), true)
+    const svg = dock ? sideSvg(sideWidth(e.props.bodyColumns), s.m) : cockpitSvg(bandWidth(e.props.bodyColumns), s.m, s.mascot, true)
     return el(
       c.Box,
       { flexDirection: 'column' },

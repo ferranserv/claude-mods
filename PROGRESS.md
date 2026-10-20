@@ -117,6 +117,12 @@ Tokens: about 1.2M this session in total (design 0.9M, PR 1 0.3M).
 - cockpit 0.2.0: 29 states, `mood.ts` priority and bubbles, signals from tool.call, tool.check, session.compact, mcp.connect and the turn/session events; `/cockpit demo`. 182 tests pass.
 - Not verified on the app: animation playback, which tools/events actually reach the hooks on the desktop build (permission ask, compaction, MCP), band height.
 
+## Session 11 (2026-10-20): PR 3, polish (stacked on PR 2)
+- No screenshots yet, so PR 3 is what can be done blind: `/cockpit mascot on|small|off` (and the `mascot` option) because the 56 px mascot may be too tall, a checklist for your screen (docs/VERIFY.md), the README state table.
+- cockpit 0.3.0, 185 tests pass.
+- Waiting on the owner: the checks in docs/VERIFY.md. Likely adjustments after that: band height, which desktop events really fire (permission ask, compaction, MCP), SVG animation playback, anything in the sheet.
+- Merge order: #13, then #14, then #15 (each stacked on the one before).
+
 ## Next
 1. Owner: paste the screenshot, run the mods on the real app, report what cuts off or collides.
 2. Owner: run `python3 tools/audit-sessions.py`, pick an idea from the five.

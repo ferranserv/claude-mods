@@ -498,14 +498,19 @@ export function compactBody(width: number, m: Model, height: number): { out: str
   return { out, height }
 }
 
-/** The whole cockpit drawing: the mascot on the left, the collapsed row or the full meters beside it. */
+/** The shortest the row gets, so the small mascot or none still leaves room for a label, a bar and a value. */
+export const MIN_ROW = 36
+
+/** The whole cockpit drawing: the mascot on the left (if any), the collapsed row or the full meters beside it. */
 export function cockpitSvg(width: number, m: Model, mascot: { markup: string; width: number; height: number }, isOpen: boolean): { source: string; width: number; height: number } {
-  const gap = 14
+  const gap = mascot.width > 0 ? 14 : 0
+  const rowH = Math.max(mascot.height, MIN_ROW)
   const bodyW = Math.max(240, width - mascot.width - gap)
-  const body = isOpen ? bandBody(bodyW, m) : compactBody(bodyW, m, mascot.height)
-  const height = Math.max(mascot.height, body.height + (isOpen ? 8 : 0))
+  const body = isOpen ? bandBody(bodyW, m) : compactBody(bodyW, m, rowH)
+  const height = Math.max(rowH, body.height + (isOpen ? 8 : 0))
   const top = isOpen ? Math.max(0, Math.round((height - body.height) / 2) - 2) : 0
-  const out = `${mascot.markup}<g transform="translate(${mascot.width + gap} ${top})">${body.out}</g>`
+  const mascotY = Math.round((height - mascot.height) / 2)
+  const out = `<g transform="translate(0 ${mascotY})">${mascot.markup}</g><g transform="translate(${mascot.width + gap} ${top})">${body.out}</g>`
   return { source: wrapSvg(mascot.width + gap + bodyW, height, out), width: mascot.width + gap + bodyW, height }
 }
 

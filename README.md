@@ -39,6 +39,7 @@ A warning that has no button to offer is not shown as text; the bar colors still
 | --- | --- |
 | `/cockpit open\|close\|auto` | Pin the band open, keep it collapsed, or let it open when something needs you. |
 | `/cockpit demo [state]` | Show every Clawd state (or one) for 4 seconds each; `/cockpit demo off` stops. |
+| `/cockpit mascot on\|small\|off` | Clawd at full size (68 x 56 px), half size, or hidden (the bubble and meters stay). Remembered across sessions. |
 | `/meters side` / `/meters top` | The same content in a side panel, or back in the band. The app decides where a docked pane goes. |
 | `/newsession` | Writes a handoff brief, clears the session, pastes the brief into the fresh prompt box (review, then Enter). `/newsession paste` puts the last brief back (no clear). `/newsession brief` (also `/meters brief`, or the **Copy handoff** button) writes it into the prompt box and the clipboard WITHOUT clearing. A copy is saved in `~/.claude/handoffs/`. (`/handoff` was dropped: two skills hold that name.) |
 | `/fresh` | Clears the session, no brief. |
@@ -49,7 +50,7 @@ A warning that has no button to offer is not shown as text; the bar colors still
 | `/preflight`, `/preflight off\|on` | Check now, or turn the preflight warnings off or on. |
 | `/enhance <draft>` | Rewrite a draft with fitting skills and project details. |
 | Hotkeys | `meta+h` handoff, `meta+n` fresh, `meta+e` enhance, from the prompt box. Change or clear them in the options. |
-| Options | `warnPercent` 50, `redPercent` 80, `warnTokens` 150000, `cacheMinutes` 60, `notifyMinutes` 5, `cacheStepMinutes` 5, `handoffKey`, `freshKey`, `sound` (the chime), `hotkey`, `model`, `maxSkills`. |
+| Options | `warnPercent` 50, `redPercent` 80, `warnTokens` 150000, `cacheMinutes` 60, `notifyMinutes` 5, `cacheStepMinutes` 5, `mascot` (normal, small, off), `handoffKey`, `freshKey`, `sound` (the chime), `hotkey`, `model`, `maxSkills`. |
 
 Cache window: Claude Code's API usage does not report the TTL, so the cockpit learns it. A cache hit after more than five idle minutes proves the one-hour cache; two full misses inside the hour mean the five-minute one; a model switch reports it outright. The countdown restarts when you send a message and at each request Claude makes, never on its own; it shows in 5-minute steps and rounds up.
 
@@ -93,3 +94,7 @@ The preflight part: each session writes a small heartbeat file in the repo's sha
 | Other session still working | Info only, no button | none: committing mid-edit saves half-written files |
 
 Click-commit rules: only files that session wrote, unless it is alone in its folder (then all changes); never `.env`, keys, certificates, databases; never pushes; the result line gives the undo command. A session silent for 15 minutes while "working" is treated as possibly closed and offered only if it recorded files. Ignored after 24 hours. `/preflight off` silences it for good.
+
+## Checking it on your screen
+
+`docs/VERIFY.md` is a ten-minute checklist of what only the desktop app can confirm.

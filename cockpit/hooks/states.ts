@@ -63,15 +63,15 @@ export type Mascot = { markup: string; width: number; height: number }
 
 const cache = new Map<string, Mascot>()
 
-/** The markup of one state at 2x. `clock` is the wake-up time the alarm shows while he sleeps. */
-export function stateMarkup(id: StateId, clock = ''): Mascot {
-  const key = id === 'asleep' ? `${id}:${clock}` : id
+/** The markup of one state at 2x (or 1x for the small size). `clock` is the wake-up time the alarm shows while he sleeps. */
+export function stateMarkup(id: StateId, clock = '', scale: 1 | 2 = 2): Mascot {
+  const key = `${id === 'asleep' ? `${id}:${clock}` : id}@${scale}`
   const hit = cache.get(key)
   if (hit) return hit
   const d = STATES[id]
   const frames = id === 'asleep' && clock !== '' ? d.frames.map(f => ({ ...f, clock })) : d.frames
   const w = d.w ?? 34
-  const made = { markup: renderFrames(frames, d.fd, w, d.drift === true), width: w * 2, height: 56 }
+  const made = { markup: renderFrames(frames, d.fd, w, d.drift === true, scale), width: w * scale, height: 28 * scale }
   cache.set(key, made)
   return made
 }
