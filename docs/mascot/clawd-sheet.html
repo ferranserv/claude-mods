@@ -94,9 +94,9 @@ const PAT = {
   HEART: ['.#.#.', '#####', '#####', '.###.', '..#..'],
   BANG: ['#', '#', '#', '#', '.', '#'],
   FLAKE: ['#.#.#', '.###.', '#####', '.###.', '#.#.#'],
-  FLAME: [['..#..', '.##..', '.###.', '#####', '#####'], ['.#...', '.###.', '.###.', '#####', '#####'], ['..#..', '..##.', '.###.', '#####', '#####']],
+  FLAME: [['...#...', '..##...', '..###..', '.#####.', '.#####.', '#######', '#######'], ['..#....', '..###..', '.####..', '.#####.', '#######', '#######', '#######'], ['....#..', '...##..', '..###..', '.#####.', '#######', '#######', '#######']],
   NOTE: [['.#', '.#', '.#', '##', '##'], ['.##', '.#.', '.#.', '##.', '##.']],
-  BULB: ['..###..', '.#####.', '#######', '#######', '.#####.', '..###..', '..bbb..', '...B...'],
+  BULB: ['.###.', '#####', '#####', '#####', '.###.', '..B..'],
   COIN: ['.###.', '#sss#', '#s#s#', '#sss#', '.###.'],
   SPIRAL: ['#######', '#.....#', '#.###.#', '#.#.#.#', '#.#...#', '#.#####', '#......'],
   SPIRAL2: ['#######', '#.....#', '#.###.#', '#.#.#.#', '#...#.#', '#####.#', '......#'],
@@ -113,17 +113,15 @@ function clawd(o) {
   const px = (pat, x, y, c) => stamp(pat, x, y, c);
   // ---- scenery behind him
   if (o.beach !== undefined) {
-    fill(0, F, W, 2, 'K'); fill(0, F + 2, W, 2, 'j'); const w = o.beach;
-    for (let x = (w % 2) * 2; x < W; x += 4) set(x, F + 2, 'w');
-    fill(X + 1, F - 4, 22, 3, 'u'); fill(X + 1, F - 4, 22, 1, 'v'); for (let x = X + 3; x < X + 22; x += 4) fill(x, F - 3, 2, 2, 'w');   // lounger
-    fill(X - 3, F - 6, 4, 6, 'x');   // palm trunk
-    stamp(['.#G#.', '#G#G#', '.#G#.'].map(r => r.replace(/#/g, 'G')), X - 5, F - 9, 'G');
+    const w = o.beach;
+    for (let y = 6; y < F; y++) fill(1 + (y > 14 ? 0 : (y > 10 ? 0 : 1)), y, 3, 1, 'x');            // trunk
+    for (let y = 8; y < F; y += 3) fill(1, y, 4, 1, 'X');                                              // trunk rings
+    const leaf = (x, y, w2) => fill(x, y, w2, 1, 'G');
+    leaf(0, 3, 4); leaf(0, 4, 8); leaf(1, 5, 10); leaf(3, 6, 8); leaf(3, 2, 7); leaf(4, 1, 5); leaf(6, 3, 6); leaf(2, 7, 4); leaf(8, 4, 3);   // fronds
+    fill(5, 5, 3, 2, 'l'); set(0, 5, 'G'); set(0, 6, 'G');
     fill(X + 24, 0, 5, 5, 's'); if (w % 2) { fill(X + 23, 2, 1, 1, 's'); fill(X + 28, 2, 1, 1, 's'); fill(X + 26, 5, 1, 1, 's'); }
   }
-  if (o.bed) {
-    fill(X - 2, Y + 1, 28, 5, 'w'); fill(X - 2, Y + 5, 28, 1, 'v');   // pillow
-    fill(X - 4, Y - 2, 2, 15, 'x'); fill(X + 26, Y + 12, 2, 5, 'x');  // head and foot boards
-  }
+
   if (o.spinner !== undefined) { const cx = X + 12, cy = Y - 5, t = o.spinner; SPIN.forEach(([dx, dy], i) => { const a = (i - t + 8) % 8; set(cx + dx, cy + dy, a === 0 ? 'u' : a === 1 ? 'u' : a === 2 ? 'U' : a < 5 ? 'v' : null); }); }
   // ---- body from the canonical grid
   ART.forEach((row, cy) => [...row].forEach((ch, cx) => {
@@ -175,30 +173,41 @@ function clawd(o) {
   if (o.shades) { fill(X + 5, Y + 2, 5, 3, 'd'); fill(X + 14, Y + 2, 5, 3, 'd'); fill(X + 10, Y + 2, 4, 1, 'd'); set(X + 6, Y + 2, 'w'); set(X + 15, Y + 2, 'w'); }
   if (o.glasses) { for (const gx of [X + 4, X + 14]) { fill(gx, Y + 1, 6, 1, 'n'); fill(gx, Y + 5, 6, 1, 'n'); fill(gx, Y + 1, 1, 5, 'n'); fill(gx + 5, Y + 1, 1, 5, 'n'); } fill(X + 10, Y + 3, 4, 1, 'n'); }
   if (o.mask) { fill(X + 3, Y + 1, 18, 5, 'm'); fill(X + 2, Y + 3, 1, 1, 'm'); fill(X + 21, Y + 3, 1, 1, 'm'); fill(X + 5, Y + 4, 4, 1, 'z'); fill(X + 15, Y + 4, 4, 1, 'z'); }
-  if (o.forehead !== undefined) { const t = o.forehead; [[X + 6, Y], [X + 11, Y + 1], [X + 16, Y]].forEach(([x, y], i) => { set(x, y + ((t + i) % 2), 'Q'); set(x, y + ((t + i) % 2) + 1, 'q'); }); }
+  if (o.forehead !== undefined) { const t = o.forehead; [X + 8, X + 12, X + 17].forEach((x, i) => { const yy = Y + ((t + i) % 2); set(x, yy, 'q'); if ((t + i) % 2 === 0) set(x + 1, yy, 'Q'); }); }
   // ---- hats
   if (o.hat === 'hard') { fill(X + 4, Y - 3, 16, 3, 'E'); fill(X + 7, Y - 4, 10, 1, 'E'); fill(X + 2, Y, 20, 1, 'D'); fill(X + 11, Y - 4, 2, 4, 'D'); }
   if (o.hat === 'fedora') { fill(X + 6, Y - 4, 12, 4, 'X'); fill(X + 6, Y - 1, 12, 1, 'B'); fill(X + 2, Y, 20, 1, 'X'); set(X + 7, Y - 5, 'X'); fill(X + 8, Y - 5, 8, 1, 'X'); }
   if (o.hat === 'wizard') { fill(X + 3, Y, 18, 1, 'N'); fill(X + 6, Y - 1, 12, 1, 'n'); fill(X + 7, Y - 2, 10, 1, 'n'); fill(X + 8, Y - 3, 8, 1, 'n'); fill(X + 9, Y - 4, 6, 1, 'n'); fill(X + 10, Y - 5, 4, 1, 'n'); fill(X + 11, Y - 6, 3, 1, 'n'); fill(X + 12, Y - 7, 2, 1, 'n'); set(X + 14, Y - 7, 'n'); set(X + 15, Y - 6, 'n'); set(X + 9, Y - 2, 's'); set(X + 13, Y - 4, 's'); set(X + 11, Y - 1, 's'); fill(X + 6, Y - 1, 12, 1, 'N'); }
   // ---- hand props
+  if (o.coat) {
+    if (!o.armL || o.armL === 'rest') fill(X, Y + 4, 4, 4, 'w'); if (!o.armR || o.armR === 'rest') fill(X + 20, Y + 4, 4, 4, 'w'); fill(X + 4, Y + 4, 16, 8, 'w'); fill(X + 4, Y + 11, 16, 1, 'v');
+    fill(X + 10, Y + 4, 4, 1, 'c'); fill(X + 11, Y + 5, 2, 3, 'c'); fill(X + 9, Y + 4, 1, 2, 'v'); fill(X + 14, Y + 4, 1, 2, 'v');
+    fill(X + 5, Y + 8, 3, 2, 'v'); fill(X + 16, Y + 8, 3, 2, 'v'); fill(X + 12, Y + 8, 1, 3, 'v'); set(X + 11, Y + 9, 'g'); set(X + 11, Y + 6, 'g');
+  }
+  if (o.flask) { const fx = X + 22, fy = Y - 3, t = o.flask; fill(fx + 2, fy, 3, 3, 'i'); fill(fx + 1, fy + 3, 5, 1, 'i'); fill(fx, fy + 4, 7, 3, 'i'); fill(fx + 1, fy + 5, 5, 3, 'l'); fill(fx + 2, fy + 8, 3, 1, 'l');
+    fill(fx + 1, fy + 3, 1, 4, 'v'); set(fx + 3 - (t % 2), fy - 1 - t % 3, 'l'); set(fx + 4, fy - 3 + (t % 2), 'l'); set(fx + 2, fy + 5, 'w'); set(fx + 4, fy + 6, 'w'); }
+  if (o.tubes) { const tx = X - 4; for (let i = 0; i < 3; i++) { fill(tx + i * 3, Y + 6, 2, 7, 'i'); fill(tx + i * 3, Y + 9 - (i % 2), 2, 4 + (i % 2), ['q', 'h', 'y'][i]); } fill(tx - 1, Y + 13, 9, 1, 'X'); }
   if (o.laptop) { fill(X + 3, OY + 11, 18, 8, 'L'); fill(X + 3, OY + 11, 18, 1, 'M'); fill(X + 11, OY + 14, 2, 2, 'M'); }
   if (o.bell !== undefined) {
-    const s2 = o.bell, bx = X + 21 + s2;
-    fill(bx, Y - 6, 3, 1, 'b'); fill(bx - 1, Y - 5, 5, 1, 'b'); fill(bx - 2, Y - 4, 7, 2, 'b'); fill(bx - 3, Y - 2, 9, 1, 'b'); fill(bx - 3, Y - 1, 9, 1, 'B'); fill(bx, Y, 3, 2, 'B');
-    set(bx, Y - 5, 'w'); set(bx - 1, Y - 4, 'w'); set(bx - 1, Y - 3, 'w');
-    if (s2 > 0) { set(bx - 6, Y - 4, 's'); set(bx - 7, Y - 3, 's'); } if (s2 < 0) { set(bx + 6, Y - 4, 's'); set(bx + 7, Y - 3, 's'); }
+    const s2 = o.bell, bx = X + 23 + s2;
+    set(bx, Y + 4, 'B'); fill(bx - 1, Y + 5, 3, 1, 'b'); fill(bx - 2, Y + 6, 5, 1, 'b'); fill(bx - 3, Y + 7, 7, 2, 'b'); fill(bx - 4, Y + 9, 9, 1, 'b'); fill(bx - 4, Y + 10, 9, 1, 'B'); fill(bx - 1, Y + 11, 3, 2, 'B');
+    set(bx - 1, Y + 6, 'w'); set(bx - 2, Y + 7, 'w'); set(bx - 2, Y + 8, 'w');
+    if (s2 > 0) { set(bx - 7, Y + 7, 's'); set(bx - 8, Y + 8, 's'); } if (s2 < 0) { set(bx + 6, Y + 7, 's'); set(bx + 6, Y + 8, 's'); }
   }
-  if (o.notes !== undefined) { const t = o.notes; px(PAT.NOTE[0], X + 25, Y - 8 + (t % 3) * 2, 'z'); px(PAT.NOTE[1], X - 3, Y - 7 + ((t + 1) % 3) * 2, 'h'); px(PAT.NOTE[0], X + 3, Y - 8 + ((t + 2) % 3) * 2, 'u'); }
+  if (o.notes !== undefined) { const t = o.notes; px(PAT.NOTE[0], X + 26, Y - 6 + (t % 3) * 2, 'z'); px(PAT.NOTE[1], X - 3, Y - 6 + ((t + 1) % 3) * 2, 'h'); px(PAT.NOTE[0], X + 6, Y - 7 + ((t + 2) % 3) * 2, 'u'); }
   if (o.hourglass) {
-    const hx = X + 22, hy = Y + 4, W7 = [5, 5, 3, 3, 1, 1, 3, 3, 5, 5], sd = o.sand || 0;
-    fill(hx, hy, 7, 2, 'X'); fill(hx, hy + 12, 7, 2, 'X');
-    W7.forEach((w, r) => fill(hx + 1 + (5 - w) / 2, hy + 2 + r, w, 1, 'i'));
-    fill(hx + 1, hy + 2, 1, 10, 'v'); fill(hx + 5, hy + 2, 1, 10, 'v');
-    [[2, 5 - Math.min(2, sd)], [3, 3], [4, 1], [5, 1], [7, 3], [8, 3 + (sd > 1 ? 2 : 0)], [9, 5]].forEach(([r, w]) => fill(hx + 1 + (5 - w) / 2, hy + 2 + r, w, 1, 'y'));
+    const hx = X + 20, hy = Y + 4, up = [7, 7, 5, 3, 1], sd = o.sand || 0;
+    fill(hx, hy, 9, 2, 'X'); fill(hx, hy + 14, 9, 2, 'X');
+    up.forEach((w, r) => { fill(hx + 1 + (7 - w) / 2, hy + 2 + r, w, 1, 'i'); fill(hx + 1 + (7 - w) / 2, hy + 11 + (4 - r), w, 1, 'i'); });
+    fill(hx + 1, hy + 2, 1, 2, 'v'); fill(hx + 7, hy + 2, 1, 2, 'v'); fill(hx + 1, hy + 12, 1, 2, 'v'); fill(hx + 7, hy + 12, 1, 2, 'v');
+    const top = [[0, 7], [1, 7], [2, 5], [3, 3]], lo = [[3, 3], [4, 5], [4, 7]];
+    top.forEach(([r, w]) => { if (r >= sd) fill(hx + 1 + (7 - w) / 2, hy + 2 + r, w, 1, 'y'); });
+    set(hx + 4, hy + 6, 'y'); set(hx + 4, hy + 7, 'y'); set(hx + 4, hy + 8, 'y');
+    [[1, 3], [2, 5], [3, 7], [4, 7]].forEach(([r, w]) => { if (r >= 4 - sd) fill(hx + 1 + (7 - w) / 2, hy + 9 + r, w, 1, 'y'); });
   }
   if (o.handkerchief !== undefined) {
-    const t = o.handkerchief, hx = X + 4 + t * 5, hy = Y - 1;
-    fill(hx, hy, 7, 1, 'u'); fill(hx, hy + 1, 7, 2, 'w'); set(hx + 3, hy + 1, 'v'); set(hx + 3, hy + 2, 'v'); set(hx + 1, hy + 2, 'v'); set(hx + 5, hy + 2, 'v');
+    const t = o.handkerchief, hx = X + 5 + t * 5;
+    fill(hx, Y, 6, 2, 'w'); set(hx + 2, Y + 1, 'v'); set(hx + 4, Y, 'v'); fill(hx - 2, Y, 2, 2, 'f');
   }
   if (o.magnifier) {
     const mx = X + 22, my2 = Y - 3;
@@ -207,18 +216,21 @@ function clawd(o) {
     for (let i = 0; i < 4; i++) fill(mx + 1 - i, my2 + 7 + i, 2, 1, 'X');
   }
   if (o.wand) { for (let i = 0; i < 7; i++) fill(X + 21 + i, Y + 5 - i, 2, 1, i < 6 ? 'w' : 'w'); px(PAT.STAR, X + 24, Y - 7, 's'); }
-  if (o.cup) { const cx = X + 22, cy = Y + 4; fill(cx, cy, 6, 7, 'w'); fill(cx, cy + 2, 6, 3, 'G'); fill(cx + 1, cy - 1, 4, 1, 'w'); fill(cx + 6, cy + 2, 1, 3, 'w'); const t = o.cup; set(cx + 1, cy - 3 - (t % 2), 'v'); set(cx + 3, cy - 4 + (t % 2), 'v'); set(cx + 4, cy - 2, 'v'); }
+  if (o.cup) { const cx = X + 21, cy = Y + 4; fill(cx, cy, 6, 7, 'w'); fill(cx + 1, cy, 4, 1, 'X'); fill(cx, cy + 2, 6, 3, 'G'); fill(cx + 6, cy + 2, 1, 3, 'w'); const t = o.cup; set(cx + 1, cy - 3 - (t % 2), 'v'); set(cx + 3, cy - 4 + (t % 2), 'v'); set(cx + 4, cy - 2, 'v'); }
   if (o.drink) { const dx = X + 21, dy2 = Y + 3 - (o.drink - 1) * 2; fill(dx, dy2 + 3, 5, 6, 'P'); fill(dx + 1, dy2 + 4, 3, 4, 'p'); fill(dx, dy2 + 3, 5, 1, 'v'); fill(dx + 3, dy2, 1, 4, 'w'); set(dx + 4, dy2, 'w'); fill(dx - 1, dy2 + 2, 3, 1, 'h'); set(dx, dy2 + 1, 'h'); }
   if (o.scroll) { fill(X + 3, Y + 8, 18, 9, 'o'); fill(X + 3, Y + 16, 18, 1, 'O'); for (const [yy, ww] of [[10, 12], [12, 14], [14, 9]]) fill(X + 5, Y + yy, ww, 1, 'O'); fill(X + 2, Y + 7, 20, 1, 'O'); }
-  if (o.browser) { const bx = X + 16, byy = Y + 3; fill(bx, byy, 13, 11, 'y'); fill(bx, byy, 13, 3, 'G'); for (let i = 0; i < 3; i++) set(bx + 1 + i * 2, byy + 1, 'w'); fill(bx + 1, byy + 4, 4, 5, 'n'); for (const yy of [4, 6, 8]) fill(bx + 6, byy + yy, 6, 1, o.browser === 2 && yy === 6 ? 'h' : 'b'); }
-  if (o.wrench) { const t = o.wrench, wx = X + 24 + (t > 1 ? 0 : 1); for (let i = 0; i < 7; i++) fill(wx, Y - 4 + i * 2 - (t > 1 ? 0 : 1), 2, 2, 'g'); fill(wx - 2, Y - 6, 6, 3, 'g'); fill(wx - 1, Y - 5, 4, 1, null); if (t > 1) { set(wx + 3, Y - 7, 's'); set(wx - 3, Y - 7, 's'); set(wx + 3, Y - 4, 's'); } }
+  if (o.browser) { if (o.glass) { const gx = X + 21, gy = Y - 1; fill(gx + 1, gy, 5, 1, 'g'); fill(gx + 1, gy + 6, 5, 1, 'g'); fill(gx, gy + 1, 1, 5, 'g'); fill(gx + 6, gy + 1, 1, 5, 'g'); fill(gx + 1, gy + 1, 5, 5, 'i'); set(gx + 2, gy + 2, 'w'); set(gx + 3, gy + 2, 'w'); for (let i = 0; i < 3; i++) fill(gx - i, gy + 7 + i, 2, 1, 'X'); }  const bx = X + 16, byy = Y + 3; fill(bx, byy, 13, 11, 'y'); fill(bx, byy, 13, 3, 'G'); for (let i = 0; i < 3; i++) set(bx + 1 + i * 2, byy + 1, 'w'); fill(bx + 1, byy + 4, 4, 5, 'n'); for (const yy of [4, 6, 8]) fill(bx + 6, byy + yy, 6, 1, o.browser === 2 && yy === 6 ? 'h' : 'b'); }
+  if (o.wrench) { const t = o.wrench, hx = X + 21; if (t > 1) { fill(hx + 2, Y - 3, 2, 8, 'x'); fill(hx - 1, Y - 5, 8, 3, 'g'); fill(hx - 1, Y - 5, 8, 1, 'v'); set(hx - 3, Y - 6, 's'); set(hx - 3, Y - 4, 's'); } else { fill(hx + 2, Y - 1, 2, 8, 'x'); fill(hx - 1, Y - 3, 8, 3, 'g'); fill(hx - 1, Y - 3, 8, 1, 'v'); } }
   if (o.plug !== undefined) {
     const t = o.plug; fill(X + 1, Y - 8, 7, 4, 'j'); fill(X + 8, Y - 7, 2, 1, 'g'); fill(X + 8, Y - 5, 2, 1, 'g');
     fill(X + 17, Y - 8, 7, 4, 'n'); fill(X + 15, Y - 7, 2, 1, 'g'); fill(X + 15, Y - 5, 2, 1, 'g');
     set(X + 4, Y - 4, 'g'); set(X + 4, Y - 3, 'g'); set(X + 20, Y - 4, 'g'); set(X + 20, Y - 3, 'g');
     if (t) { set(X + 11, Y - 7, 's'); set(X + 12, Y - 6, 's'); set(X + 13, Y - 5, 's'); set(X + 12, Y - 4, 's'); }
   }
-  if (o.bulb) px(PAT.BULB, X + 9, Y - 8, 's');
+  if (o.bulb) { const bx = X + 10, by2 = 1, g = o.bulb; px(PAT.BULB, bx, by2, 'y'); set(bx + 1, by2 + 1, 'w'); set(bx + 1, by2 + 2, 'w');
+    px(['#...#', '.....', '.....'], bx, by2 - 1, 'K');
+    [[-3, 2], [7, 2], [-3, 4], [7, 4], [2, -1]].forEach(([dx, dy]) => fill(bx + dx, by2 + dy, 1, 1, g > 1 ? 'y' : 'K'));
+    if (g > 1) { fill(bx - 5, by2 + 3, 2, 1, 'y'); fill(bx + 8, by2 + 3, 2, 1, 'y'); fill(bx + 1, 0, 3, 1, 'y'); } }
   if (o.coins !== undefined) { const t = o.coins; px(PAT.COIN, X + 21, Y - 5 + (t % 2), 's'); px(PAT.COIN, X - 2, Y - 3 - (t % 2) * 1, 's'); fill(X + 8, F - 1, 8, 1, 'B'); fill(X + 9, F - 2, 6, 1, 'b'); fill(X + 10, F - 3, 4, 1, 'b'); }
   if (o.spiral) px(o.spiral === 1 ? PAT.SPIRAL : PAT.SPIRAL2, X + 9, Y - 8, 'n');
   if (o.bolt) { px(PAT.BOLT, X + 3, Y - 8, 'y'); px(PAT.BOLT, X + 17, Y - 8, 'y'); }
@@ -229,19 +241,19 @@ function clawd(o) {
   if (o.z2 !== undefined) px(PAT.Z, X + 20, Y - 10 + o.z2 * 0 - o.z2 + 4, 'z');
   if (o.bang) px(PAT.BANG, o.bangX ?? X + 2, Y - 8, 'r');
   if (o.star) { px(PAT.STAR, X - 4, Y - 6, 's'); px(PAT.STAR, X + 23, Y - 4, 's'); }
-  if (o.flame !== undefined) { const f = PAT.FLAME[o.flame]; px(f, X + 1, F - 3, 'r'); px(f, X + 8, F - 2, 'y'); px(f, X + 16, F - 3, 'r'); px(f, X + 22, F - 2, 'y'); }
+  if (o.flame !== undefined) { const f = PAT.FLAME[o.flame], g2 = PAT.FLAME[(o.flame + 1) % 3]; px(f, X - 3, F - 7, 'r'); px(g2, X + 3, F - 6, 'y'); px(f, X + 9, F - 7, 'r'); px(g2, X + 15, F - 6, 'y'); px(f, X + 21, F - 7, 'r'); [[X + 5, Y - 3], [X + 18, Y - 2], [X + 11, Y - 5]].forEach(([x, y], i) => set(x, y - (o.flame + i) % 3, i % 2 ? 'y' : 'r')); }
   if (o.steam !== undefined) { const t = o.steam; [[6, 2], [11, 0], [16, 2]].forEach(([x, , ], i) => fill(X + x, Y - 4 - ((t + i) % 3) * 2, 2, 2, 'v')); }
   if (o.snow) { px(PAT.FLAKE, X + 23, Y - 4, 'i'); px(PAT.FLAKE, X - 4, Y + 1, 'i'); }
-  if (o.ice) { fill(X - 3, F - 1, 30, 4, 'i'); fill(X - 3, F - 1, 30, 1, 'w'); fill(X - 1, F + 3, 26, 1, 'Q'); for (const x of [X + 1, X + 8, X + 15, X + 21]) { fill(x, F - 3, 2, 2, 'i'); } }
+  if (o.ice) { fill(X - 1, F - 1, 26, 4, 'i'); fill(X - 1, F - 1, 26, 1, 'w'); fill(X + 1, F + 3, 22, 1, 'Q'); for (const x of [X + 1, X + 8, X + 15, X + 21]) { fill(x, F - 3, 2, 2, 'i'); } }
   if (o.sweat !== undefined) px(['.#.', '###', '###'], X + 22, Y + 1 + o.sweat, 'q');
   if (o.gauge !== undefined) { fill(X + 6, Y - 7, 12, 4, 'g'); fill(X + 7, Y - 6, 10, 2, 'd'); fill(X + 7, Y - 6, o.gauge, 2, 'r'); }
   if (o.clock) {
     const cx = X + 28, cy = F - 8, t = o.clock;
     fill(cx + 2, cy - 3, 4, 2, 'g'); fill(cx + 15, cy - 3, 4, 2, 'g'); fill(cx, cy - 1, 23, 9, 'g'); fill(cx + 1, cy, 21, 7, 'd');
-    let x = cx + 2; [...t].forEach(ch => { const p = PAT.DIG[ch]; px(p, x, cy + 1, 'a'); x += p[0].length + 1; });
+    let x = cx + 3; [...t].forEach(ch => { const p = PAT.DIG[ch]; px(p, x, cy + 1, 'a'); x += p[0].length + 1; });
     fill(cx + 2, cy + 8, 2, 1, 'g'); fill(cx + 19, cy + 8, 2, 1, 'g');
   }
-  if (o.blanket) { fill(X - 3, Y + 9, 30, 8, 'u'); fill(X - 3, Y + 9, 30, 1, 'U'); for (let x = X - 1; x < X + 26; x += 6) fill(x, Y + 11, 3, 5, 'J'); }
+  if (false) { fill(X - 3, Y + 9, 30, 8, 'u'); fill(X - 3, Y + 9, 30, 1, 'U'); for (let x = X - 1; x < X + 26; x += 6) fill(x, Y + 11, 3, 5, 'J'); }
   return k;
 }
 
@@ -271,13 +283,13 @@ const S = [
     f: [{ legsUp: [2, 7], mouth: 'smile' }, { dy: -1, mouth: 'smile' }, { legsUp: [4, 9], mouth: 'smile' }, { dy: -1, mouth: 'smile' }], d: .2, drift: 1 },
   { id: 'talk', t: 'Talks', s: 'A warning with its action', say: 'Context 52%. Hand off to a fresh session?', btn: 'Handoff', n: 'Arms gesture, the little white mouth opens and closes.',
     f: [{ armR: 'half', mouth: 'open' }, { armR: 'out', mouth: 'flat' }, { armR: 'half', armL: 'half', mouth: 'open' }, { armR: 'out', mouth: 'flat' }], d: .22 },
-  { id: 'uneasy', t: 'Uneasy', s: 'Context 50%+ (warning)', say: 'Quality may slip. Handoff?', btn: 'Handoff', n: 'Sweat on his forehead; he wipes it with a handkerchief.',
-    f: [0, 1, 2, 1].map((t, i) => ({ eyes: 'wide', mouth: 'grim', forehead: i, armL: 'up', handkerchief: t, armR: 'half' })), d: .3 },
-  { id: 'fire', t: 'On fire', s: 'Context 80%+ (high)', say: 'Handoff now!', btn: 'Handoff now', n: 'Flames at his feet, forehead sweat, wipes with one hand and waves the other.',
-    f: [0, 1, 2, 1].map((t, i) => ({ eyes: 'wide', mouth: 'o', flame: i % 3, forehead: i, armL: 'up', handkerchief: t, armR: i % 2 ? 'high' : 'half', dy: i % 2 })), d: .16 },
-  { id: 'hourglass', t: 'Hourglass', s: 'Cache about to expire', say: 'Cache cold in 4m', btn: 'Handoff', n: 'Holds a big hourglass under his hand, sweats, wipes his forehead.',
-    f: [0, 1, 2, 1].map((t, i) => ({ eyes: 'wide', look: 'up', mouth: 'grim', forehead: i, armL: 'up', handkerchief: t, armR: 'hold', hourglass: 1, sand: i })), d: .3 },
-  { id: 'cold', t: 'Frozen', s: 'Cache already cold', say: 'Cold. Next message costs full price.', btn: 'Fresh session', n: 'Icy blue, frozen still, snowflakes, a slab of ice over his feet.',
+  { id: 'uneasy', t: 'Uneasy', s: 'Context 50%+ (warning)', say: 'Quality may slip. Handoff?', btn: 'Handoff', n: 'Nervous: darting eyes, trembling, sweat on his forehead, wiping it with a handkerchief.',
+    f: [0, 1, 2, 1].map((t, i) => ({ eyes: 'wide', look: i % 2 ? 'right' : 'left', mouth: 'grim', forehead: i, armL: 'up', handkerchief: t, armR: 'half', dx: i % 2 })), d: .3 },
+  { id: 'fire', t: 'On fire', s: 'Context 80%+ (high)', say: 'Handoff now!', btn: 'Handoff now', n: 'Flames all around, forehead sweat, both arms waving.',
+    f: [0, 1, 2, 1].map((t, i) => ({ eyes: 'wide', mouth: 'o', flame: i % 3, forehead: i, armL: i % 2 ? 'half' : 'high', armR: i % 2 ? 'high' : 'half', dy: i % 2 })), d: .16 },
+  { id: 'hourglass', t: 'Hourglass', s: 'Cache about to expire', say: 'Cache cold in 4m', btn: 'Handoff', n: 'Holds a big hourglass under his hand and watches the sand run.',
+    f: [0, 1, 2, 3].map(sd => ({ eyes: 'open', look: 'right', mouth: 'flat', armR: 'up', hourglass: 1, sand: sd })), d: .6 },
+  { id: 'cold', t: 'Frozen', s: 'Cache already cold', say: 'Cold. Next message costs full price.', btn: 'Fresh session', n: 'Icy blue, frozen still, snowflakes, ice over his feet.',
     f: [{ pal: { c: '#8fb9d9', k: '#6d97b8', f: '#b6d5ea' }, eyes: 'half', mouth: 'grim', snow: 1, ice: 1, armL: 'half', armR: 'half' }], d: 1 },
   { id: 'gauge', t: 'Gauge low', s: 'Daily allowance within 2%', say: 'Almost out for today', btn: 'Saver on', n: 'Eyes dart, fuel gauge nearly empty, alert mark.',
     f: [{ look: 'left', eyes: 'wide', gauge: 2, bang: 1, bangX: OX + 20 }, { look: 'right', eyes: 'wide', gauge: 2, bang: 1, bangX: OX + 20, dy: 1 }], d: .35 },
@@ -285,8 +297,8 @@ const S = [
     f: [0, 1, 2].map(t => ({ pal: { c: '#e2553f', k: '#b83a29', f: '#f08a74' }, eyes: 'angry', mouth: 'grim', steam: t, armL: 'up', armR: 'up', dy: t % 2 })), d: .22 },
   { id: 'sleepy', t: 'Sleepy', s: '5-hour limit at 80%+', say: '5h limit at 82%', btn: 'Saver on', n: 'Eyes half shut, nodding, a Z drifts up.',
     f: [{ eyes: 'half', dy: 1, z: 0 }, { eyes: 'half', dy: 2, z: 1 }, { eyes: 'blink', dy: 2, z: 2 }, { eyes: 'half', dy: 1, z: 1 }], d: .6 },
-  { id: 'asleep', t: 'Asleep in bed', s: '5-hour limit reached', say: 'Back at 14:20', btn: 'Copy handoff', n: 'In bed with an eye mask, Zs, and an alarm clock showing when he wakes up.',
-    f: [0, 1, 2, 3].map(t => ({ w: 56, dy: 3, bed: 1, mask: 1, blanket: 1, clock: '14:20', z: t, z2: (t + 2) % 4, armL: 'rest', armR: 'rest' })), d: .5 },
+  { id: 'asleep', t: 'Asleep', s: '5-hour limit reached', say: 'Back at 14:20', btn: 'Copy handoff', n: 'Eye mask on, Zs, and an alarm clock showing when he wakes up.',
+    f: [0, 1, 2, 3].map(t => ({ w: 56, dy: t % 3 === 1 ? 1 : 0, mask: 1, clock: '14:20', z: t, z2: (t + 2) % 4 })), d: .5 },
   { id: 'love', t: 'Love', s: 'Handoff saved, fresh session ready', say: 'Saved. See you there.', n: 'Hugs himself, hearts float up.',
     f: [0, 1, 2, 3].map(t => ({ eyes: 'happy', mouth: 'smile', armL: 'cross', armR: 'cross', heart: t })), d: .35 },
   { id: 'detective', t: 'Detective', s: 'Preflight: another session in this folder', say: 'Another session is editing here', btn: 'New worktree', n: 'Fedora, a proper magnifying glass, alert mark off to the side.',
@@ -297,22 +309,22 @@ const S = [
     f: [{ hat: 'wizard', wand: 1, eyes: 'happy', mouth: 'smile', armR: 'up' }, { hat: 'wizard', wand: 1, eyes: 'open', mouth: 'smile', armR: 'up', star: 1 }], d: .4 },
   { id: 'greet', t: 'Hello', s: 'First message of a session', say: 'Hi! What are we building?', n: 'Waves, smiles.',
     f: [{ armR: 'high', mouth: 'smile', eyes: 'happy' }, { armR: 'up', mouth: 'smile', eyes: 'open' }], d: .3 },
-  { id: 'idea', t: 'Idea', s: 'Plan ready for your approval', say: 'Plan ready. Approve?', btn: 'Review', n: 'A lightbulb pops over his head.',
-    f: [{ bulb: 1, eyes: 'wide', mouth: 'open', armR: 'up' }, { bulb: 1, eyes: 'open', mouth: 'smile', armR: 'up', dy: 1 }], d: .4 },
-  { id: 'coffee', t: 'Coffee break', s: 'A long turn (over 2 minutes)', say: 'Still on it. Coffee time.', n: 'A hot coffee, sparks of energy.',
-    f: [0, 1].map(t => ({ cup: t + 1, armR: 'hold', mouth: 'smile', eyes: 'open', bolt: t + 1 })), d: .4 },
+  { id: 'idea', t: 'Idea', s: 'Plan ready for your approval', say: 'Plan ready. Approve?', btn: 'Review', n: 'A glowing lightbulb floats above his head.',
+    f: [{ bulb: 1, eyes: 'wide', mouth: 'open', armR: 'up' }, { bulb: 2, eyes: 'open', mouth: 'smile', armR: 'up' }], d: .4 },
+  { id: 'coffee', t: 'Coffee break', s: 'A long turn (over 2 minutes)', say: 'Still on it. Coffee time.', n: 'A hot coffee, a sliver of it showing in the cup.',
+    f: [0, 1].map(t => ({ cup: t + 1, armR: 'hold', mouth: 'smile', eyes: 'open' })), d: .5 },
   { id: 'reading', t: 'Reading', s: 'Reading files (Read, Grep, Glob)', say: 'Reading 12 files', n: 'Glasses on, a long scroll in front of him.',
     f: [{ glasses: 1, scroll: 1, look: 'down', armL: 'hold', armR: 'hold' }, { glasses: 1, scroll: 1, look: 'down', eyes: 'blink', armL: 'hold', armR: 'hold' }], d: .8 },
-  { id: 'building', t: 'Building', s: 'Editing code (Edit, Write)', say: 'Editing 3 files', n: 'Hard hat and a wrench, swinging with sparks.',
+  { id: 'building', t: 'Building', s: 'Editing code (Edit, Write)', say: 'Editing 3 files', n: 'Hard hat and a hammer, swinging, sparks on impact.',
     f: [0, 1].map(t => ({ hat: 'hard', wrench: t + 1, armR: 'up', mouth: 'smile', eyes: 'open' })), d: .22 },
-  { id: 'browse', t: 'Browsing', s: 'Web search and fetch', say: 'Searching the web', n: 'A browser window in front of him.',
-    f: [1, 2, 1, 2].map(b => ({ browser: b, look: 'right', armL: 'rest' })), d: .5 },
+  { id: 'browse', t: 'Browsing', s: 'Web search and fetch', say: 'Searching the web', n: 'A browser window and a magnifying glass.',
+    f: [1, 2, 1, 2].map(b => ({ browser: b, glass: 1, look: 'right' })), d: .5 },
   { id: 'plug', t: 'Unplugged', s: 'An MCP server or the network is down', say: 'Connector offline', btn: 'Retry', n: 'The cable is out, sparks jump, sad eyes.',
     f: [0, 1].map(t => ({ plug: t, eyes: 'sad', mouth: 'grim', armL: 'half', armR: 'half', dy: t })), d: .4 },
   { id: 'dizzy', t: 'Dizzy', s: 'Compacting the context', say: 'Compacting...', n: 'Swirl over his head, swirl eyes, wobble.',
     f: [{ spiral: 1, eyes: 'dizzy', dx: -1, mouth: 'o' }, { spiral: 2, eyes: 'dizzy', dx: 1, mouth: 'o' }], d: .3 },
-  { id: 'flex', t: 'Flex', s: 'Tests passed', say: 'All green', n: 'Flexes, green energy bolt.',
-    f: [{ armL: 'high', armR: 'high', mouth: 'smile', eyes: 'angry', flexbolt: 1 }, { armL: 'up', armR: 'up', mouth: 'smile', eyes: 'happy', flexbolt: 1, dy: 1 }], d: .35 },
+  { id: 'lab', t: 'Lab results', s: 'Tests passed', say: 'All green', n: 'Lab coat, a bubbling flask, a rack of test tubes.',
+    f: [0, 1, 2].map(t => ({ coat: 1, flask: t + 1, tubes: 1, mouth: 'smile', eyes: t === 1 ? 'happy' : 'open' })), d: .35 },
   { id: 'reviewed', t: 'Reviewed', s: 'Review finished with no findings', say: 'Looks good to me', n: 'Glasses and a green check.',
     f: [{ glasses: 1, check: 1, mouth: 'smile', armR: 'up' }, { glasses: 1, check: 1, mouth: 'smile', eyes: 'happy', dy: 1 }], d: .5 },
   { id: 'hand', t: 'Needs your approval', s: 'A permission prompt is waiting', say: 'Needs your OK', btn: 'Open prompt', n: 'Raises a hand, alert mark.',

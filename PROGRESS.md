@@ -99,7 +99,8 @@ Tokens so far this session: about 0.9M (mostly mascot design).
 - PR #12 merged, chime confirmed working by the owner. Branch restarted from main.
 - Clawd sheet v2 (docs/mascot/clawd-sheet.html): owner's notes applied (loading circle, big bell with notes, forehead sweat and handkerchief, hourglass under the hand, static frozen with wide ice, bed with eye mask and alarm clock, fedora and real magnifier, wizard hat, beach idle) and 11 new scenarios added. Canvas 34 x 28 (asleep 56 wide). No pixel outside the canvas, bubbles wrap.
 - Owner will send more reference pictures for extra poses.
-Next: PR 1 Batch 0 (spike) once the owner says go.
+- Sheet v3 applied the owner's second round (bell below hand, beach without floor, forehead sweat, hourglass shape, no bed, glowing bulb, coffee, hammer, browser with magnifier, lab coat). Rule recorded: no floors or full-width scenery.
+Next: PR 1 (owner said go).
 
 ## Next
 1. Owner: paste the screenshot, run the mods on the real app, report what cuts off or collides.
