@@ -740,7 +740,7 @@ async function enhance($: EngineInterface, cfg: Cfg, given?: string): Promise<st
     await patch($, { isBusy: true })
     mood.writing = true
     poke($)
-    $.ui.status('🪄 enhancing…')
+    $.ui.status(`${WAND} enhancing…`)
 
     const [skills, project] = await Promise.all([collectSkills($, draft, cfg.maxSkills), collectProject($)])
     const r = await $.model.complete({
@@ -997,14 +997,17 @@ function saverRow(s: Snap, c: Comps, fx: Fx) {
   )
 }
 
+/** The wand as a text glyph with the text-presentation selector (U+FE0E), drawn white: a font outline, not the colour emoji. A Button takes only strings and Text, never an Svg. */
+const WAND = '\u{1FA84}\uFE0E'
+
 /** The small controls at the right of the row: enhance, undo, and the arrow. */
 function controls(s: Snap, c: Comps, fx: Fx, onToggle: () => void) {
   const tip = (text: string) => el(c.Box, { position: 'absolute', top: -1, right: 0, display: 'none', hover: { display: 'flex' } }, el(c.Text, { dimColor: true }, text))
   const items: unknown[] = []
-  if (s.enh.isBusy) items.push(el(c.Text, { key: 'busy', dimColor: true }, '🪄 enhancing…'))
+  if (s.enh.isBusy) items.push(el(c.Text, { key: 'busy', dimColor: true }, `${WAND} enhancing…`))
   else {
     if (s.enh.original !== '') items.push(el(c.Box, { key: 'undo-wrap' }, el(c.Button, { key: 'undo', plain: true, dimColor: true, onPress: () => fx.undoEnhance() }, '↩'), tip('Restore my draft')))
-    items.push(el(c.Box, { key: 'enhance-wrap' }, el(c.Button, { key: 'enhance', dimColor: !s.enh.hasDraft, onPress: () => fx.enhance() }, '🪄'), tip(`Enhance${enhanceLabel ? ` (${enhanceLabel})` : ''}`)))
+    items.push(el(c.Box, { key: 'enhance-wrap' }, el(c.Button, { key: 'enhance', dimColor: !s.enh.hasDraft, onPress: () => fx.enhance() }, el(c.Text, { color: 'white' }, WAND)), tip(`Enhance${enhanceLabel ? ` (${enhanceLabel})` : ''}`)))
   }
   items.push(el(c.Box, { key: 'toggle-wrap' }, el(c.Button, { key: 'toggle', plain: true, dimColor: true, onPress: onToggle }, s.isOpen ? '▴' : '▾'), tip(s.isOpen ? 'Hide details' : 'Show details')))
   return el(c.Box, { key: 'controls', flexDirection: 'row', alignItems: 'center', gap: 2, paddingX: 1 }, ...items)
@@ -1507,7 +1510,7 @@ export const register: Register = (on, options) => {
 
   on('command.run', { command: 'enhance' }, async ($, e) => {
     const draft = e.args.trim()
-    if (draft === '') return { text: `Type a draft, then press 🪄${enhancerChord ? ` or ${enhanceLabel}` : ''}. Or run /enhance <draft>.` }
+    if (draft === '') return { text: `Type a draft, then press ${WAND}${enhancerChord ? ` or ${enhanceLabel}` : ''}. Or run /enhance <draft>.` }
     return { text: await enhance($, enhancerCfg, draft) }
   })
 
