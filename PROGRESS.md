@@ -135,3 +135,7 @@ Tokens: about 1.2M this session in total (design 0.9M, PR 1 0.3M).
 
 ## Context refresher
 Mods are `.claude-plugin/plugin.json`, `hooks/hooks.json`, `hooks/register.tsx`. Check: `claude plugin validate|test <dir>`. A hook may pass `$` only to functions declared at the top of the file (CLI 2.1.303). Tests run only inside one plugin's folder, so band mods cannot be loaded together in one test.
+
+## Session 4 (2026-10-20): cockpit 0.4.0 (VERIFY round)
+Done: 30 states (writing added), neutral first frames + 0.5 s crossfade, 5 s hold rule, floating bubble (`/cockpit bubble`), permission-ask debounce, PowerShell test runs, hand = clipboard + pencil, meters same collapsed/open, short buttons with icons, single 🪄 control, narrow layout (EST 0.6, short subtitles). 188 tests pass, validate ok, tsc clean.
+Not verifiable from the cloud: floating bubble overlay, crossfade, 🪄 rendering, which permission/compaction events the desktop build raises.

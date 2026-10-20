@@ -157,6 +157,20 @@ function clawd(o) {
   if (o.wand) { for (let i = 0; i < 7; i++) fill(X + 21 + i, Y + 5 - i, 2, 1, i < 6 ? 'w' : 'w'); px(PAT.STAR, X + 24, Y - 7, 's'); }
   if (o.cup) { const cx = X + 21, cy = Y + 4; fill(cx, cy, 6, 7, 'w'); fill(cx + 1, cy, 4, 1, 'X'); fill(cx, cy + 2, 6, 3, 'G'); fill(cx + 6, cy + 2, 1, 3, 'w'); const t = o.cup; set(cx + 1, cy - 3 - (t % 2), 'v'); set(cx + 3, cy - 4 + (t % 2), 'v'); set(cx + 4, cy - 2, 'v'); }
   if (o.drink) { const dx = X + 21, dy2 = Y + 3 - (o.drink - 1) * 2; fill(dx, dy2 + 3, 5, 6, 'P'); fill(dx + 1, dy2 + 4, 3, 4, 'p'); fill(dx, dy2 + 3, 5, 1, 'v'); fill(dx + 3, dy2, 1, 4, 'w'); set(dx + 4, dy2, 'w'); fill(dx - 1, dy2 + 2, 3, 1, 'h'); set(dx, dy2 + 1, 'h'); }
+  if (o.clipboard) {
+    const t = o.clipboard - 1, bx = X + 5, by = Y + 8
+    fill(bx, by, 14, 10, 'x'); fill(bx + 1, by + 1, 12, 8, 'w'); fill(bx + 4, by - 1, 6, 2, 'g'); set(bx + 6, by - 2, 'g'); set(bx + 7, by - 2, 'g')
+    for (const [i, yy] of [[0, 2], [1, 4], [2, 6]]) { fill(bx + 2, by + yy, 2, 2, 'g'); fill(bx + 5, by + yy, 6 - (i % 2) * 2, 1, 'O'); if (i < t) { set(bx + 2, by + yy + 1, 'G'); set(bx + 3, by + yy, 'G'); } }
+    const px0 = X + 21 - (t % 2), py0 = Y + 12 - t
+    for (let i = 0; i < 6; i++) fill(px0 + i, py0 - i, 2, 1, i === 0 ? 'd' : i === 5 ? 'h' : 'y')
+  }
+  if (o.paper) {
+    const n = o.paper, bx = X + 4, by = Y + 8
+    fill(bx, by, 16, 10, 'o'); fill(bx, by + 9, 16, 1, 'O')
+    for (let i = 0; i < 4; i++) fill(bx + 2, by + 2 + i * 2, i < n ? 4 + ((i * 3) % 7) + (i === n - 1 ? 2 : 0) : 0, 1, 'O')
+    const qx = X + 12 + (o.paper % 2), qy = Y + 1
+    stamp(['......ww', '.....www', '....wwwK', '...wwwK.', '..wwKK..', '.wKK....', 'XX......'], qx, qy, 'w')
+  }
   if (o.scroll) { fill(X + 3, Y + 8, 18, 9, 'o'); fill(X + 3, Y + 16, 18, 1, 'O'); for (const [yy, ww] of [[10, 12], [12, 14], [14, 9]]) fill(X + 5, Y + yy, ww, 1, 'O'); fill(X + 2, Y + 7, 20, 1, 'O'); }
   if (o.browser) { if (o.glass) { const gx = X + 21, gy = Y - 1; fill(gx + 1, gy, 5, 1, 'g'); fill(gx + 1, gy + 6, 5, 1, 'g'); fill(gx, gy + 1, 1, 5, 'g'); fill(gx + 6, gy + 1, 1, 5, 'g'); fill(gx + 1, gy + 1, 5, 5, 'i'); set(gx + 2, gy + 2, 'w'); set(gx + 3, gy + 2, 'w'); for (let i = 0; i < 3; i++) fill(gx - i, gy + 7 + i, 2, 1, 'X'); }  const bx = X + 16, byy = Y + 3; fill(bx, byy, 13, 11, 'y'); fill(bx, byy, 13, 3, 'G'); for (let i = 0; i < 3; i++) set(bx + 1 + i * 2, byy + 1, 'w'); fill(bx + 1, byy + 4, 4, 5, 'n'); for (const yy of [4, 6, 8]) fill(bx + 6, byy + yy, 6, 1, o.browser === 2 && yy === 6 ? 'h' : 'b'); }
   if (o.wrench) { const t = o.wrench, hx = X + 21; if (t > 1) { fill(hx + 2, Y - 3, 2, 8, 'x'); fill(hx - 1, Y - 5, 8, 3, 'g'); fill(hx - 1, Y - 5, 8, 1, 'v'); set(hx - 3, Y - 6, 's'); set(hx - 3, Y - 4, 's'); } else { fill(hx + 2, Y - 1, 2, 8, 'x'); fill(hx - 1, Y - 3, 8, 3, 'g'); fill(hx - 1, Y - 3, 8, 1, 'v'); } }
@@ -185,7 +199,7 @@ function clawd(o) {
   if (o.star) { px(PAT.STAR, X - 4, Y - 6, 's'); px(PAT.STAR, X + 23, Y - 4, 's'); }
   if (o.flame !== undefined) { const f = PAT.FLAME[o.flame], g2 = PAT.FLAME[(o.flame + 1) % 3]; px(f, X - 3, F - 7, 'r'); px(g2, X + 3, F - 6, 'y'); px(f, X + 9, F - 7, 'r'); px(g2, X + 15, F - 6, 'y'); px(f, X + 21, F - 7, 'r'); [[X + 5, Y - 3], [X + 18, Y - 2], [X + 11, Y - 5]].forEach(([x, y], i) => set(x, y - (o.flame + i) % 3, i % 2 ? 'y' : 'r')); }
   if (o.steam !== undefined) { const t = o.steam; [[6, 2], [11, 0], [16, 2]].forEach(([x, , ], i) => fill(X + x, Y - 4 - ((t + i) % 3) * 2, 2, 2, 'v')); }
-  if (o.snow) { px(PAT.FLAKE, X + 23, Y - 4, 'i'); px(PAT.FLAKE, X - 4, Y + 1, 'i'); }
+  if (o.snow) { const t = o.snow - 1; px(PAT.FLAKE, X + 23 - (t % 2), Y - 6 + t * 3, 'i'); px(PAT.FLAKE, X - 4 + (t % 2), Y - 1 + ((t + 1) % 3) * 3, 'i'); set(X + 20, Y - 3 + ((t + 2) % 3) * 4, 'i'); set(X + 1, Y - 2 + ((t + 1) % 3) * 4, 'i'); }
   if (o.ice) { fill(X - 1, F - 1, 26, 4, 'i'); fill(X - 1, F - 1, 26, 1, 'w'); fill(X + 1, F + 3, 22, 1, 'Q'); for (const x of [X + 1, X + 8, X + 15, X + 21]) { fill(x, F - 3, 2, 2, 'i'); } }
   if (o.sweat !== undefined) px(['.#.', '###', '###'], X + 22, Y + 1 + o.sweat, 'q');
   if (o.gauge !== undefined) { fill(X + 6, Y - 7, 12, 4, 'g'); fill(X + 7, Y - 6, 10, 2, 'd'); fill(X + 7, Y - 6, o.gauge, 2, 'r'); }

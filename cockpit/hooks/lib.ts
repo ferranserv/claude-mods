@@ -226,11 +226,11 @@ const cacheColor = (v: CacheView): string => (v.state === 'warm' ? C.green : v.s
 /** Text drawn in one or more colors; the options of a value go longest first. */
 export type Parts = { t: string; fill: string }[]
 
-export type CacheModel = { view: CacheView; color: string; value: Parts[]; sub: string; subShort: string }
+export type CacheModel = { view: CacheView; color: string; value: Parts[]; sub: string; subShort: string; near: boolean }
 
 export type Model = {
-  ctx: { percent: number; level: Level; color: string; value: Parts[]; legend: Legend }
-  five: { used: number; color: string; value: Parts[]; sub: string }
+  ctx: { percent: number; level: Level; color: string; value: Parts[]; legend: Legend; near: boolean }
+  five: { used: number; color: string; value: Parts[]; sub: string; subShort: string }
   week: {
     used: number
     color: string
@@ -244,6 +244,13 @@ export type Model = {
 
 export type CacheInput = { state: CacheState; price: Price | null; soonMin?: number; stepMin?: number }
 export type Data = { fill: Fill | null; limits: Limit[]; now: number; cache?: CacheInput; limitsAt?: Thresholds }
+
+/** HH:MM in the person's time. */
+function clockAt(iso: string | undefined): string {
+  const dt = iso ? new Date(iso) : null
+  if (!dt || Number.isNaN(dt.getTime())) return '--:--'
+  return `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`
+}
 
 export function model(d: Data): Model {
   const g = (t: string, fill = C.gray) => [{ t, fill }]
@@ -261,6 +268,8 @@ export function model(d: Data): Model {
       ? [g(`${pct(percent)} · ${kilo(tokens)} / ${kilo(d.fill.window)}`), g(pct(percent))]
       : [g('-')],
     legend,
+    // Close to the first warning: the small print under the bar appears only from here.
+    near: level !== 'calm' || percent >= t.warnPercent * 0.8 || tokens >= t.warnTokens * 0.8,
   }
 
   const f = d.limits.find(l => l.kind === 'five_hour')
@@ -270,7 +279,8 @@ export function model(d: Data): Model {
     used: fiveUsed,
     color: usageColor(fiveUsed),
     value: f ? [g(`${pct(fiveUsed)} used`), g(pct(fiveUsed))] : [g('-')],
-    sub: f ? (reset ? `Resets in ${reset}` : '') : 'Shows after the first reply',
+    sub: f ? (reset ? `Resets at ${clockAt(f.resetsAt)} (in ${reset})` : '') : 'Shows after the first reply',
+    subShort: f ? (reset ? `Resets ${clockAt(f.resetsAt)}` : '') : 'After the first reply',
   }
 
   const w = d.limits.find(l => l.kind === 'seven_day')
@@ -288,6 +298,7 @@ export function model(d: Data): Model {
     value: w
       ? [
           [...g(`${pct(used)} used · `), { t: paceText, fill: paceColor }],
+          [...g(`${pct(used)} · `), { t: paceText.replace(/^\w+ /, ''), fill: paceColor }],
           g(`${pct(used)} used`),
           g(pct(used)),
         ]
@@ -311,6 +322,7 @@ export function model(d: Data): Model {
             ? `Next msg ${money(v.warmUsd ?? 0)} · cold ${money(v.coldUsd ?? 0)}`
             : `${win} window`,
       subShort: costs ? `${money(v.warmUsd ?? 0)} / ${money(v.coldUsd ?? 0)} cold` : win,
+      near: v.state === 'soon' || v.state === 'cold' || (v.state === 'warm' && v.leftMs <= 10 * 60_000),
     }
   }
 
@@ -328,7 +340,7 @@ const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 
 // Average glyph width as a share of the font size, for the system sans faces the band names.
 // Measured text is not available to a mod, so this is an estimate; 0.54 sits between SF Pro and Segoe UI.
-const EST = 0.54
+const EST = 0.6
 
 const estimate = (s: string, size: number) => s.length * size * EST
 
@@ -405,9 +417,14 @@ const LINE = 10
 
 /** One slim band: the meters side by side, a few lines tall. */
 export function bandBody(width: number, m: Model): { out: string; height: number } {
+  // Narrow windows get short labels and a smaller size; the numbers are the same.
+  const narrow = width < 480
+  const size = narrow ? 10 : 11
+  const labels = narrow ? ['Ctx', '5h', 'Week', 'Cache'] : ['Context', '5-hour', 'Weekly', 'Cache']
+  const room = (i: number, w: number) => w - estimate(labels[i] ?? '', size) - 8
   // Context and Weekly carry the most text (a warning, the pace); 5-hour the least.
-  const weights = m.cache ? [1.2, 0.85, 1.2, 1] : [1, 1, 1]
-  const gap = 24
+  const weights = m.cache ? [1.15, 0.9, 1.3, 0.95] : [1, 1, 1]
+  const gap = narrow ? 14 : 22
   const usable = width - (weights.length - 1) * gap
   const total = weights.reduce((a, b) => a + b, 0)
   const widths = weights.map(w => Math.floor((usable * w) / total))
@@ -416,27 +433,27 @@ export function bandBody(width: number, m: Model): { out: string; height: number
   const [w0 = 0, w1 = 0, w2 = 0, w3 = 0] = widths
   let out = ''
 
-  // Context: the legend takes up to two lines under the bar, so a long warning is read whole.
-  const legend = legendLines(m.ctx.legend, w0, LEGEND_SIZE, 2)
-  out += text(x0, 11, 'Context', { size: 11 })
-  out += parts(x0 + w0, 11, fit(m.ctx.value, w0 - 52, 11), { anchor: 'end' })
+  // Context: the warning text appears under the bar only near the warning, up to two lines.
+  const legend = m.ctx.near ? legendLines(m.ctx.legend, w0, LEGEND_SIZE, 2) : []
+  out += text(x0, 11, labels[0] ?? '', { size })
+  out += parts(x0 + w0, 11, fit(m.ctx.value, room(0, w0), size), { anchor: 'end' })
   out += rect(x0, 17, w0, 7, C.gray, TRACK)
   if (m.ctx.percent > 0) out += rect(x0, 17, Math.max(7, (w0 * clamp(m.ctx.percent, 0, 100)) / 100), 7, m.ctx.color)
   legend.forEach((l, i) => {
     out += text(x0, 38 + i * LINE, l, { size: LEGEND_SIZE, fill: toneColor(m.ctx.legend.tone) })
   })
-  const height = 38 + (legend.length - 1) * LINE + 7
+  const height = legend.length > 0 ? 38 + (legend.length - 1) * LINE + 7 : 45
 
-  // 5-hour
-  out += text(x1, 11, '5-hour', { size: 11 })
-  out += parts(x1 + w1, 11, fit(m.five.value, w1 - 46, 11), { anchor: 'end' })
+  // 5-hour: always says when it resets
+  out += text(x1, 11, labels[1] ?? '', { size })
+  out += parts(x1 + w1, 11, fit(m.five.value, room(1, w1), size), { anchor: 'end' })
   out += rect(x1, 17, w1, 7, C.gray, TRACK)
   if (m.five.used > 0) out += rect(x1, 17, Math.max(7, (w1 * clamp(m.five.used, 0, 100)) / 100), 7, m.five.color)
-  out += text(x1, 38, clip(m.five.sub, w1, LEGEND_SIZE), { size: LEGEND_SIZE })
+  out += text(x1, 38, clip(estimate(m.five.sub, LEGEND_SIZE) <= w1 ? m.five.sub : m.five.subShort, w1, LEGEND_SIZE), { size: LEGEND_SIZE })
 
-  // Weekly: five slots with a clear gap between them, a day letter centered under each
-  out += text(x2, 11, 'Weekly', { size: 11 })
-  out += parts(x2 + w2, 11, fit(m.week.value, w2 - 46, 11), { anchor: 'end' })
+  // Weekly: usage and the difference to today's allowance, five slots, a day letter under each
+  out += text(x2, 11, labels[2] ?? '', { size })
+  out += parts(x2 + w2, 11, fit(m.week.value, room(2, w2), size), { anchor: 'end' })
   const slotGap = 4
   const slotW = (w2 - 4 * slotGap) / 5
   DAYS.forEach((letter, i) => {
@@ -444,6 +461,7 @@ export function bandBody(width: number, m: Model): { out: string; height: number
     out += rect(sx, 17, slotW, 7, C.gray, TRACK)
     const f = sliceFrac(m.week.used, i)
     if (f > 0) out += rect(sx, 17, Math.max(7, slotW * f), 7, m.week.color)
+    if (narrow) return
     out += text(sx + slotW / 2, 38, letter, {
       size: LEGEND_SIZE,
       anchor: 'middle',
@@ -452,15 +470,19 @@ export function bandBody(width: number, m: Model): { out: string; height: number
     })
   })
 
-  // Prompt cache: a bar that drains, the time left, and what the next message costs warm and cold
+  if (narrow) out += text(x2, 38, clip(m.week.paceText, w2, LEGEND_SIZE), { size: LEGEND_SIZE, fill: m.week.paceColor })
+
+  // Prompt cache: a bar that drains; what the next message costs only when it is about to go cold
   if (m.cache) {
     const c = m.cache
-    out += text(x3, 11, 'Cache', { size: 11 })
-    out += parts(x3 + w3, 11, fit(c.value, w3 - 40, 11), { anchor: 'end' })
+    out += text(x3, 11, labels[3] ?? '', { size })
+    out += parts(x3 + w3, 11, fit(c.value, room(3, w3), size), { anchor: 'end' })
     out += rect(x3, 17, w3, 7, C.gray, TRACK)
     if (c.view.frac > 0) out += rect(x3, 17, Math.max(7, w3 * c.view.frac), 7, c.color)
-    const sub = estimate(c.sub, LEGEND_SIZE) <= w3 ? c.sub : c.subShort
-    out += text(x3, 38, clip(sub, w3, LEGEND_SIZE), { size: LEGEND_SIZE, fill: c.view.state === 'soon' ? C.orange : C.gray })
+    if (c.near) {
+      const sub = estimate(c.sub, LEGEND_SIZE) <= w3 ? c.sub : c.subShort
+      out += text(x3, 38, clip(sub, w3, LEGEND_SIZE), { size: LEGEND_SIZE, fill: c.view.state === 'soon' || c.view.state === 'cold' ? C.orange : C.gray })
+    }
   }
 
   return { out, height }
@@ -471,44 +493,17 @@ export function bandSvg(width: number, m: Model): { source: string; width: numbe
   return { source: wrapSvg(width, height, out), width, height }
 }
 
-/** The collapsed row: one line per meter (label, value, bar) and no small print. */
-export function compactBody(width: number, m: Model, height: number): { out: string; height: number } {
-  const weights = m.cache ? [1.1, 0.9, 1.1, 0.9] : [1, 1, 1]
-  const gap = 22
-  const usable = width - (weights.length - 1) * gap
-  const total = weights.reduce((a, b) => a + b, 0)
-  const widths = weights.map(w => Math.floor((usable * w) / total))
-  const xs = widths.map((_, i) => widths.slice(0, i).reduce((a, b) => a + b + gap, 0))
-  const rows: { label: string; value: Parts[]; percent: number; color: string }[] = [
-    { label: 'Context', value: m.ctx.value, percent: m.ctx.percent, color: m.ctx.color },
-    { label: '5-hour', value: m.five.value, percent: m.five.used, color: m.five.color },
-    { label: 'Weekly', value: m.week.value, percent: m.week.used, color: m.week.color },
-  ]
-  if (m.cache) rows.push({ label: 'Cache', value: m.cache.value, percent: m.cache.view.frac * 100, color: m.cache.color })
-  const y = Math.round(height / 2) - 8
-  let out = ''
-  rows.forEach((r, i) => {
-    const x = xs[i] ?? 0
-    const w = widths[i] ?? 0
-    out += text(x, y, r.label, { size: 11 })
-    out += parts(x + w, y, fit(r.value, w - 52, 11), { anchor: 'end' })
-    out += rect(x, y + 7, w, 7, C.gray, TRACK)
-    if (r.percent > 0) out += rect(x, y + 7, Math.max(7, (w * clamp(r.percent, 0, 100)) / 100), 7, r.color)
-  })
-  return { out, height }
-}
-
 /** The shortest the row gets, so the small mascot or none still leaves room for a label, a bar and a value. */
-export const MIN_ROW = 36
+export const MIN_ROW = 46
 
-/** The whole cockpit drawing: the mascot on the left (if any), the collapsed row or the full meters beside it. */
-export function cockpitSvg(width: number, m: Model, mascot: { markup: string; width: number; height: number }, isOpen: boolean): { source: string; width: number; height: number } {
-  const gap = mascot.width > 0 ? 14 : 0
-  const rowH = Math.max(mascot.height, MIN_ROW)
-  const bodyW = Math.max(240, width - mascot.width - gap)
-  const body = isOpen ? bandBody(bodyW, m) : compactBody(bodyW, m, rowH)
-  const height = Math.max(rowH, body.height + (isOpen ? 8 : 0))
-  const top = isOpen ? Math.max(0, Math.round((height - body.height) / 2) - 2) : 0
+/** The whole cockpit drawing: the mascot on the left (if any), the meters beside it. */
+export function cockpitSvg(width: number, m: Model, mascot: { markup: string; width: number; height: number }): { source: string; width: number; height: number } {
+  const gap = mascot.width > 0 ? 12 : 0
+  const bodyW = Math.max(200, width - mascot.width - gap)
+  const body = bandBody(bodyW, m)
+  // The same drawing open or collapsed (the arrow adds rows under it), and a fixed height unless a warning needs two lines.
+  const height = Math.max(mascot.height, MIN_ROW, body.height + 2)
+  const top = Math.max(0, Math.round((height - body.height) / 2) - 3)
   const mascotY = Math.round((height - mascot.height) / 2)
   const out = `<g transform="translate(0 ${mascotY})">${mascot.markup}</g><g transform="translate(${mascot.width + gap} ${top})">${body.out}</g>`
   return { source: wrapSvg(mascot.width + gap + bodyW, height, out), width: mascot.width + gap + bodyW, height }

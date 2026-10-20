@@ -5,7 +5,7 @@ import { stateMarkup } from './states'
 
 const NOW = new Date(2026, 9, 21, 12).getTime() // a Wednesday: 60% of the week is allotted
 const m = (percent: number, five = 0, week = 0) =>
-  model({ fill: { tokens: percent * 10, window: 1000, percent }, limits: [{ kind: 'five_hour', percentUsed: five }, { kind: 'seven_day', percentUsed: week }], now: NOW })
+  model({ fill: { tokens: percent * 10, window: 1000, percent }, limits: [{ kind: 'five_hour', percentUsed: five, resetsAt: new Date(NOW + 134 * 60_000).toISOString() }, { kind: 'seven_day', percentUsed: week }], now: NOW })
 
 describe('attentionOf', () => {
   test('calm is 0, a warning 1, an alert 2', () => {
@@ -44,16 +44,28 @@ describe('alertsOf: every warning has an action', () => {
 
 describe('cockpitSvg', () => {
   const mascot = stateMarkup('idle')
-  test('the collapsed row is as tall as the mascot and keeps the small print out', () => {
-    const closed = cockpitSvg(800, m(60, 41, 35), mascot, false)
-    expect(closed.height).toBe(mascot.height)
-    expect(closed.source).not.toContain('quality may start to slip')
-    expect(closed.source).not.toContain('NaN')
+  const draw = (w: number, model_: ReturnType<typeof m>) => cockpitSvg(w, model_, mascot)
+  test('open or collapsed it is one drawing; the row is as tall as the mascot when nothing is near a warning', () => {
+    const calmDraw = draw(800, m(10, 41, 35))
+    expect(calmDraw.height).toBe(mascot.height)
+    expect(calmDraw.source).not.toContain('NaN')
   })
-  test('opened it carries the warning text', () => {
-    const open = cockpitSvg(1200, m(60, 41, 35), mascot, true)
-    expect(open.source).toContain('quality may start to slip')
-    expect(open.source).not.toContain('NaN')
+  test('context text under the bar appears only near its warning', () => {
+    expect(draw(900, m(10)).source).not.toContain('quality may start to slip')
+    expect(draw(900, m(60)).source).toContain('quality may start to slip')
+  })
+  test('the 5-hour bar says when it resets, the weekly bar its usage and its difference', () => {
+    const src = draw(900, m(10, 41, 35)).source
+    expect(src).toContain('Resets at')
+    expect(src).toContain('35% used')
+    expect(src).toContain('25% under')
+  })
+  test('narrow windows keep every number, with short labels', () => {
+    const src = draw(380, m(10, 41, 35)).source
+    expect(src).toContain('>Ctx<')
+    expect(src).toContain('>5h<')
+    expect(src).toContain('Resets 14:14')
+    expect(src).toContain('Wed 25% under')
   })
   test('the mascot loop animates by swapping frames', () => {
     expect(mascot.markup).toContain('attributeName="opacity"')

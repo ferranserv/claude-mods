@@ -7,7 +7,7 @@ import { pixelsOutside } from './sprite'
 
 const NOW = 1_000_000
 const calm: MoodInput = {
-  now: NOW, waiting: false, fleet: {}, compacting: false, tool: null, walkUntil: 0, helloUntil: 0,
+  now: NOW, waiting: false, writing: false, fleet: {}, compacting: false, tool: null, walkUntil: 0, helloUntil: 0,
   ctx: 'calm', cache: 'warm', fiveUsed: 10, weekRoom: 30, hasAdvice: false, hasNote: false, busy: false, busyMs: 0, hasTool: false,
 }
 const mood = (o: Partial<MoodInput>) => pickState({ ...calm, ...o })
@@ -111,17 +111,22 @@ describe('the drawings', () => {
       expect(d.label.length).toBeGreaterThan(5)
     }
   })
-  test('29 states, each with a terminal face', () => {
-    expect(STATE_IDS.length).toBe(29)
+  test('30 states, each with a terminal face', () => {
+    expect(STATE_IDS.length).toBe(30)
     for (const id of STATE_IDS) expect(STATES[id].face.length).toBeGreaterThan(2)
   })
   test('the alarm clock shows the wake-up time it is given', () => {
     expect(stateMarkup('asleep', '14:20').markup).not.toBe(stateMarkup('asleep', '09:05').markup)
     expect(stateMarkup('asleep', '14:20').width).toBe(112)
   })
-  test('animated states swap frames; the frozen state does not move', () => {
+  test('animated states swap frames; every state starts from the same neutral pose', () => {
     expect(stateMarkup('typing').markup).toContain('attributeName="opacity"')
-    expect(stateMarkup('cold').markup).not.toContain('<animate')
+    for (const id of STATE_IDS) {
+      const f = STATES[id].frames[0] ?? {}
+      expect(f.dx ?? 0).toBe(0)
+      expect(f.dy ?? 0).toBe(0)
+      expect(f.legsUp).toBeUndefined()
+    }
     expect(stateMarkup('walk').markup).toContain('animateTransform')
   })
 })

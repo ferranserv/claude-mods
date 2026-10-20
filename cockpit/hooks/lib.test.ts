@@ -198,7 +198,7 @@ describe('model', () => {
 
   test('five-hour reset text and weekly pace text', () => {
     const m = model(data(30, 40, 35))
-    expect(m.five.sub).toBe('Resets in 2h 14m')
+    expect(m.five.sub).toBe('Resets at 14:14 (in 2h 14m)')
     expect(m.week.paceText).toBe('Wed 25% under')
     expect(m.week.today).toBe(2)
   })
@@ -510,10 +510,12 @@ describe('band with the cache meter', () => {
     expect(cold.source).toContain('>cold<')
   })
 
-  test('cost text is shown in full on a wide band and shortened on a narrow one', () => {
-    const wide = bandSvg(1200, model(withCache(data(), warm))).source
+  test('the cost text appears only when the cache is about to go cold: in full on a wide band, shortened on a narrow one', () => {
+    const soon = { ...CACHE_INITIAL, lastAt: WED - 57 * MIN }
+    expect(bandSvg(1200, model(withCache(data(), warm))).source).not.toContain('Next msg $')
+    const wide = bandSvg(1200, model(withCache(data(), soon))).source
     expect(wide).toContain('Next msg $')
-    const narrow = bandSvg(380, model(withCache(data(), warm))).source
+    const narrow = bandSvg(380, model(withCache(data(), soon))).source
     expect(narrow).not.toContain('Next msg $')
   })
 

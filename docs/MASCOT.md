@@ -20,13 +20,13 @@ Tool and session scenarios (added by Claude; owner pre-approved)
 - hello (first message) | idea: floating glowing lightbulb, not touching him (plan ready) | coffee break: coffee visible in the cup, no sparks (turn over 2 min) | reading: glasses and scroll (Read, Grep, Glob) | building: hard hat and hammer (Edit, Write) | browsing: browser window and magnifying glass (WebSearch, WebFetch) | unplugged (MCP or network down) | dizzy: swirl (compacting) | lab: lab coat, bubbling flask, test tubes (tests passed) | reviewed: glasses and check (review clean) | needs your approval: raised hand (permission prompt)
 
 ## Priority (owner's rule: a state that lasts less outranks one that lasts longer, because the other returns)
-Implemented in `hooks/mood.ts` (header comment) and tested in `hooks/mood.test.ts`. Highest first: raised hand; fleeting events (oops, bell, lab, love, idea, wizard, coins, unplugged); dizzy and the tool at work (building, reading, browsing); walk, hello; lasting warnings (asleep, mad, on fire, detective, frozen, hourglass, gauge low, tipsy, sleepy); background (coffee, typing, thinking, talk, idle). Cache states apply only while idle.
+Implemented in `hooks/mood.ts` (header comment) and tested in `hooks/mood.test.ts`. Highest first: raised hand (clipboard and pencil); writing (glasses, quill and paper: Claude is writing into your prompt box);  fleeting events (oops, bell, lab, love, idea, wizard, coins, unplugged); dizzy and the tool at work (building, reading, browsing); walk, hello; lasting warnings (asleep, mad, on fire, detective, frozen, hourglass, gauge low, tipsy, sleepy); background (coffee, typing, thinking, talk, idle). Cache states apply only while idle.
 
 ## Canvas and bubble
 Canvas 34 x 28 px (asleep: 56 x 28), drawn at 2x (68 x 56). Every state is checked by the sheet for pixels outside the canvas (red tag, none now). The speech bubble sits right of him with a tail, wraps text (long text and narrow widths tested), and carries the action button for that warning.
 
 ## Status
-PR 2 (cockpit 0.2.0) ships 29 states and the state machine: `hooks/sprite.ts` (drawing, ported from the sheet), `hooks/states.ts` (frames, labels, terminal faces), `hooks/mood.ts` (priority, bubble text). "Reviewed" has no signal in the plugin API and was dropped. Signals: `tool.call` (tool kind, failure, test runs, plans), `tool.check` (a permission ask), `session.compact`, `mcp.connect`, turn and session events, plus the cockpit's own (handoff, enhance, saver).
+Cockpit 0.4.0 ships 30 states (0.2.0 had 29) and the state machine: `hooks/sprite.ts` (drawing, ported from the sheet), `hooks/states.ts` (frames, labels, terminal faces), `hooks/mood.ts` (priority, bubble text). "Reviewed" has no signal in the plugin API and was dropped. Signals: `tool.call` (tool kind, failure, test runs, plans), `tool.check` (a permission ask), `session.compact`, `mcp.connect`, turn and session events, plus the cockpit's own (handoff, enhance, saver).
 
 ## Rendering
 SVG per frame set, frames swapped by SMIL (`animate` on opacity, `isInteractive: true`). Speech bubble beside him, text from the active warning, its action button next to it. Terminal surface (no SVG): one-line text face. `prefers-reduced-motion`: first frame only. No model calls; redraw only when the state changes.
@@ -39,3 +39,13 @@ SVG per frame set, frames swapped by SMIL (`animate` on opacity, `isInteractive:
 - Never draw floors, ground, water or any scenery that spans the whole canvas: it gets cut off in the band. Adjust the design instead.
 - Props are objects near him, inside the canvas.
 - The sheet reports any pixel outside the canvas; the count must be zero.
+
+
+## 0.4.0 changes
+
+- Every state starts from the same neutral pose (props and colours change, not position), so switches look smooth; a switch crossfades over 0.5 s.
+- Hold rule: the shown state stays at least 5 s unless a higher-priority one arrives (`HOLD_MS` in `mood.ts`); every fleeting state lasts 5 s or more.
+- The bubble floats (absolute, opaque) from Clawd instead of growing the band; `/cockpit bubble float|inline`.
+- Permission asks are debounced 1.5 s (a tool that runs right after was auto-allowed, not an ask); PowerShell counts as a shell for test runs.
+- Frozen flakes move; drunk and hourglass start from the neutral pose.
+- Meters: collapsed and open are the same drawing; 5-hour shows "Resets at HH:MM (in ...)", weekly "usage % and difference"; context and cache add a subtitle only near their warning. Narrow windows use short labels.
