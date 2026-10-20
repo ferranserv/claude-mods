@@ -95,6 +95,23 @@ Next
 Open: SMIL in the desktop app; band height with a 48 px mascot; whether draft events reach the app (sparkle trim).
 Tokens so far this session: about 0.9M (mostly mascot design).
 
+## Session 8 (2026-10-20): Clawd revised, PR #12 merged
+- PR #12 merged, chime confirmed working by the owner. Branch restarted from main.
+- Clawd sheet v2 (docs/mascot/clawd-sheet.html): owner's notes applied (loading circle, big bell with notes, forehead sweat and handkerchief, hourglass under the hand, static frozen with wide ice, bed with eye mask and alarm clock, fedora and real magnifier, wizard hat, beach idle) and 11 new scenarios added. Canvas 34 x 28 (asleep 56 wide). No pixel outside the canvas, bubbles wrap.
+- Owner will send more reference pictures for extra poses.
+- Sheet v3 applied the owner's second round (bell below hand, beach without floor, forehead sweat, hourglass shape, no bed, glowing bulb, coffee, hammer, browser with magnifier, lab coat). Rule recorded: no floors or full-width scenery.
+Next: PR 1 (owner said go).
+
+## Session 9 (2026-10-20): PR 1, the cockpit plugin
+Done
+- `cockpit` 0.1.0: one band above the prompt (Clawd idle, collapsed row of four meters, arrow to expand, opens by itself on a warning, `/cockpit open|close|auto`), alerts with buttons (lib `alertsOf`), saver, preflight and enhancer merged in. 153 tests pass, `claude plugin validate` ok, tsc strict clean.
+- meters, saver, preflight-guard, prompt-enhancer, mods-manager moved to `archive/`; marketplace file and `.claude/settings.json` list only `cockpit`; README rewritten; update routine moved to `docs/UPDATING.md`.
+- Batch 0 findings in docs/COCKPIT.md: one `$` file, one hook per event.
+- `/handoff` dropped (two skills hold the name); `/newsession` stays.
+Not verified (owner on the desktop app): SMIL animation of Clawd; band height with the 56 px mascot; the arrow and auto-open feel; chime; preflight and saver after the merge.
+Next: owner checks PR 1 on screen, then PR 2 (30 mascot states from docs/mascot/clawd-sheet.html).
+Tokens: about 1.2M this session in total (design 0.9M, PR 1 0.3M).
+
 ## Next
 1. Owner: paste the screenshot, run the mods on the real app, report what cuts off or collides.
 2. Owner: run `python3 tools/audit-sessions.py`, pick an idea from the five.

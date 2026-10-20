@@ -1,0 +1,83 @@
+{
+  "name": "cockpit",
+  "version": "0.1.0",
+  "author": {
+    "name": "Ferran"
+  },
+  "description": "One band above the prompt: context window, 5-hour and weekly limits, prompt cache countdown, saver routing, preflight warnings and the prompt enhancer, with an expand arrow, a warning-with-action for every alert, and a chime when a turn ends. Replaces meters, saver, preflight-guard and prompt-enhancer.",
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "warnPercent": {
+      "type": "number",
+      "title": "First context warning (%)",
+      "description": "The context bar turns orange and warns that quality may start to slip.",
+      "default": 50
+    },
+    "redPercent": {
+      "type": "number",
+      "title": "Context alert (%)",
+      "description": "The context bar turns red past this.",
+      "default": 80
+    },
+    "warnTokens": {
+      "type": "number",
+      "title": "Context warning by size (tokens)",
+      "description": "Same orange warning once the context holds this many tokens, whatever the percent (a 1M window).",
+      "default": 150000
+    },
+    "cacheMinutes": {
+      "type": "number",
+      "title": "Prompt cache window (minutes)",
+      "description": "Used until the real window is learned from the API's behaviour, or when you set one with /cache <minutes>.",
+      "default": 60
+    },
+    "notifyMinutes": {
+      "type": "number",
+      "title": "Warn before the cache goes cold (minutes)",
+      "description": "A notice this long before the prompt cache expires. Capped at half the window.",
+      "default": 5
+    },
+    "cacheStepMinutes": {
+      "type": "number",
+      "title": "Cache countdown steps (minutes)",
+      "description": "The countdown redraws every this many minutes (55m, 50m, ...). It resets to the full window each time you send a message.",
+      "default": 5
+    },
+    "handoffKey": {
+      "type": "string",
+      "title": "Hotkey: new session with handoff",
+      "description": "Chord pressed in the prompt box, e.g. meta+h. Empty turns it off.",
+      "default": "meta+h"
+    },
+    "freshKey": {
+      "type": "string",
+      "title": "Hotkey: fresh session",
+      "description": "Chord pressed in the prompt box, e.g. meta+n. Empty turns it off.",
+      "default": "meta+n"
+    },
+    "sound": {
+      "type": "boolean",
+      "title": "Chime when a turn finishes",
+      "description": "Plays sounds/done.wav at the end of each main-loop turn (macOS afplay, Windows PowerShell).",
+      "default": true
+    },
+    "hotkey": {
+      "type": "string",
+      "title": "Enhance hotkey",
+      "description": "Chord pressed in the prompt box, e.g. meta+e (Option+E on macOS terminals set to use Option as Meta), ctrl+shift+e. Empty turns the hotkey off.",
+      "default": "meta+e"
+    },
+    "model": {
+      "type": "string",
+      "title": "Model that rewrites the draft",
+      "description": "An alias (haiku, sonnet) or a full model id. A small model keeps each Enhance cheap.",
+      "default": "haiku"
+    },
+    "maxSkills": {
+      "type": "number",
+      "title": "Skills offered to the model",
+      "description": "At most this many installed skills are sent with the draft, the best word matches first.",
+      "default": 12
+    }
+  }
+}

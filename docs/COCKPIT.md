@@ -3,7 +3,7 @@
 ## Shape
 New plugin `cockpit` (`cockpit/`), replacing `meters`, `saver`, `preflight-guard`, `prompt-enhancer` (moved to `archive/`, restorable). `mods-manager` also leaves the install list (does nothing in the desktop route) and moves to `archive/`; `tools\update-mods.cmd` and the CLAUDE.md routine stay.
 
-Files: `hooks/register.tsx` (calls each feature's `register`), `hooks/band.tsx` (the one render hook), `hooks/meters.tsx`, `hooks/saver.tsx`, `hooks/preflight.tsx`, `hooks/enhancer.tsx`, `types/index.d.ts` (one `PluginState.cockpit`). Rule from CLAUDE.md: a hook may pass `$` only to functions declared in the same file, so each feature keeps its `$` helpers in its own file and exports only `register(on, options)`.
+Files (as built in PR 1): `hooks/register.tsx` holds every `$`-taking function and every hook, in sections (meters, saver, preflight, enhancer, band) and one hook per event; pure code is in `lib.ts` (numbers, SVG, attention, alerts), `saver-logic.ts`, `preflight-logic.ts`, `enhancer-logic.ts`, `handoff.ts`, `keys.ts`, `mascot.ts`, `bands.tsx`; `types/index.d.ts` is the one `PluginState.cockpit` contract. Why one file: an event can be hooked once per plugin, and a hook may pass `$` only to functions declared in the same file (CLAUDE.md).
 
 ## Band
 Collapsed (default): one row, mascot slot on the left, then chips: context %, cache countdown, 5h %, week pace, saver (when on), preflight count (when non-zero), Enhance button, expand arrow (small chevron, right edge). Never hides the core meters.
@@ -29,6 +29,12 @@ A warning that cannot name an action is dropped.
 - Drop the `/handoff` alias (held by two skills, always refused); keep `/newsession`, `/fresh`, `/cache`, `/meters`.
 - Enhance sparkle: show only with a real draft IF the desktop app raises draft events. Session 3 found it may not; spike first, otherwise keep it dim-always.
 - `mods-manager` archived; README install list updated.
+
+## Batch 0 results (spike, done)
+- `hooks.json` takes one module path; features split across files each registering `on('session.start')` fail validation ("registered twice"). So: one file for the `$` code.
+- Cross-file `$` helpers pass `claude plugin validate` in this build, but the desktop app's build is unknown, so they are avoided.
+- `atom()` must be written in the file that uses it, with literal plugin and key.
+- SMIL animation on the desktop app: unverifiable from a cloud session. PR 1 ships a blinking, bobbing idle Clawd through a sandboxed Svg (`isInteractive`) as the test.
 
 ## Batches
 | Batch | Work | Est. tokens |

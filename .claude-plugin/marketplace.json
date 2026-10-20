@@ -5,34 +5,10 @@
   },
   "plugins": [
     {
-      "name": "meters",
-      "source": "./meters",
-      "description": "Context window, 5-hour, weekly usage and the prompt cache countdown as compact meters in one band above the prompt or a side panel, with warnings, a going-cold notice and one-click handoff to a fresh session, and a chime when a turn ends.",
-      "version": "0.4.0"
-    },
-    {
-      "name": "mods-manager",
-      "source": "./mods-manager",
-      "description": "Keeps your mods current: pulls the mods folder from GitHub at session start (/updatemods to do it now), and a skill that installs mods you build.",
-      "version": "0.2.2"
-    },
-    {
-      "name": "preflight-guard",
-      "source": "./preflight-guard",
-      "description": "Warns when a session starts on main, with uncommitted changes, or beside another working session; offers a worktree, a commit checkpoint, and a click to commit what another session already finished.",
-      "version": "0.1.2"
-    },
-    {
-      "name": "prompt-enhancer",
-      "source": "./prompt-enhancer",
-      "description": "A sparkle Enhance button and hotkey that rewrites your draft prompt in place: fitting skills, project details, decisions to ask you first, and what done looks like.",
-      "version": "0.1.4"
-    },
-    {
-      "name": "saver",
-      "source": "./saver",
-      "description": "Sends easy prompts to Haiku 5.5 while context is under 100K. A strip above the prompt (hidden unless saver just routed an answer; /saver strip changes that) shows the model and what was saved today.",
-      "version": "0.2.0"
+      "name": "cockpit",
+      "source": "./cockpit",
+      "description": "One band above the prompt: context window, 5-hour and weekly limits, prompt cache countdown, saver routing, preflight warnings and the prompt enhancer, with an expand arrow, a warning-with-action for every alert, and a chime when a turn ends. Replaces meters, saver, preflight-guard and prompt-enhancer.",
+      "version": "0.1.0"
     }
   ]
 }

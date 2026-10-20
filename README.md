@@ -4,87 +4,69 @@ Personal Claude Code mods, published as the `claude-mods` plugin marketplace.
 
 | Mod | What it does |
 | --- | --- |
-| `prompt-enhancer` | Sparkle Enhance button + hotkey (`meta+e`) + `/enhance`. Rewrites your draft in place: fitting skills, project details, questions to answer first, what done looks like. One small-model call per use; undo button restores your draft. |
-| `mods-manager` | At each session start (at most hourly) runs `git pull --ff-only` in the folder the mods are installed from, so a merged pull request reaches the next session by itself; `/updatemods` does it now. Also the skill `sync-mods`: after you build a mod, it lands in `~/mods`, the marketplace file is rebuilt, and the mod is installed for every session. |
-| `saver` | Sends easy prompts (typos, renames, formatting, short summaries, quick questions) to Haiku 5.5 while context is under 100K tokens; hard ones stay on your model. A strip above the prompt shows the model that answered last and what was saved today at list prices. `/saver on`, `/saver off`. |
-| `preflight-guard` | Warns when a session starts on main, with uncommitted changes, or in a folder another session is working in. One click each: new worktree, checkpoint commit, or commit the files another session already finished. Never pushes. `/preflight`, `/preflight off`. |
-| `meters` | One band above the prompt (or a vertical side panel): context window, 5-hour limit, weekly limit (five weekday slots) and the **prompt cache countdown**. Context turns orange from 50% (or 150k tokens) with a "quality may start to slip" warning and red past 80%. Warns you before the cache goes cold, shows what the next message costs warm vs cold, and offers **New session with handoff** and **Fresh session** buttons, hotkeys, `/handoff`, `/fresh`, `/cache`. `/meters side` / `/meters top` move it. Also plays a chime when a turn ends (`sound` option, macOS and Windows). Replaces the earlier `context-bar` and `usage-limits` mods. |
-
-`plan-progress` is archived in `archive/` (see `archive/README.md`): not installable, kept so it can come back.
+| `cockpit` | One band above the prompt: Clawd the mascot, context window, 5-hour limit, weekly limit (five weekday slots) and the **prompt cache countdown**, in one collapsed row. An arrow at the right opens the whole picture whenever you want it; it also opens by itself when something needs you. Every warning comes with the button that answers it. Also: saver (easy prompts go to Haiku 5.5), preflight (warns on main, uncommitted work, another session in the folder), prompt enhancer (✦ button and hotkey), and a chime when a turn ends. Replaces `meters`, `saver`, `preflight-guard` and `prompt-enhancer` (kept in `archive/`). |
 
 ## Install
 
-The marketplace is called `claude-mods` (plugin ids look like `meters@claude-mods`). It was called `my-mods` until 2026-10-19; an old local `my-mods` marketplace must be removed first (see below), or the app can keep reading its stale folder.
+The marketplace is called `claude-mods` (the plugin id is `cockpit@claude-mods`).
 
-**Claude desktop app, from GitHub (recommended, no terminal):** in a local Code session click **+** next to the prompt box, **Plugins**, **Add marketplace** with `ferranserv/claude-mods`, then **Add plugin** for `meters`, `saver`, `prompt-enhancer` and `preflight-guard` (`mods-manager` is only for the CLI flow below and does nothing useful installed this way). To update after a pull request is merged: open the Plugins page and click **Update** on each plugin that offers it, then start a new session. Every change bumps the plugin's version so the Update button appears.
+**Claude desktop app, from GitHub (no terminal):** in a local Code session click **+** next to the prompt box, **Plugins**, **Add marketplace** with `ferranserv/claude-mods`, then **Add plugin** for `cockpit`. With the Claude Code CLI: `/plugin install cockpit --marketplace ferranserv/claude-mods`. To update after a pull request is merged: see `docs/UPDATING.md` (pull the saved copy, click **Update**, start a new session). Every change bumps the plugin's version so the Update button appears.
 
-**Moving from the old `my-mods` install:** (1) merge the pull request that renamed the marketplace; (2) in the Plugins page remove the `my-mods` marketplace and its plugins; (3) optionally delete or rename the old local clone (`C:\Users\<you>\mods`); (4) add `ferranserv/claude-mods` as above.
+**Moving from the four separate mods:** (1) merge the pull request; (2) pull the saved marketplace copy (`tools\update-mods.cmd`); (3) on the Plugins page remove `meters`, `saver`, `preflight-guard`, `prompt-enhancer` and `mods-manager` (and `plan-progress` if it is still there); (4) add `cockpit`; (5) start a NEW local session. Settings kept in the old plugins (saver on or off, a side panel, cache window you set) do not carry over: `/saver off`, `/meters side`, `/cache 30` again if you used them.
 
-**With the Claude Code CLI** (macOS/Linux, or Windows with Git Bash and Python), as an alternative that installs from a local clone:
+Cloud sessions on this repo load the mod from `.claude/settings.json`. For cloud sessions on other repos, add the marketplace in the environment's setup script.
 
-```bash
-git clone https://github.com/ferranserv/claude-mods ~/mods
-bash ~/mods/mods-manager/skills/sync-mods/sync.sh --install-hook
-```
+## The band
 
-That registers `~/mods` as the `claude-mods` marketplace, installs every mod at user scope, and adds a SessionStart hook so mods you drop in later install themselves. Check with `/plugin` (or `claude plugin list`). Use either the GitHub marketplace or the local clone, not both: they share a name.
+Collapsed (default): Clawd, then Context, 5-hour, Weekly and Cache as one row of bars. Nothing is hidden, the small print is. On the right: ✦ Enhance (and ↩ to restore your draft) and the arrow ▾ / ▴.
 
-Cloud sessions on this repo load the mods from `.claude/settings.json`. For cloud sessions on other repos, put the install lines above in the environment's setup script.
+Expanded: the full meters (warning text, the five weekday slots, what the next message costs warm vs cold), then every warning with its buttons, preflight findings, the saver line.
 
-## Keeping the mods current
+| Opens by itself when | Buttons offered |
+| --- | --- |
+| Context passes 50% (or 150k tokens), and again past 80% | New session with handoff (H), Copy handoff keep session (C), Fresh session (N) |
+| Cache goes cold in under 5 minutes, or is cold | New session with handoff |
+| 5-hour limit at 80% (saver off) | Turn saver on |
+| 5-hour limit reached | Copy handoff (resume after the reset) |
+| Weekly use ahead of pace (saver off) | Turn saver on |
+| Preflight: on main, uncommitted changes, another session in the folder | New worktree, Commit checkpoint, Commit its files (see below) |
 
-- **Installed from GitHub (the desktop app route above):** the app keeps its own saved copy of the repo and does not refresh it. After each merge run `tools\update-mods.cmd` from that copy (`%USERPROFILE%\.claude\plugins\marketplaces\claude-mods\tools\update-mods.cmd`), or `git -C "$env:USERPROFILE\.claude\plugins\marketplaces\claude-mods" pull`, then click **Update** on the Plugins page and start a new session. Deleting and reinstalling plugins alone re-reads the stale copy. The same steps are in the `sync-mods` skill (`mods-manager`) and in `CLAUDE.md`.
-- **Installed from a local clone (CLI route):** `mods-manager` (0.2.0+) runs `git pull --ff-only` in that folder at session start (at most hourly), shows "Mods updated to <commit>. Start a new session to load them.", and `/updatemods` does it now. It only works where the app lets a mod run `git`; elsewhere it says so once. Manual fallback: `git -C "$env:USERPROFILE\mods" pull`, then a new session. Turn it off with the `autoUpdate` option. When the mods come from GitHub, the folder is not a git clone and it does nothing.
-- Anything merged to `main` is loaded from then on: the merge is the gate.
+A warning that has no button to offer is not shown as text; the bar colors still say it. The arrow collapses an open band until the alert level climbs; `/cockpit open` pins it open, `/cockpit close` keeps it collapsed, `/cockpit auto` goes back to the default. Handoff buttons wait while Claude is working.
 
-## New mods
-
-Build the mod (it lands in `~/.claude/dev-mods/<session>/<mod>`), then run the `sync-mods` skill. Commit with `sync.sh --commit`, push with `git -C ~/mods push`.
-
-If you also keep the hot-reloaded dev copy enabled, a mod can load twice in that session. Disable one.
-
-## meters: commands, hotkeys, options
+## Commands, hotkeys, options
 
 | | |
 | --- | --- |
-| `/meters side` / `/meters top` | Side panel, or back to the band. The app decides where a docked pane goes; no side is promised. Closing the panel with its own mark is remembered. |
-| `/handoff` | Writes a handoff brief, clears the session, pastes the brief into the fresh prompt box (review, then Enter). `/handoff paste` puts the last brief back in the prompt box (no clear). A copy is saved in `~/.claude/handoffs/`. |
+| `/cockpit open\|close\|auto` | Pin the band open, keep it collapsed, or let it open when something needs you. |
+| `/meters side` / `/meters top` | The same content in a side panel, or back in the band. The app decides where a docked pane goes. |
+| `/newsession` | Writes a handoff brief, clears the session, pastes the brief into the fresh prompt box (review, then Enter). `/newsession paste` puts the last brief back (no clear). `/newsession brief` (also `/meters brief`, or the **Copy handoff** button) writes it into the prompt box and the clipboard WITHOUT clearing. A copy is saved in `~/.claude/handoffs/`. (`/handoff` was dropped: two skills hold that name.) |
 | `/fresh` | Clears the session, no brief. |
-| `/newsession` | Same as `/handoff`, for setups where `/handoff` already belongs to another skill. `/newsession brief` (also `/meters brief`, or the **Copy handoff, keep session** button) writes the brief into the prompt box and the clipboard WITHOUT clearing; `/newsession paste` puts the last brief back, no clear. |
-| `/meters warn 5`, `/meters red 70`, `/meters tokens 50k`, `/meters limits [reset]` | Change the context warning levels (orange / red / by size) from the prompt, no options screen needed; saved across sessions. |
-| `/meters status` | Lists which of the commands above the app accepted, and which it refused. |
-| `/meters cache`, `/meters handoff`, `/meters fresh` | The same actions through `/meters`, which always registers first: use them if the app refuses a command name. |
-| `/cache`, `/cache 30`, `/cache auto` | Show the window and exact time left, set the window in minutes, or go back to learning it. |
-| Cache countdown | Resets to the full window the moment you send a message (and at each request Claude makes), never on its own. The band shows it in 5-minute steps (`55m`, `50m`, … `<5m`, `cold`) and redraws only when that changes; `cacheStepMinutes` changes the step. The going-cold notice still fires exactly `notifyMinutes` before the end. |
-| Buttons | **New session with handoff** (H) and **Fresh session** (N) appear under the bars once the context is at the first warning and Claude is idle. H / N work while the band has focus (ctrl+x tab). |
-| Hotkeys | `meta+h` handoff, `meta+n` fresh, from the prompt box. Change or clear them in the mod's options. |
-| Options | `warnPercent` 50, `redPercent` 80, `warnTokens` 150000, `cacheMinutes` 60, `notifyMinutes` 5, `handoffKey`, `freshKey`. |
+| `/cache`, `/cache 30`, `/cache auto` | Show the window and exact time left, set it in minutes, or go back to learning it. |
+| `/meters warn 5`, `/meters red 70`, `/meters tokens 50k`, `/meters limits [reset]` | Change the context warning levels from the prompt; saved across sessions. |
+| `/meters status` | Which commands the app accepted. `/meters cache\|handoff\|fresh` do the same actions if a name is refused. |
+| `/saver on\|off\|why`, `/saver strip active\|on\|always` | Saver on or off, why the last prompt was or was not routed, when its line shows in the collapsed band. |
+| `/preflight`, `/preflight off\|on` | Check now, or turn the preflight warnings off or on. |
+| `/enhance <draft>` | Rewrite a draft with fitting skills and project details. |
+| Hotkeys | `meta+h` handoff, `meta+n` fresh, `meta+e` enhance, from the prompt box. Change or clear them in the options. |
+| Options | `warnPercent` 50, `redPercent` 80, `warnTokens` 150000, `cacheMinutes` 60, `notifyMinutes` 5, `cacheStepMinutes` 5, `handoffKey`, `freshKey`, `sound` (the chime), `hotkey`, `model`, `maxSkills`. |
 
-Cache window: Claude Code's API usage does not report the TTL, so `meters` learns it. A cache hit after more than five idle minutes proves the one-hour cache; two full misses inside the hour mean the five-minute one; a model switch reports it outright. Until then (and whenever you set one with `/cache`) it uses 60 minutes. Cost of the next message is input-side only, at list price: cache read 0.1x when warm, cache write 1.25x (5 min) or 2x (1 hour) when cold. The handoff brief is written by a fork of the session (nearly free) while the cache is warm and by a small model over the transcript tail when it is cold.
-
-## Band order
-
-`meters`, `saver` and `prompt-enhancer` all draw in the band above the prompt. Each takes what is beneath it, tags its own tree `band:<rank>:<name>` and returns `stack(...)` from its own copy of `hooks/bands.tsx`, which sorts by rank: meters (20), saver (30), prompt-enhancer (40). The order on screen is the same whichever mod the engine calls first. Keep the copies of `bands.tsx` identical. A mod outside the contract stays on top.
+Cache window: Claude Code's API usage does not report the TTL, so the cockpit learns it. A cache hit after more than five idle minutes proves the one-hour cache; two full misses inside the hour mean the five-minute one; a model switch reports it outright. The countdown restarts when you send a message and at each request Claude makes, never on its own; it shows in 5-minute steps and rounds up.
 
 ## Limits
 
-- Claude Code has no render site inside the prompt box, so the Enhance button sits in a band directly above it, right-aligned. The hotkey and `/enhance` work anywhere.
-- Hotkey `meta+e` is Option+E on macOS only when the terminal sends Option as Meta. Change it in the mod's options.
+- Claude Code has no render site inside the prompt box, so the Enhance button sits in the band above it. The hotkey and `/enhance` work anywhere.
+- The Alt hotkeys do not work reliably in the desktop app; use the buttons or the commands.
 - The chime uses `afplay` on macOS and a PowerShell sound player on Windows (best effort: it needs the host to allow running commands). On Linux it plays nothing.
-- `saver`: the strip is hidden unless saver is on AND the last answer was routed to Haiku. `/saver strip on` shows it whenever saver is on, `/saver strip always` even when off, `/saver strip active` is the default. `/saver why` says why the last prompt did or did not go to Haiku. Nothing is routed when your session model is already Haiku.
-- The rule above the saver strip belongs to `saver` (its own band, rank 25) and shows only when the strip does.
-- The Alt hotkeys do not work reliably in the desktop app (Alt+H does nothing, Alt+N is the app's own new-session tab): use the buttons or the commands.
-- `/handoff` is held by Anthropic skills (`handoff`, `design:design-handoff`) and is refused here; use `/newsession` or `/meters handoff`.
-- The cache label rounds UP to the step (60m right after a message), so it can read up to 5 minutes more than is left; `/cache` is exact.
-- The Enhance sparkle is always shown above the prompt (dim until you type a draft); `/enhance <draft>` works too.
+- Clawd animates by SVG animation in a sandboxed frame. This first version draws the idle loop only (blink and bob); the other states are in `docs/mascot/clawd-sheet.html` and arrive in the next pull request. In the terminal there is no mascot, only the text row. Clawd belongs to Anthropic: personal use only.
+- The Enhance sparkle is always shown (dim until you type a draft) because the desktop app may not raise draft events.
 
 ## Audit
 
 `python3 tools/audit-sessions.py` reads your last 20 sessions locally and prints what you keep asking, what you keep commanding, and how you check work. Aggregates only.
 
-## preflight-guard: the rules
+## cockpit: the preflight rules
 
-Each session writes a small heartbeat file in the repo's shared git folder (`.git/preflight-guard/<session>.json`: folder, branch, working or idle, files it wrote with Edit/Write). Nothing is committed or pushed by itself. Silent when nothing applies.
+The preflight part: each session writes a small heartbeat file in the repo's shared git folder (`.git/preflight-guard/<session>.json`: folder, branch, working or idle, files it wrote with Edit/Write). Nothing is committed or pushed by itself. Silent when nothing applies.
 
 | Situation | Shown | Button |
 |---|---|---|

@@ -1,13 +1,33 @@
 # Mascot: Clawd (PR 2)
 
-Source: `docs/mascot/clawd-sheet.html` (browsable, animated, drawn by code on Clawd's 12 x 8 cell grid, cell = 2 x 2 px, canvas 30 x 24, shown at 2x = 60 x 48 px, body #DA7758). No official sprite pack exists; grid and color come from the MIT-licensed ClawdMoji, whose notice says the character belongs to Anthropic. Frames are original code, not copied GIFs. Personal use only: check Anthropic's brand terms before publishing.
+Source: `docs/mascot/clawd-sheet.html` (browsable, animated, drawn by code on Clawd's 12 x 8 cell grid, cell = 2 x 2 px, body #DA7758). Scenario ideas inspired by the owner's reference sheet (Getillustrations.com, not copied). No official sprite pack exists; grid and color come from the MIT-licensed ClawdMoji, whose notice says the character belongs to Anthropic. Frames are original code, not copied GIFs. Personal use only: check Anthropic's brand terms before publishing.
 
-## States (cockpit signal -> state)
-idle (calm) | typing (turn running) | thinking (waiting on model) | bell (turn finished, 4 s, plays chime) | shades (saver routed) | walk (session start, 6 s) | talk (a bubble with an action is up) | uneasy (context >= 50%) | on fire (context >= 80%) | hourglass (cache <= 5 min) | frozen (cache cold) | gauge low (allowance within 2%) | mad (over allowance) | sleepy (5h >= 80%) | asleep (5h reached) | love (handoff saved, 5 s) | detective (preflight finding) | oops (tool failed) | wand (draft enhanced).
+## States (signal -> state), 30 in the sheet
+Cockpit signals
+- idle: beach lounge, sunglasses, drink with umbrella, big palm; no sand, water or chair (calm)
+- typing (turn running) | thinking: loading circle, no question mark (waiting on model)
+- bell: big bell hanging below his raised hand, shake lines, music notes (turn finished, 4 s, chime plays)
+- coins (saver routed) | walk (session start, 6 s) | talk (a bubble with an action is up)
+- uneasy: darting eyes, trembling, sweat on the forehead, wipes it with a handkerchief (context >= 50%)
+- on fire: big flames all around, forehead sweat, both arms waving, no handkerchief (context >= 80%)
+- hourglass: classic triangular glass held under his hand, he just watches the sand run, not sad (cache <= 5 min)
+- frozen: icy blue, no movement, ice over his feet no wider than him (cache cold)
+- gauge low (allowance within 2%) | mad (over allowance)
+- sleepy (5h >= 80%) | asleep: eye mask, Zs, alarm clock beside him with the wake-up time centered (5h reached; canvas 56 wide); no bed
+- love (handoff saved, 5 s) | detective: fedora, magnifying glass, alert mark beside it (preflight finding) | oops (tool failed)
+- wizard: wizard hat and wand (draft enhanced)
+Tool and session scenarios (added by Claude; owner pre-approved)
+- hello (first message) | idea: floating glowing lightbulb, not touching him (plan ready) | coffee break: coffee visible in the cup, no sparks (turn over 2 min) | reading: glasses and scroll (Read, Grep, Glob) | building: hard hat and hammer (Edit, Write) | browsing: browser window and magnifying glass (WebSearch, WebFetch) | unplugged (MCP or network down) | dizzy: swirl (compacting) | lab: lab coat, bubbling flask, test tubes (tests passed) | reviewed: glasses and check (review clean) | needs your approval: raised hand (permission prompt)
 
 ## Priority (highest wins; transient states play once, then fall back)
-oops > mad > asleep > on fire > frozen > detective > gauge low > hourglass > uneasy > sleepy > bell / love / wand / shades / walk (transient) > typing / thinking > talk > idle.
-While a turn runs the cache is warm, so cache states do not apply; typing wins over them.
+oops > mad > asleep > on fire > frozen > unplugged > detective > needs approval > gauge low > hourglass > uneasy > sleepy > dizzy > bell / love / wizard / coins / walk / hello (transient) > building / reading / browsing / typing / coffee / thinking > talk > idle.
+While a turn runs the cache is warm, so cache states do not apply; tool states win over idle.
+
+## Canvas and bubble
+Canvas 34 x 28 px (asleep: 56 x 28), drawn at 2x (68 x 56). Every state is checked by the sheet for pixels outside the canvas (red tag, none now). The speech bubble sits right of him with a tail, wraps text (long text and narrow widths tested), and carries the action button for that warning.
+
+## Status
+PR 1 (cockpit 0.1.0) ships the idle loop only: plain Clawd, blink and bob, no scenery (`cockpit/hooks/mascot.ts`). The beach idle and the 29 other states are built in PR 2 from the sheet.
 
 ## Rendering
 SVG per frame set, frames swapped by SMIL (`animate` on opacity, `isInteractive: true`). Speech bubble beside him, text from the active warning, its action button next to it. Terminal surface (no SVG): one-line text face. `prefers-reduced-motion`: first frame only. No model calls; redraw only when the state changes.
@@ -15,3 +35,8 @@ SVG per frame set, frames swapped by SMIL (`animate` on opacity, `isInteractive:
 ## Open questions
 - SMIL on the desktop app (Batch 0 of PR 1).
 - Band height with the mascot (see COCKPIT.md risk 3).
+
+## Drawing rules (owner)
+- Never draw floors, ground, water or any scenery that spans the whole canvas: it gets cut off in the band. Adjust the design instead.
+- Props are objects near him, inside the canvas.
+- The sheet reports any pixel outside the canvas; the count must be zero.
