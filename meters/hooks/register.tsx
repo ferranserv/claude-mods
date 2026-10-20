@@ -248,6 +248,17 @@ async function limitsReport($: EngineInterface, arg: string, defaults: Threshold
   return `Context warnings (${source}): orange from ${now.warnPercent}% or ${Math.round(now.warnTokens / 1000)}k tokens, red past ${now.redPercent}%. /meters limits reset goes back to the options.`
 }
 
+/** Chime at the end of a main-loop turn. $.audio.play only has a player on macOS; Windows gets the clip through PowerShell. */
+async function chime($: EngineInterface): Promise<void> {
+  void $.audio.play({ asset: 'sounds/done.wav' }).catch(() => undefined)
+  if ((await $.env.get('OS')) === 'Windows_NT') {
+    const wav = `${$.plugin.root}/sounds/done.wav`.replace(/'/g, "''")
+    void $.process
+      .run(['powershell.exe', '-NoProfile', '-NonInteractive', '-Command', `(New-Object Media.SoundPlayer '${wav}').PlaySync()`], { timeoutMs: 5000 })
+      .catch(() => undefined)
+  }
+}
+
 export const register: Register = (on, options) => {
   const defaults = thresholds(options)
   const fallbackMin = Math.max(1, Number(options.cacheMinutes ?? 60) || 60)
@@ -257,6 +268,7 @@ export const register: Register = (on, options) => {
   const freshChord = parseChord(typeof options.freshKey === 'string' ? options.freshKey : 'meta+n')
   const handoffLabel = typeof options.handoffKey === 'string' ? options.handoffKey : 'meta+h'
   const freshLabel = typeof options.freshKey === 'string' ? options.freshKey : 'meta+n'
+  const hasSound = options.sound !== false
 
   on('session.start', async ($, e, next) => {
     // Each command on its own: the app refuses a name another command or skill already holds, and one
@@ -343,9 +355,12 @@ export const register: Register = (on, options) => {
   })
 
   on('turn.complete', async ($, e, next) => {
-    if (e.agentId === undefined) await update($, isBusy, () => false)
+    if (e.agentId === undefined) {
+      await update($, isBusy, () => false)
+      if (hasSound && e.reason !== 'aborted') await chime($)
+    }
     return next(e)
-  })
+  }).catch(($, e, next) => next(e))
 
   // Sending a message is what restarts the countdown: the next request re-reads (or re-writes) the whole
   // prefix and the window starts over. Commands and hidden prompts send nothing.

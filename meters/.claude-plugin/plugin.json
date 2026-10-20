@@ -1,10 +1,10 @@
 {
   "name": "meters",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "author": {
     "name": "Ferran"
   },
-  "description": "Context window, 5-hour, weekly usage and the prompt cache countdown as compact meters in one band above the prompt or a side panel, with warnings, a going-cold notice and one-click handoff to a fresh session.",
+  "description": "Context window, 5-hour, weekly usage and the prompt cache countdown as compact meters in one band above the prompt or a side panel, with warnings, a going-cold notice and one-click handoff to a fresh session, and a chime when a turn ends.",
   "types": "./types/index.d.ts",
   "userConfig": {
     "warnPercent": {
@@ -54,6 +54,12 @@
       "title": "Hotkey: fresh session",
       "description": "Chord pressed in the prompt box, e.g. meta+n. Empty turns it off.",
       "default": "meta+n"
+    },
+    "sound": {
+      "type": "boolean",
+      "title": "Chime when a turn finishes",
+      "description": "Plays sounds/done.wav at the end of each main-loop turn (macOS afplay, Windows PowerShell).",
+      "default": true
     }
   }
 }
