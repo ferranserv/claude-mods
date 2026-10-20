@@ -10,7 +10,6 @@
   "enabledPlugins": {
     "meters@claude-mods": true,
     "mods-manager@claude-mods": true,
-    "plan-progress@claude-mods": true,
     "prompt-enhancer@claude-mods": true,
     "saver@claude-mods": true,
     "preflight-guard@claude-mods": true

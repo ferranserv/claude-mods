@@ -83,6 +83,18 @@ Unverified on the app: all of it. Open: "draft missing from prompt box" in N8 is
 - Owner confirmed git runs in the desktop app (band showed "13 uncommitted changes (+313 −134)"), so `$.process.run` works there. Layout was wrong: wrapped onto 3 lines, buttons touching, no gap above plan-progress, wording unclear.
 - Now one row: `● 13 files changed (+313 −134) · [Commit checkpoint] · [Hide]`, blank line below, gap between items; Re-check button removed (auto every 30 s, `/preflight` on demand). Notices (committed, worktree ready) replace the row until OK.
 
+## Session 7 (2026-10-20): cockpit plan, mascot chosen
+Done
+- PR #12 open: plan-progress archived, chime moved into meters 0.4.0 (merge before PR 1).
+- Decisions (owner): one `cockpit` plugin replacing meters + saver + preflight-guard + prompt-enhancer; mascot = Clawd (Claude Code's); 3 PRs (cockpit, mascot, polish); warnings must carry actions; exceptions-only, turn timer, money glance dropped.
+- Mascot explored: golden doodle (profile, then front from the owner's photo) and five alternatives; owner chose Clawd. Sheet: docs/mascot/clawd-sheet.html (18 states).
+- Plan written: REQUEST.md, ARCHITECTURE.md, docs/COCKPIT.md, docs/MASCOT.md.
+Next
+1. Owner merges PR #12 and runs the update routine.
+2. Restart the branch from main; PR 1 Batch 0 (spike: multi-module hooks.json, shared state, SMIL).
+Open: SMIL in the desktop app; band height with a 48 px mascot; whether draft events reach the app (sparkle trim).
+Tokens so far this session: about 0.9M (mostly mascot design).
+
 ## Next
 1. Owner: paste the screenshot, run the mods on the real app, report what cuts off or collides.
 2. Owner: run `python3 tools/audit-sessions.py`, pick an idea from the five.
