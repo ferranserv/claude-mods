@@ -57,7 +57,8 @@ export function pickState(i: MoodInput): StateId {
   if (i.weekRoom < 0) return 'mad'
   if (i.ctx === 'alert') return 'fire'
   if (i.hasNote) return 'talk'
-  if (i.hasAdvice) return 'detective'
+  // Findings wait for Claude to stop (they are not offered while it works), and so does the detective: thinking is thinking.
+  if (i.hasAdvice && !i.busy) return 'detective'
   if (!i.busy && i.cache === 'cold') return 'cold'
   if (!i.busy && i.cache === 'soon') return 'hourglass'
   if (i.weekRoom <= 2) return 'gauge'
@@ -119,6 +120,14 @@ export function bubbleFor(id: StateId, b: BubbleInput): Bubble | null {
     case 'idle':
       return null
   }
+}
+
+/** What Clawd says when you hover over him in a pose that has no bubble of its own. */
+export function hoverHint(id: StateId): string | null {
+  if (id === 'thinking') return 'Thinking…'
+  if (id === 'typing') return 'Working on it'
+  if (id === 'idle') return 'Ready when you are'
+  return null
 }
 
 /** Every state, most important first: a shown state is only interrupted by one earlier in this list. */

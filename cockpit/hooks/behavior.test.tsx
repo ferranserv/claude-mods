@@ -477,7 +477,7 @@ test('calm: the band is the meters and the wand only; no arrow, no bubble, no sa
   await w.clock.advance(6000)
   const ui = await $.ui.mount(band('desktop'))
   expect(await ui.find({ key: 'lane' })).toBeDefined() // the bubble's row is always there, empty, so the band never grows
-  for (const key of ['toggle', 'more', 'saver', 'alert-ctx', 'hover-card']) expect(await ui.find({ key })).toBeUndefined()
+  for (const key of ['toggle', 'more', 'saver', 'alert-ctx']) expect(await ui.find({ key })).toBeUndefined()
   expect(await ui.find({ key: 'enhance' })).toBeDefined()
   await ui.unmount()
 })
@@ -1029,4 +1029,17 @@ test('the bubble is laid out afresh for the room it has (a wider or narrower win
   const wide = await widthAt(140)
   const narrow = await widthAt(60)
   expect(narrow).toBeLessThan(wide) // the drawing was made for the room, so the words keep their size
+})
+
+test('while Claude works the detective waits: he thinks (findings are only offered when it is idle), and hovering over him still says something', async ($, on) => {
+  const w = world(on)
+  await started($)
+  await measureCtx($, 10)
+  await w.clock.advance(6000)
+  await ($ as unknown as Do).turn.start({ text: 'go', turnId: 't1' })
+  await settle($, w, 1000)
+  expect(await altOf($, true)).toContain('thinking')
+  const ui = await $.ui.mount(band('desktop', true))
+  expect(await ui.find({ key: 'hover-card' })).toBeDefined() // "Thinking…" under his hover
+  await ui.unmount()
 })

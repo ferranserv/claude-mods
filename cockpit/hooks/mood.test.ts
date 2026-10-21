@@ -51,6 +51,7 @@ describe('which state wins', () => {
     expect(mood({ weekRoom: -1, ctx: 'alert', hasAdvice: true, cache: 'cold' })).toBe('mad')
     expect(mood({ ctx: 'alert', hasAdvice: true, cache: 'cold' })).toBe('fire')
     expect(mood({ hasAdvice: true, cache: 'cold' })).toBe('detective')
+    expect(mood({ hasAdvice: true, busy: true })).toBe('thinking') // findings are not offered while Claude works, so neither is the detective
     expect(mood({ cache: 'cold', weekRoom: 1, ctx: 'warn' })).toBe('cold')
     expect(mood({ cache: 'soon', weekRoom: 1, ctx: 'warn' })).toBe('hourglass')
     expect(mood({ weekRoom: 1, ctx: 'warn', fiveUsed: 85 })).toBe('gauge')

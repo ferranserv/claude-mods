@@ -145,3 +145,9 @@ From the owner's testing of 0.15.0.
 - The double bubble: a drawing that is still moving, or closing, is no longer held under the next one; only a settled bubble stays 120 ms under the one that replaces it.
 - Typing has a concentration mouth (`focus`: a short flat line to one side, the corner pulled up).
 - The painter is unmistakable: a handlebar moustache (no hat, no mouth), a wooden palette with a thumb hole and five blobs of paint in the left hand, a paintbrush in the right that dabs a canvas on a small easel at his right; the canvas fills in (sky, hill, sun) as the frames play.
+
+## 0.18.1: a slimmer lane, no detective while Claude works
+
+- The meters' drawing is 42 px (was 46) and the bubble's lane 30 px (bubble 26, 2 px margin above and below; was two rows, 36): the cockpit is 10 px shorter. The lane's height comes from a blank drawing in its flow (pixels, not rows); the bubbles are laid over it; the Button over each pill is two rows tall, clipped to the pill's box.
+- The detective only shows when Claude is idle: findings are not offered while it works (they change under it), so the pose follows. While it thinks, Clawd thinks.
+- Hovering over a pose with no bubble of its own says something short ("Thinking…", "Working on it", "Ready when you are").
