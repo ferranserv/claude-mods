@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'claude-code/testing'
 
-import { alertsOf, attentionOf, cockpitSvg, model, pillSvg, wandSvg } from './lib'
+import { alertsOf, attentionOf, bubbleSvg, cockpitSvg, model, wandSvg } from './lib'
 import { stateMarkup } from './states'
 
 const NOW = new Date(2026, 9, 21, 12).getTime() // a Wednesday: 60% of the week is allotted
@@ -87,7 +87,7 @@ describe('wandSvg', () => {
 
 describe('the speech bubble in the band', () => {
   const mascot = { markup: '<g/>', width: 68, height: 56 }
-  const said = (t: string, phase: 'in' | 'out' = 'in', button: string | null = null) => cockpitSvg(600, m(10), mascot, { text: t, phase, button })
+  const said = (t: string, phase: 'in' | 'out' = 'in', apart = false) => cockpitSvg(600, m(10), mascot, { text: t, phase, apart })
   test('it sits at the foot of the band over the small print, so the band keeps its size', () => {
     const plain = cockpitSvg(600, m(10), mascot)
     const b = said('Needs your OK')
@@ -119,32 +119,21 @@ describe('the speech bubble in the band', () => {
     expect(b).toContain('opacity="0"><animate attributeName="opacity" from="1" to="0"')
     expect(b).toContain('type="scale" values="1;0.82"')
   })
-  test('its button is drawn inside it, and its box is reported so the real button can be laid over it', () => {
-    const b = said('Cache is cold', 'in', 'Handoff')
-    expect(b.source).toContain('>Handoff<')
-    expect(b.buttonBox).not.toBeNull()
-    const box = b.bubbleBox!
-    const btn = b.buttonBox!
-    expect(btn.x).toBeGreaterThan(box.x)
-    expect(btn.x + btn.w).toBeLessThanOrEqual(box.x + box.w)
-    expect(btn.y).toBeGreaterThanOrEqual(box.y)
-    expect(btn.y + btn.h).toBeLessThanOrEqual(box.y + box.h)
-    expect(said('Done.').buttonBox).toBeNull()
-    expect(said('Done.', 'out', 'Handoff').buttonBox).toBeNull() // nothing to press once it is leaving
+  test('a bubble with a button is not drawn in the band: only its place is worked out, and it is drawn on its own', () => {
+    const b = said('Cache is cold', 'in', true)
+    expect(b.source).not.toContain('Cache is cold')
+    expect(b.bubbleBox).not.toBeNull()
+    expect(b.height).toBe(said('Done.').height)
+    const own = bubbleSvg('Cache is cold', b.bubbleBox!.w)
+    expect(own.source).toContain('Cache is cold')
+    expect(own.source).toContain('attributeName="opacity" from="0" to="1"')
+    expect(own.width).toBeGreaterThan(b.bubbleBox!.w) // room for the tail and the shadow around it
+    expect(own.height).toBeGreaterThan(b.bubbleBox!.h)
+    expect(b.bubbleBox!.w).toBeLessThan(said('Cache is cold').bubbleBox!.w + 1) // and it leaves room beside it for the button
   })
   test('text is escaped and the bubble stays inside the band', () => {
     expect(said('a < b & c').source).toContain('a &lt; b &amp; c')
-    const wide = said('x'.repeat(200), 'in', 'Handoff')
+    const wide = said('x'.repeat(200), 'in', true)
     expect(wide.bubbleBox!.x + wide.bubbleBox!.w).toBeLessThan(wide.width)
-  })
-})
-
-describe('pillSvg', () => {
-  test('the cockpit gray with dark text, as wide as its columns', () => {
-    const p = pillSvg('Handoff')
-    expect(p.source).toContain('#8E8E93')
-    expect(p.source).toContain('>Handoff<')
-    expect(p.width).toBe(p.cols * 8)
-    expect(pillSvg('Copy brief').cols).toBeGreaterThan(p.cols)
   })
 })

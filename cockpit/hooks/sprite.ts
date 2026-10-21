@@ -32,9 +32,11 @@ const PAT = {
 };
 // Small versions of what he wears or holds, shown in his hand while a prop is taken away or fetched.
 const MINI = {
-  shades: ['ddddd', '.d.d.'], glasses: ['nnnnn', 'n.n.n'], hat: ['.EEE.', 'EEEEE'], laptop: ['LLLLL', 'LdddL', 'LLLLL'],
-  book: ['XXXXX', 'XoooX', 'XXXXX'], stack: ['hhhhh', 'lllll', 'uuuuu'], scroll: ['ooooo', 'OOOOO', 'ooooo'], clipboard: ['.KK.', 'KKKK', 'KwwK', 'KKKK'],
+  shades: ['ddddd', '.d.d.'], glasses: ['nnnnn', 'n.n.n'], laptop: ['LLLLL', 'LdddL', 'LLLLL'],
+  book: ['XXXXX', 'XoooX', 'XXXXX'], stack: ['hhhhh', 'lllll', 'uuuuu'], scroll: ['ooooo', 'OOOOO', 'ooooo'], clipboard: ['.gg.', 'KKKK', 'KwwK', 'KwwK'],
   cup: ['www', 'w.w', 'www'], flask: ['.q.', 'qqq', 'qqq'], bell: ['.bb.', 'bbbb', '.bb.'], paper: ['wwww', 'wOOw', 'wwww'], bulb: ['.s.', 'sss', '.s.'],
+  'hat-hard': ['.EEE.', 'EEEEE'], 'hat-fedora': ['.XXX.', 'XXXXX'], 'hat-wizard': ['..n..', '.nnn.', 'NNNNN'],
+  wrench: ['ggg', '.x.', '.x.'], wand: ['..s', '.w.', 'w..'], glass: ['ggg', 'gig', 'ggg', '..X'], browser: ['GGGG', 'ybbb', 'ybbb'],
   thing: ['ggg', 'ggg'],
 };
 const SPIN = [[0, -3], [2, -2], [3, 0], [2, 2], [0, 3], [-2, 2], [-3, 0], [-2, -2]];

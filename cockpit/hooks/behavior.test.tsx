@@ -642,8 +642,8 @@ test('a bubble that asks for a decision stays until you answer it', async ($, on
   await ($ as unknown as { prompt: { submit: (i: unknown) => Promise<unknown> } }).prompt.submit({ text: 'something else', origin: { kind: 'composer' } })
   await w.clock.advance(10_000)
   const after = await svgOf($)
-  expect(after).not.toContain(speaking) // sending something else answers it: it has faded out
-  expect(after).toContain('opacity="0"><animate attributeName="opacity" from="1" to="0"')
+  expect(after).not.toContain(speaking) // sending something else answers it: the bubble and its button are gone
+  expect(await hasButton($, 'handoff')).toBe(false)
 })
 
 test('a pending decision is not pushed aside by "Done."; it ends by itself when its warning does', async ($, on) => {
@@ -659,7 +659,7 @@ test('a pending decision is not pushed aside by "Done."; it ends by itself when 
   await ($ as unknown as Do).turn.complete({ reason: 'answer', answer: 'x', durationMs: 5, isAborted: false, turnId: 't1' })
   const during = await svgOf($)
   expect(during).not.toContain('>Done.<') // the bell rings, but the open question keeps the bubble
-  expect(during).toContain('>Handoff<') // with its button inside it
+  expect(await hasButton($, 'handoff')).toBe(true) // with its real button beside it
   await w.clock.advance(10_000)
   await measureCtx($, 10) // the context is cleared: the warning is over, so the bubble and the pose are too
   await w.clock.advance(6000)
@@ -688,11 +688,11 @@ test('a cold cache clears, the pose and its bubble, when a new message is sent',
   await measureCtx($, 10) // calm, so only the cache has anything to say
   await $.command.run({ command: 'cockpit', args: 'close' } as never)
   expect(await altOf($)).toContain('frozen')
-  expect(await svgOf($)).toContain('>Handoff<')
+  expect(await hasButton($, 'handoff')).toBe(true)
   await send($, 'hello again')
   await w.clock.advance(6000)
   expect(await altOf($)).not.toContain('frozen')
-  expect(await svgOf($)).not.toContain('>Handoff<')
+  expect(await hasButton($, 'handoff')).toBe(false)
 })
 
 test('a bubble with nothing to decide lingers after its state ends, then fades out', async ($, on) => {
@@ -772,9 +772,17 @@ test('/cockpit demo shows a state you ask for, and says when it does not know on
 
 // ---- Clawd's size: normal, small, off
 
+/** Whether the band holds a real button with this key. */
+const hasButton = async ($: unknown, key: string): Promise<boolean> => {
+  const ui = await ($ as { ui: { mount: (i: unknown) => Promise<{ find: (q: unknown) => Promise<unknown>; unmount: () => Promise<void> }> } }).ui.mount(band('desktop'))
+  const found = (await ui.find({ key })) !== undefined
+  await ui.unmount()
+  return found
+}
+
 const svgOf = async ($: unknown) => {
-  const ui = await ($ as { ui: { mount: (i: unknown) => Promise<{ find: (q: unknown) => Promise<{ props?: { source?: string } } | undefined>; unmount: () => Promise<void> }> } }).ui.mount(band('desktop'))
-  const source = String((await ui.find({ type: 'Svg' }))?.props?.source ?? '')
+  const ui = await ($ as { ui: { mount: (i: unknown) => Promise<{ find: (q: unknown) => Promise<{ props?: { source?: string } } | undefined>; findAll: (q: unknown) => Promise<{ props?: { source?: string } }[]>; unmount: () => Promise<void> }> } }).ui.mount(band('desktop'))
+  const source = (await ui.findAll({ type: 'Svg' })).map(v => String(v.props?.source ?? '')).join('')
   await ui.unmount()
   return source
 }
@@ -790,6 +798,46 @@ test('after a state change the drawing is replaced once, and not again when the 
   expect(await svgOf($)).toBe(during)
   await w.clock.advance(2000)
   expect(await svgOf($)).toBe(during)
+})
+test('demo cold: Clawd and the bubble with its real button stay until you answer, and go together', async ($, on) => {
+  const w = world(on)
+  on('prompt.submit', (_, e) => e as never)
+  await started($)
+  await measureCtx($, 10)
+  await w.clock.advance(6000)
+  await $.command.run({ command: 'cockpit', args: 'demo cold' } as never)
+  expect(await altOf($)).toContain('frozen')
+  expect(await hasButton($, 'handoff')).toBe(true) // the button is a real one, laid out with the bubble
+  await w.clock.advance(30_000) // far longer than the four seconds of a timed demo
+  expect(await altOf($)).toContain('frozen')
+  expect(await hasButton($, 'handoff')).toBe(true)
+  await send($, 'hello')
+  await w.clock.advance(6000)
+  expect(await altOf($)).not.toContain('frozen')
+  expect(await hasButton($, 'handoff')).toBe(false)
+})
+
+test('a timed demo takes its bubble away with its state, and leaves nothing pending', async ($, on) => {
+  const w = world(on)
+  await started($)
+  await measureCtx($, 10)
+  await w.clock.advance(6000)
+  await $.command.run({ command: 'cockpit', args: 'demo' } as never)
+  await w.clock.advance(4000 * 40) // the whole tour
+  await w.clock.advance(12_000)
+  expect(await hasButton($, 'handoff')).toBe(false)
+  expect(await altOf($)).not.toContain('frozen')
+})
+
+test('a warning button draws its label as real text on the desktop, not as a drawing with a click area over it', async ($, on) => {
+  const w = world(on)
+  await started($)
+  await measureCtx($, 60)
+  await w.clock.advance(6000)
+  await $.command.run({ command: 'cockpit', args: 'open' } as never)
+  const ui = await ($ as { ui: { mount: (i: unknown) => Promise<{ find: (q: unknown) => Promise<unknown>; findAll: (q: unknown) => Promise<{ props?: { key?: string; children?: unknown } }[]>; unmount: () => Promise<void> }> } }).ui.mount(band('desktop'))
+  expect(await ui.find({ type: 'Text', text: /Handoff/ })).toBeDefined()
+  await ui.unmount()
 })
 const heightOf = (source: string) => Number(/ height="(\d+)"/.exec(source)?.[1])
 

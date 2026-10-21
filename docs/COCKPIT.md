@@ -69,7 +69,7 @@ Checked against the code (0.11.0). "Resets by itself" means no new measurement o
 | asleep, sleepy | the 5-hour limit passes its reset time (resets by itself, and a redraw is booked for that moment), or a new measurement is lower |
 | mad, gauge | the weekly limit resets (by itself) or the week's pace catches up |
 | fire, drunk | the context drops (new session, `/clear`, compaction) |
-| cold, hourglass | a new message is sent (the cache restarts), or a reply arrives. Only while idle |
+| cold, hourglass | a new message is sent (the cache restarts), or a reply arrives. Only while idle. Going to cold turns him blue over 2 s, leaving it warms him over 1.2 s |
 | detective | the advice is dismissed or fixed |
 | coffee, typing, thinking | the turn ends |
 | talk | the notice is dismissed |
@@ -77,6 +77,7 @@ Checked against the code (0.11.0). "Resets by itself" means no new measurement o
 | Bubble | Ends when |
 | --- | --- |
 | "Needs your OK" | immediately when you answer |
-| One with a button (warnings) | you click its button or send a message; or its warning ends by itself. After you answer it stays quiet until the warning ends and comes back |
+| One with a button (warnings) | you click its button or send a message; or its warning ends by itself. After you answer it stays quiet until the warning ends and comes back. The button is a real button next to the bubble, not a click area over a drawing |
+| `/cockpit demo <state>` (one state, with a button) | you click the button, send a message or `/cockpit demo off`. A tour of every state shows each bubble with its state for 4 s and leaves nothing pending |
 | Any other | about 9 s after its state ends |
 

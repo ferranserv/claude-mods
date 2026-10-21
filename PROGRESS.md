@@ -139,3 +139,7 @@ Mods are `.claude-plugin/plugin.json`, `hooks/hooks.json`, `hooks/register.tsx`.
 ## Session 4 (2026-10-20): cockpit 0.4.0 (VERIFY round)
 Done: 30 states (writing added), neutral first frames + 0.5 s crossfade, 5 s hold rule, floating bubble (`/cockpit bubble`), permission-ask debounce, PowerShell test runs, hand = clipboard + pencil, meters same collapsed/open, short buttons with icons, single 🪄 control, narrow layout (EST 0.6, short subtitles). 188 tests pass, validate ok, tsc clean.
 Not verifiable from the cloud: floating bubble overlay, crossfade, 🪄 rendering, which permission/compaction events the desktop build raises.
+
+## Session (2026-10-21): cockpit 0.12.0 (button areas, transitions audit)
+Done: every warning button is a real Button whose label carries the color (no drawing with a click area laid over it); a bubble with a button is drawn on its own with its button beside it in one row (the old two-row overlay at a guessed spot is gone); the "bell" in idle>hand was the carried clipboard (now a clipboard with a clip; hats are carried by kind, wrench, wand, glass and browser have their own); any state>cold fades to blue over 2 s (1.2 s back); `/cockpit demo <state>` shows the bubble with its state and leaves nothing pending (one state with a button stays until answered). All 870 moves audited by script (no foreign props, no missing drawings).
+Not verifiable from the cloud: click alignment on the desktop (VERIFY 70-77).

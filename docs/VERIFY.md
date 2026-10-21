@@ -91,7 +91,7 @@ Report anything off in plain words ("the palm tree overlaps", "no animation", "a
 | 53 | `What is 2+2?` from idle | You see the sunglasses (small) in his hand: lifted off his face, raised above the hand, then swung out behind him. At the bell the bell goes the same way and the sunglasses come back from behind him | |
 | 54 | Read a file, then edit one | Glasses, hard hat, laptop, book: each carried by hand, not just vanishing | |
 | 55 | Any bubble (a failed tool, "Done.") | Soft dim behind it with no hard line at the left or the bottom; it grows into place with a little overshoot and shrinks away | |
-| 56 | Bubble with a button (context warning or cold cache, band collapsed) | The button is inside the bubble, dark with light text, labelled `Handoff` (no H, no arrow); clicking it works | |
+| 56 | Bubble with a button (context warning or cold cache, band collapsed) | The button sits right at the bubble's right edge (since 0.12.0), dark with light text, labelled `Handoff`; clicking it works | |
 | 57 | Let a turn finish while that bubble is open | "Done." does not replace it; he stays in the warning pose (does not go back to idle) until you click or send something else | |
 | 58 | Look at the alert rows, Hide, OK and preflight buttons | Grey pills, plain labels, no hotkey badge, clickable | |
 | 59 | `/cockpit demo sleepy` | Awake: eyes open, yawn with eyes squeezed, small Zs | |
@@ -106,8 +106,21 @@ Report anything off in plain words ("the palm tree overlaps", "no animation", "a
 |---|---|---|---|
 | 64 | Raise a permission prompt | The red "!" is centered above his head, two pixels wide | |
 | 65 | Any bubble | The shadow follows the bubble's own stepped shape, a few pixels wide, and is not cut off at the bottom or sides | |
-| 66 | Cold cache bubble: hover and click the `Handoff` drawn in the bubble | The highlight is over the drawn button (it covers it, about two rows tall), and clicking works | |
+| 66 | Cold cache bubble: hover and click `Handoff` | Superseded by 70 | |
 | 67 | Cold cache, then send any message | The frozen pose and its bubble go as soon as the message is sent | |
 | 68 | Reach the 5-hour limit (asleep), then wait for its reset time | He wakes by himself at the reset time, without a reply, and the bubble goes | |
 | 69 | A context warning bubble: send a message; the warning still holds | The bubble does not come back until the warning ends and returns | |
+
+## 0.12.0 additions
+
+| # | Do | Expect | OK? |
+|---|---|---|---|
+| 70 | Cold cache bubble: hover `Handoff`, click it near each edge | One highlight, exactly over the dark `Handoff` chip next to the bubble (no second area above or below); every part of the chip clicks | |
+| 71 | Look at the alert rows, Hide, OK, Switch and preflight buttons | Grey chips, dark text; the highlight is the chip itself; every part clicks | |
+| 72 | Click the wand near its edges | Still clicks (area 3 columns, from its top left) | |
+| 73 | From idle, raise a permission prompt (or `/cockpit demo hand`) | No bell shape in the move: the small thing carried is a clipboard with a clip on top | |
+| 74 | `/cockpit demo` from any state to `cold`, one after another (`demo typing`, then `demo cold`) | He turns from orange to ice blue over about 2 s, not at once; leaving cold warms him over about 1 s | |
+| 75 | `/cockpit demo cold` | Clawd frozen and the bubble with `Handoff` stay (not 4 s); sending a message ends both together; `/cockpit demo off` too | |
+| 76 | `/cockpit demo` (every state, 4 s each) | Each state and its bubble leave together; nothing stays after the tour | |
+| 77 | `/cockpit demo detective`, then idle | The hat is carried in a brown fedora, not a yellow hard hat | |
 
