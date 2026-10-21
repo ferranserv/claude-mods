@@ -151,3 +151,7 @@ From the owner's testing of 0.15.0.
 - The meters' drawing is 42 px (was 46) and the bubble's lane 30 px (bubble 26, 2 px margin above and below; was two rows, 36): the cockpit is 10 px shorter. The lane's height comes from a blank drawing in its flow (pixels, not rows); the bubbles are laid over it; the Button over each pill is two rows tall, clipped to the pill's box.
 - The detective only shows when Claude is idle: findings are not offered while it works (they change under it), so the pose follows. While it thinks, Clawd thinks.
 - Hovering over a pose with no bubble of its own says something short ("Thinking…", "Working on it", "Ready when you are").
+
+## 0.18.2: the painter's moves
+
+Hand-drawn moves between the painter and the builder (`creating>building`, `building>creating`) and the painter and typing (`creating>typing`, `typing>creating`): the hand takes the brush, then the palette, and shows them small while they are put away (or fetched the other way); the moustache is the last thing to go and the first to come; the hard hat and the hammer, or the laptop, come on at the end. `brush` and `palette` are in `HELD` so any other pair of states carries them the same way.

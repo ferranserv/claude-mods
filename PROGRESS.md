@@ -182,3 +182,5 @@ Not verifiable from the cloud: the 2-row lane and 26 px bubble in the app, lette
 Owner: halve the padding of the bubble lane (above to the weekly line, below to the band's edge); the detective showed while Claude was thinking; no bubble on hover there.
 Done: meters 42 px + lane 30 px, detective only when idle, hover hints. 230 tests.
 Not verifiable from the cloud: the lane's px height in the app (blank drawing in flow), the Button's clip.
+
+## 0.18.2: painter <-> builder and painter <-> typing moves (hand-drawn), brush and palette carried. 231 tests.
