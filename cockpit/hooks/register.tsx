@@ -1285,17 +1285,25 @@ function bubbleLane($: EngineInterface, s: Snap, c: Comps, Svg: unknown, fx: Fx,
   // deletes its words (the bubble shortens with them), then types the new ones (it lengthens with them). A closed bubble
   // leaves nothing drawn.
   let bub = mood.bub
-  if (!bub || bub.room !== room) {
-    // A new width (a resized window, other buttons) redraws what is there, still, laid out afresh for the room it has.
-    bub = mood.bub = { text, room, seq: (bub?.seq ?? 0) + 1, art: text === '' ? null : bubbleArt(text, text, room), until: 0 }
-  } else if (text !== bub.text) {
-    const art = bubbleArt(bub.text, text, room)
+  const change = (): void => {
+    // The words changed (and with them, often, the buttons beside the bubble and so the room it has): one drawing from the old words
+    // to the new, in the room it has now. This also opens a bubble that arrives with buttons and closes one that leaves with them.
+    const art = bubbleArt(bub!.text, text, room)
     const ms = Math.ceil(art.seconds * 1000)
-    bub.seq++
-    bub.art = art
-    bub.until = s.now + ms + 100
-    bub.text = text
+    bub!.seq++
+    bub!.art = art
+    bub!.room = room
+    bub!.until = s.now + ms + 100
+    bub!.text = text
     $.clock.after(ms + 150, () => $.ui.invalidate('ui.render'))
+  }
+  if (!bub) bub = mood.bub = { text, room, seq: 1, art: text === '' ? null : bubbleArt(text, text, room), until: 0 }
+  else if (text !== bub.text) change()
+  else if (bub.room !== room) {
+    // Only the room changed (a resized window, other buttons): the same words, drawn again, still, for the room they have.
+    bub.seq++
+    bub.room = room
+    bub.art = text === '' ? null : bubbleArt(text, text, room)
   }
   if (bub.art && bub.text === '' && bub.until <= s.now) bub.art = null
   const buttons = buttonGroup(c, specs)
@@ -1916,7 +1924,7 @@ export const register: Register = (on, options) => {
       const drawn = el(
         c.Box,
         { key: 'art', flexDirection: 'row', alignItems: 'center' },
-        ...(parts.mascot ? [el(c.Box, { key: 'clawd', position: 'relative', flexShrink: 0 }, el(Svg, { key: 'mascot', source: parts.mascot.source, alt: `${STATES[s.state].label}${s.speech ? `. ${s.speech.text}` : ''}`, isInteractive: true, width: parts.mascot.width, height: parts.mascot.height }), ...(s.hover ? [el(c.Box, { key: 'recall-hit', position: 'absolute', top: 1, left: 0, right: 0, overflow: 'hidden' }, el(c.Button, { key: 'recall', plain: true, onPress: () => fx.recall(s.hover?.text ?? '', s.hover?.alertId) }, NBSP.repeat(Math.ceil(parts.mascot.width / 3))))] : []))] : []),
+        ...(parts.mascot ? [el(c.Box, { key: 'clawd', position: 'relative', flexShrink: 0 }, el(Svg, { key: 'mascot', source: parts.mascot.source, alt: STATES[s.state].label, isInteractive: true, width: parts.mascot.width, height: parts.mascot.height }), ...(s.hover ? [el(c.Box, { key: 'recall-hit', position: 'absolute', top: 1, left: 0, right: 0, overflow: 'hidden' }, el(c.Button, { key: 'recall', plain: true, onPress: () => fx.recall(s.hover?.text ?? '', s.hover?.alertId) }, NBSP.repeat(Math.ceil(parts.mascot.width / 3))))] : []))] : []),
         column,
       )
       row = el(c.Box, { key: 'row', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, drawn, controls(s, c, fx, Svg))

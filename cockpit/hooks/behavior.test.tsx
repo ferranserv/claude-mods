@@ -527,13 +527,12 @@ test('a warning with no action to offer is dropped: saver already on, 5-hour at 
 type Do = { tool: { call: (i: unknown) => Promise<unknown>; check: (i: unknown) => Promise<unknown> }; turn: { start: (i: unknown) => Promise<unknown>; complete: (i: unknown) => Promise<unknown> } }
 const altOf = async ($: unknown, isWorking = false): Promise<string> => {
   const ui = await ($ as { ui: { mount: (i: unknown) => Promise<{ find: (q: unknown) => Promise<{ props?: { alt?: string } } | undefined>; findAll: (q: unknown) => Promise<{ props?: { alt?: string } }[]>; unmount: () => Promise<void> }> } }).ui.mount(band('desktop', isWorking))
-  // The bubble and the wand are Svgs too: Clawd's own drawing is the one described as Clawd.
+  // Clawd's drawing says who he is and what he does; the bubble's says its words (Clawd's alt does not change with them, or he would be redrawn).
   const svgs = await ui.findAll({ type: 'Svg' })
-  const alt = String(svgs.find(v => String(v.props?.alt ?? '').startsWith('Clawd'))?.props?.alt ?? '')
+  const alt = svgs.map(v => String(v.props?.alt ?? '')).filter(a => a !== 'bubble space' && !a.startsWith('Context')).join(' . ')
   await ui.unmount()
   return alt
-}
-/** He settles into a new pose before his bubble speaks: draw once so the change is seen, then let the move play. */
+}/** He settles into a new pose before his bubble speaks: draw once so the change is seen, then let the move play. */
 const settle = async ($: unknown, w: { clock: { advance: (ms: number) => Promise<unknown> } }, ms = 4000): Promise<void> => {
   const ui = await ($ as { ui: { mount: (i: unknown) => Promise<{ unmount: () => Promise<void> }> } }).ui.mount(band('desktop'))
   await ui.unmount()
@@ -1072,4 +1071,31 @@ test('words changing are written over one bubble: only one bubble drawing exists
   expect(await bubbles()).toEqual(['Claude is working. Wait for the turn to end.']) // the one drawing, written over, never two
   await settle($, w, 3000)
   expect((await bubbles()).length).toBe(1)
+})
+
+test('a bubble that arrives with buttons opens with its motion, and one that leaves with them closes with it (the room changing must not skip it); Clawd is not redrawn for words', async ($, on) => {
+  const w = world(on)
+  on('prompt.submit', (_, e) => e as never)
+  await started($)
+  await measureCtx($, 10)
+  await w.clock.advance(6000)
+  await settle($, w, 1000)
+  type Mounted = { findAll: (q: unknown) => Promise<{ props?: { alt?: string; height?: number; source?: string } }[]>; unmount: () => Promise<void> }
+  const drawings = async () => {
+    const ui = (await $.ui.mount(band('desktop'))) as unknown as Mounted
+    const all = await ui.findAll({ type: 'Svg' })
+    await ui.unmount()
+    return { bubble: all.find(v => v.props?.height === 30 && v.props?.alt !== 'bubble space')?.props?.source, clawd: all.find(v => String(v.props?.alt ?? '').startsWith('Clawd'))?.props }
+  }
+  const before = (await drawings()).clawd
+  await measureCtx($, 60) // a warning: its bubble arrives with a button and the "…"
+  await settle($, w, 4000)
+  const open = await drawings()
+  expect(open.bubble).toContain('values="0.5;1.06;1"') // it scales out of Clawd while its words are typed
+  expect(String(open.clawd?.alt)).not.toContain('quality') // his own drawing's text does not carry the bubble's words
+  await ($ as unknown as { prompt: { submit: (i: unknown) => Promise<unknown> } }).prompt.submit({ text: 'something else', origin: { kind: 'composer' } })
+  await w.clock.advance(50)
+  const closing = await drawings()
+  expect(closing.bubble).toContain('values="1;0.5"') // it leaves the way it came: words deleted, scaled back to Clawd
+  expect(before).toBeDefined()
 })

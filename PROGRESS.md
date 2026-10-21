@@ -192,3 +192,5 @@ Not verifiable from the cloud: the lane's px height in the app (blank drawing in
 ## 0.19.0: click on Clawd instead of hover, gum bubbles while typing, bubble written over (shortens/lengthens with letters), buttons one row tall in px with one Button each, moustache clear of the eyes, state reset on session start. 232 tests.
 
 ## 0.20.0: buttons as one picture with flex-ratio Buttons over it (the "…" no longer hides under Handoff), Copy handoff is context's primary, no layering of bubbles. 234 tests.
+
+## 0.20.1: review before the PR: opening/closing motions were skipped when the buttons (and so the room) changed with the words; Clawd's alt no longer carries the bubble's words. 235 tests.
