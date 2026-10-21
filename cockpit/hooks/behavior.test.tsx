@@ -59,7 +59,7 @@ test('a notice goes out five minutes before the cache goes cold, once', async ($
   await w.clock.advance(2 * MIN)
   expect(w.notices.length).toBe(1)
   expect(w.notices[0]).toContain('goes cold')
-  expect(w.toasts.some(t => t.includes('goes cold'))).toBe(true)
+  expect(w.notices.some(t => t.includes('goes cold'))).toBe(true)
   await w.clock.advance(2 * MIN)
   expect(w.notices.length).toBe(1)
 
@@ -68,6 +68,9 @@ test('a notice goes out five minutes before the cache goes cold, once', async ($
   await w.clock.advance(57 * MIN)
   expect(w.notices.length).toBe(2)
 })
+
+/** Everything the bubble said lately and the last brief's path (/cockpit log): where messages live now, no toasts. */
+const said = async ($: unknown): Promise<string> => text(await ($ as { command: { run: (i: unknown) => Promise<unknown> } }).command.run({ command: 'cockpit', args: 'log' }))
 
 const send = ($: unknown, text: string, command?: { name: string; args: string }) =>
   ($ as { prompt: { submit: (i: unknown) => Promise<unknown> } }).prompt.submit({ text, command, origin: { kind: 'composer' } })
@@ -136,7 +139,7 @@ test('Handoff & Clear with a warm cache: fork writes the brief, session clears, 
   expect(w.writes.lastBrief).toBe('Continuing from a previous session. Goal: x')
   expect(w.files.length).toBe(1)
   expect(w.files[0]?.path).toMatch(/^\/home\/test\/\.claude\/handoffs\/handoff-\d{8}-\d{6}\.md$/)
-  expect(w.toasts.at(-1)).toContain('brief is in the prompt box')
+  expect(await said($)).toContain('brief is in the prompt box')
 })
 
 test('Handoff & Clear with a cold cache: a small model reads the transcript tail instead of re-caching it', async ($, on) => {
@@ -162,7 +165,7 @@ test('nothing is cleared when there is nothing to hand off', async ($, on) => {
   await $.command.run({ command: 'newsession', args: '' } as never)
   await w.clock.advance(5000)
   expect(w.commands).toEqual([])
-  expect(w.toasts.at(-1)).toContain('Nothing to hand off')
+  expect(await said($)).toContain('Nothing to hand off')
 })
 
 test('handoff waits while Claude is working', async ($, on) => {
@@ -172,7 +175,7 @@ test('handoff waits while Claude is working', async ($, on) => {
   await $.command.run({ command: 'newsession', args: '' } as never)
   await w.clock.advance(5000)
   expect(w.commands).toEqual([])
-  expect(w.toasts.at(-1)).toContain('working')
+  expect(await said($)).toContain('working')
 })
 
 test('/handoff paste puts the last brief in the box without writing a new one or clearing again', async ($, on) => {
@@ -380,7 +383,7 @@ test('without HOME (Windows) the copy goes under USERPROFILE and the toast says 
   expect(w.files.length).toBe(1)
   // (the test host is not Windows, so it prefixes its own folder to the drive path; on Windows it is absolute)
   expect(w.files[0]?.path).toMatch(/C:\\Users\\f\/\.claude\/handoffs\/handoff-\d{8}-\d{6}\.md$/)
-  expect(w.toasts.at(-1)).toContain('A copy is saved at C:')
+  expect(await said($)).toContain('A copy is saved at C:')
   expect(String(w.writes.lastBriefPath)).toContain('C:\\Users\\f/.claude/handoffs/handoff-')
 })
 
@@ -392,7 +395,7 @@ test('when no home folder is known the handoff still works and says the copy was
   expect(w.files).toEqual([])
   expect(w.commands).toEqual(['clear'])
   expect(w.fills.at(-1)).toBe('B')
-  expect(w.toasts.at(-1)).toContain('could not be saved')
+  expect(await said($)).toContain('could not be saved')
 })
 
 test('copy mode (/newsession brief, /meters brief): brief in the box and on the clipboard, session kept', async ($, on) => {
@@ -408,7 +411,7 @@ test('copy mode (/newsession brief, /meters brief): brief in the box and on the 
     expect(w.commands).toEqual([]) // never cleared
     expect(w.fills.at(-1)).toBe('THE BRIEF')
     expect(w.copied).toEqual(['THE BRIEF'])
-    expect(w.toasts.at(-1)).toContain('Your session is unchanged')
+    expect(await said($)).toContain('Your session is unchanged')
   }
 })
 
@@ -668,7 +671,7 @@ test('"Done." speaks over a pending decision while the bell rings, then the deci
   expect(await hasButton($, 'handoff')).toBe(false)
   await w.clock.advance(5100)
   expect(await hasButton($, 'handoff')).toBe(true) // the bell is over: the open question is back, with its real button beside it
-  await w.clock.advance(5000)
+  await w.clock.advance(8000)
   await measureCtx($, 10) // the context is cleared: the warning is over, so the bubble and the pose are too
   await w.clock.advance(6000)
   expect(await altOf($)).not.toContain('tipsy')
@@ -938,4 +941,34 @@ test('a finished turn adds one row to the session log under the home folder', as
   expect(row.out).toBe(7)
   expect(row.cacheRead).toBe(90)
   expect(row.reason).toBe('answer')
+})
+
+test('a message to you is a bubble, not a toast, and goes in the log; it fades by itself', async ($, on) => {
+  const w = world(on)
+  await started($)
+  await measureCtx($, 10)
+  await w.clock.advance(6000)
+  await $.command.run({ command: 'newsession', args: '' } as never)
+  await ($ as unknown as Do).turn.start({ text: 'go', turnId: 't1' })
+  await $.command.run({ command: 'fresh', args: '' } as never) // Claude is busy: fresh waits
+  await w.clock.advance(50)
+  expect(await altOf($, true)).toContain('Claude is working')
+  expect(w.toasts.length).toBe(0)
+  expect(await said($)).toContain('Claude is working')
+  await w.clock.advance(12_000)
+  expect(await altOf($, true)).not.toContain('Claude is working')
+})
+
+test('the collapsed band never carries the saver line; the open band does', async ($, on) => {
+  const w = world(on)
+  await started($)
+  await measureCtx($, 10)
+  await w.clock.advance(6000)
+  let ui = await $.ui.mount(band('desktop'))
+  expect(await ui.find({ key: 'saver' })).toBeUndefined()
+  await ui.unmount()
+  await $.command.run({ command: 'cockpit', args: 'open' } as never)
+  ui = await $.ui.mount(band('desktop'))
+  expect(await ui.find({ key: 'saver' })).toBeDefined()
+  await ui.unmount()
 })

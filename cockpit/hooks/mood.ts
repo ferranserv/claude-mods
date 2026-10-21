@@ -91,10 +91,10 @@ export function bubbleFor(id: StateId, b: BubbleInput): Bubble | null {
     case 'oops': return { text: b.detail !== '' ? `${b.detail} failed` : 'A tool failed' }
     case 'bell': return { text: 'Done.' }
     case 'lab': return { text: 'Tests passed' }
-    case 'love': return { text: 'Handoff saved. Paste it into the new session.' }
+    case 'love': return { text: 'Handoff ready in the prompt box. Review, then Enter.' }
     case 'idea': return { text: 'Plan ready for your approval' }
     case 'wand': return { text: 'Draft enhanced. ↩ restores yours.' }
-    case 'coins': return { text: b.savedUsd !== '' ? `Saver kept ${b.savedUsd} today` : 'Saver routed that to Haiku' }
+    case 'coins': return { text: b.savedUsd !== '' ? `Haiku answered that · saved ${b.savedUsd} today` : 'Haiku answered that' }
     case 'plug': return { text: 'A connector is offline' }
     case 'dizzy': return { text: 'Compacting the conversation' }
     case 'building': return { text: b.detail !== '' ? `Editing ${b.detail}` : 'Editing' }

@@ -149,3 +149,7 @@ Not verifiable from the cloud: click alignment on the desktop (VERIFY 70-77).
 Done: bubbles follow animation priority (0.12.1); raised hand ends with its call and queries never raise it (0.12.2); 0.13.0 = cache accounting per model (T1), EnterWorktree without a model turn (T2), repo memo and 60 s preflight (T4), lean enhance (T5), Compact button (A1), turn log + tools/cockpit-log.py (A2), PostModelSwitch resets the countdown, notify title. tsc clean (4 old errors fixed). 226 tests.
 Dropped: T3 (PreModelSwitch cost fields: small gain). Not verifiable from the cloud: EnterWorktree via `$.tool.call`, real billing behind the saver figure.
 Next: PR 2 = 0.14.0 UX (U1-U8, one message channel).
+
+## Session (2026-10-21): PR 2 = cockpit 0.14.0 (one channel)
+Done: `tell()` puts every message in the bubble (toasts only with the side panel), status-line texts removed, saver line only in the open band, coins/love bubbles reworded, preflight collapsed row shorter, `/cockpit log`, linger 12 s, legend 10 px. 228 tests, tsc clean.
+Not done (by design): preflight rows and command-carrying notices stay rows (a bubble has one button, one line); contrast of orange on a light theme unchanged (dark theme passes 4.5:1; the theme cannot be detected).

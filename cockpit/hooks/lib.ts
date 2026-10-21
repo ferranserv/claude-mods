@@ -415,7 +415,7 @@ export function bandWidth(columns: number): number {
   return clamp(Math.round(columns * PX_PER_COLUMN), 320, 1600)
 }
 
-const LEGEND_SIZE = 9
+const LEGEND_SIZE = 10
 const LINE = 10
 
 /** The enhance wand: flat and one color (the cockpit gray), drawn as shapes so no emoji font can color or shade it. A stick, a gap, then the sparkle apart from it, and a small one. 18 px, like the controls around it. */
