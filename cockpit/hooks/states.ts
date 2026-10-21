@@ -84,6 +84,7 @@ export const MOVES: Partial<Record<string, Move>> = {
   'typing>hand': { fd: 0.25, frames: [{ ...LAPTOP }, { clipboard: 1, look: 'down', mouth: 'flat' }] },
   'thinking>hand': { fd: 0.25, frames: [{ spinner: 3, look: 'up', armR: 'chin' }, { clipboard: 1, look: 'down', mouth: 'flat' }] },
   'hand>typing': { fd: 0.25, frames: [{ clipboard: 3, look: 'down', mouth: 'flat' }, { ...LAPTOP }] },
+  'hello>idle': { fd: 0.2, frames: [{ armR: 'up', mouth: 'smile', eyes: 'open' }, { beach: 0, eyes: 'happy', mouth: 'smile', armR: 'half' }, { ...SUN }] },
   'walk>idle': { fd: 0.2, frames: [{ mouth: 'smile' }, { ...SUN }] },
 }
 

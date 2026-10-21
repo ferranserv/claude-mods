@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'claude-code/testing'
 
-import { alertsOf, attentionOf, cockpitSvg, model } from './lib'
+import { alertsOf, attentionOf, cockpitSvg, model, wandSvg } from './lib'
 import { stateMarkup } from './states'
 
 const NOW = new Date(2026, 9, 21, 12).getTime() // a Wednesday: 60% of the week is allotted
@@ -70,5 +70,15 @@ describe('cockpitSvg', () => {
   test('the mascot loop animates by swapping frames', () => {
     expect(mascot.markup).toContain('attributeName="opacity"')
     expect(mascot.markup).toContain('repeatCount="indefinite"')
+  })
+})
+
+describe('wandSvg', () => {
+  test('a flat drawing in one color, white, dimmer when there is no draft', () => {
+    const on = wandSvg(false).source
+    expect(on).toContain('#ffffff')
+    expect(on.match(/#[0-9a-fA-F]{6}/g)?.every(c => c.toLowerCase() === '#ffffff')).toBe(true)
+    expect(on).not.toContain('Gradient')
+    expect(wandSvg(true).source).toContain('fill-opacity="0.45"')
   })
 })

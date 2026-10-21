@@ -416,6 +416,13 @@ const LEGEND_SIZE = 9
 const LINE = 10
 
 /** One slim band: the meters side by side, a few lines tall. */
+/** The enhance wand: flat and one color (white), drawn as a shape so no emoji font can color or shade it. */
+export function wandSvg(dim: boolean): { source: string; width: number; height: number } {
+  const o = dim ? 0.45 : 1
+  const out = `<g fill="#ffffff" stroke="#ffffff" fill-opacity="${o}" stroke-opacity="${o}"><path d="M3 21L14 10" stroke-width="3" stroke-linecap="round" fill="none"/><path d="M18 2L19.6 6.4L24 8L19.6 9.6L18 14L16.4 9.6L12 8L16.4 6.4Z" stroke="none"/></g>`
+  return { source: wrapSvg(24, 24, out), width: 24, height: 24 }
+}
+
 export function bandBody(width: number, m: Model): { out: string; height: number } {
   // Narrow windows get short labels and a smaller size; the numbers are the same.
   const narrow = width < 480

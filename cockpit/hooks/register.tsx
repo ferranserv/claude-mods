@@ -25,6 +25,7 @@ import {
   priceOf,
   sideSvg,
   sideWidth,
+  wandSvg,
   windowMinutes,
 } from './lib'
 import type { ActionId, Alert, Model, Thresholds } from './lib'
@@ -1019,13 +1020,20 @@ function saverRow(s: Snap, c: Comps, fx: Fx) {
 const WAND = '\u{1FA84}\uFE0E'
 
 /** The small controls at the right of the row: enhance, undo, and the arrow. */
-function controls(s: Snap, c: Comps, fx: Fx, onToggle: () => void) {
+function controls(s: Snap, c: Comps, fx: Fx, onToggle: () => void, Svg: unknown = null) {
   const tip = (text: string) => el(c.Box, { position: 'absolute', top: -1, right: 0, display: 'none', hover: { display: 'flex' } }, el(c.Text, { dimColor: true }, text))
   const items: unknown[] = []
   if (s.enh.isBusy) items.push(el(c.Text, { key: 'busy', dimColor: true }, `${WAND} enhancing…`))
   else {
     if (s.enh.original !== '') items.push(el(c.Box, { key: 'undo-wrap' }, el(c.Button, { key: 'undo', plain: true, dimColor: true, onPress: () => fx.undoEnhance() }, '↩'), tip('Restore my draft')))
-    items.push(el(c.Box, { key: 'enhance-wrap' }, el(c.Button, { key: 'enhance', dimColor: !s.enh.hasDraft, onPress: () => fx.enhance() }, el(c.Text, { color: 'white' }, WAND)), tip(`Enhance${enhanceLabel ? ` (${enhanceLabel})` : ''}`)))
+    const tipText = `Enhance${enhanceLabel ? ` (${enhanceLabel})` : ''}`
+    if (Svg) {
+      // A Button cannot hold a drawing: the flat white wand is an Svg, with a plain button of blank text laid over it.
+      const wand = wandSvg(!s.enh.hasDraft)
+      items.push(
+        el(c.Box, { key: 'enhance-wrap', position: 'relative' }, el(Svg as never, { key: 'wand', source: wand.source, alt: 'Enhance my draft', width: wand.width, height: wand.height }), el(c.Box, { key: 'wand-hit', position: 'absolute', top: 0, left: 0 }, el(c.Button, { key: 'enhance', plain: true, onPress: () => fx.enhance() }, '    ')), tip(tipText)),
+      )
+    } else items.push(el(c.Box, { key: 'enhance-wrap' }, el(c.Button, { key: 'enhance', dimColor: !s.enh.hasDraft, onPress: () => fx.enhance() }, el(c.Text, { color: 'white' }, WAND)), tip(tipText)))
   }
   items.push(el(c.Box, { key: 'toggle-wrap' }, el(c.Button, { key: 'toggle', plain: true, dimColor: true, onPress: onToggle }, s.isOpen ? '▴' : '▾'), tip(s.isOpen ? 'Hide details' : 'Show details')))
   return el(c.Box, { key: 'controls', flexDirection: 'row', alignItems: 'center', gap: 2, paddingX: 1 }, ...items)
@@ -1619,7 +1627,7 @@ export const register: Register = (on, options) => {
       const { Svg } = $.ui.resolve(e)
       const svg = cockpitSvg(Math.max(300, bandWidth(e.props.bodyColumns) - 90), s.m, s.mascot)
       // An interactive Svg is drawn in a frame of its own: give it its real size, or the frame is far taller than the drawing.
-      row = el(c.Box, { key: 'row', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, el(Svg, { key: 'svg', source: svg.source, alt: `${STATES[s.state].label}. ${altText(s.m)}`, isInteractive: true, width: svg.width, height: svg.height }), controls(s, c, fx, onToggle))
+      row = el(c.Box, { key: 'row', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, el(Svg, { key: 'svg', source: svg.source, alt: `${STATES[s.state].label}. ${altText(s.m)}`, isInteractive: true, width: svg.width, height: svg.height }), controls(s, c, fx, onToggle, Svg))
     }
 
     const speaks = bubbleMode === 'float' && s.bubble !== null && !(s.isOpen && s.bubble.alertId !== undefined && s.alerts.some(a => a.id === s.bubble?.alertId))
