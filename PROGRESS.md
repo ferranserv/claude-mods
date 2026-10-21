@@ -143,3 +143,9 @@ Not verifiable from the cloud: floating bubble overlay, crossfade, 🪄 renderin
 ## Session (2026-10-21): cockpit 0.12.0 (button areas, transitions audit)
 Done: every warning button is a real Button whose label carries the color (no drawing with a click area laid over it); a bubble with a button is drawn on its own with its button beside it in one row (the old two-row overlay at a guessed spot is gone); the "bell" in idle>hand was the carried clipboard (now a clipboard with a clip; hats are carried by kind, wrench, wand, glass and browser have their own); any state>cold fades to blue over 2 s (1.2 s back); `/cockpit demo <state>` shows the bubble with its state and leaves nothing pending (one state with a button stays until answered). All 870 moves audited by script (no foreign props, no missing drawings).
 Not verifiable from the cloud: click alignment on the desktop (VERIFY 70-77).
+
+
+## Session (2026-10-21): cockpit audit, PR 1 = 0.13.0 (tokens, accounting, functions)
+Done: bubbles follow animation priority (0.12.1); raised hand ends with its call and queries never raise it (0.12.2); 0.13.0 = cache accounting per model (T1), EnterWorktree without a model turn (T2), repo memo and 60 s preflight (T4), lean enhance (T5), Compact button (A1), turn log + tools/cockpit-log.py (A2), PostModelSwitch resets the countdown, notify title. tsc clean (4 old errors fixed). 226 tests.
+Dropped: T3 (PreModelSwitch cost fields: small gain). Not verifiable from the cloud: EnterWorktree via `$.tool.call`, real billing behind the saver figure.
+Next: PR 2 = 0.14.0 UX (U1-U8, one message channel).

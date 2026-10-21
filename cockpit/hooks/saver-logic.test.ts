@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'claude-code/testing'
 
-import { costOf, dayKey, isStripShown, labelLocally, parseMode, savingOf, shortName } from './saver-logic'
+import { costOf, dayKey, realSaving, isStripShown, labelLocally, parseMode, savingOf, shortName } from './saver-logic'
 import { money, priceOf } from './lib'
 
 describe('labelLocally', () => {
@@ -77,5 +77,20 @@ describe('strip', () => {
     expect(parseMode('on')).toBe('on')
     expect(parseMode('nope')).toBeNull()
     expect(parseMode(undefined)).toBeNull()
+  })
+})
+
+describe('realSaving', () => {
+  const u = { input_tokens: 1_000, output_tokens: 200, cache_read_input_tokens: 0, cache_creation_input_tokens: 99_000 }
+  const main = { input: 2, output: 10 }
+  test('a warm main cache makes the saving much smaller than list price suggests', () => {
+    const cold = realSaving(main, u, false)
+    const warm = realSaving(main, u, true)
+    expect(cold).toBeGreaterThan(warm)
+    expect(warm).toBeGreaterThan(0)
+    expect(Math.round(warm * 1e6)).toBe(Math.round(((100_000 * 0.1 * 2 + 200 * 10) - (1_000 * 0.1 + 99_000 * 1.25 * 0.1 + 200 * 0.5)) ))
+  })
+  test('can go negative: a cheap main model with a warm cache beats a cold Haiku', () => {
+    expect(realSaving({ input: 0.1, output: 0.5 }, u, true)).toBeLessThan(0)
   })
 })

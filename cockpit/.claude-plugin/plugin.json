@@ -1,6 +1,6 @@
 {
   "name": "cockpit",
-  "version": "0.12.2",
+  "version": "0.13.0",
   "author": {
     "name": "Ferran"
   },
@@ -61,6 +61,12 @@
       "description": "Plays sounds/done.wav at the end of each main-loop turn (macOS afplay, Windows PowerShell).",
       "default": true
     },
+    "turnLog": {
+      "type": "boolean",
+      "title": "Log each turn to a local file",
+      "description": "One line per finished turn (tokens, model, duration, routed, context %) in ~/.claude/cockpit-log/<session>.jsonl, for your own review with tools/cockpit-log.py. Nothing is sent anywhere.",
+      "default": true
+    },
     "hotkey": {
       "type": "string",
       "title": "Enhance hotkey",
@@ -72,6 +78,12 @@
       "title": "Model that rewrites the draft",
       "description": "An alias (haiku, sonnet) or a full model id. A small model keeps each Enhance cheap.",
       "default": "haiku"
+    },
+    "enhanceStyle": {
+      "type": "string",
+      "title": "Enhance style",
+      "description": "full (task, skills, project context, questions, done criteria, about 350 words) or lean (task, up to 2 questions, done criteria, about 120 words). Your main model reads the result on every send, so lean costs fewer tokens.",
+      "default": "full"
     },
     "maxSkills": {
       "type": "number",

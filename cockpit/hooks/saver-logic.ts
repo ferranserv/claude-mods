@@ -55,6 +55,18 @@ export function savingOf(main: Price, u: Counts): number {
   return costOf(main, u) - costOf(HAIKU, u)
 }
 
+/**
+ * What a routed step really saved. The prompt cache belongs to a model: Haiku has no cache of its own for this prefix, so
+ * its input is billed as it came (reads at 10%, writes at 125%). The main model would have read the prefix from its warm
+ * cache at 10% of its input price, or, cold, paid plain input. `mainWarm` says which; unknown counts as cold.
+ */
+export function realSaving(main: Price, u: Counts, mainWarm: boolean): number {
+  const total = u.input_tokens + u.cache_read_input_tokens + u.cache_creation_input_tokens
+  const mainCost = ((mainWarm ? total * 0.1 : total) * main.input + u.output_tokens * main.output) / 1_000_000
+  const haikuIn = u.input_tokens + u.cache_read_input_tokens * 0.1 + u.cache_creation_input_tokens * 1.25
+  return mainCost - (haikuIn * HAIKU.input + u.output_tokens * HAIKU.output) / 1_000_000
+}
+
 /** `claude-haiku-5-5` -> `haiku 5.5`. */
 export function shortName(id: string): string {
   const m = id
