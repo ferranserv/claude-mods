@@ -146,6 +146,18 @@ describe('the moves between states', () => {
       expect(made.markup).not.toContain('repeatCount="indefinite"')
     }
   })
+  test('a hand-drawn move starts on the state it leaves and ends on the state it enters, so nothing pops', () => {
+    const same = (a: Record<string, unknown>, b: Record<string, unknown>) => {
+      const clean = (p: Record<string, unknown>) => Object.entries(p).filter(([k, v]) => !((k === 'dx' || k === 'dy') && !v)).sort(([x], [y]) => (x < y ? -1 : 1))
+      return JSON.stringify(clean(a)) === JSON.stringify(clean(b))
+    }
+    for (const key of Object.keys(MOVES)) {
+      const [from, to] = key.split('>') as [StateId, StateId]
+      const f = MOVES[key]!.frames
+      expect(same(f[0]!, STATES[from].frames[0]!), `${key} start`).toBe(true)
+      expect(same(f[f.length - 1]!, STATES[to].frames[0]!), `${key} end`).toBe(true)
+    }
+  })
   test('a pair without a hand-drawn move gets a morph; staying put gets nothing', () => {
     expect(moveMs('idle', 'asleep')).toBeGreaterThan(0)
     expect(moveMarkup('idle', 'asleep')).not.toBeNull()
