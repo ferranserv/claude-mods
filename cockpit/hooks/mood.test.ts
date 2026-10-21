@@ -3,7 +3,7 @@ import { describe, expect, test } from 'claude-code/testing'
 import { COFFEE_AFTER_MS, bubbleFor, clockOf, pickState } from './mood'
 import type { BubbleInput, MoodInput } from './mood'
 import type { StateId } from './states'
-import { MOVES, STATES, STATE_IDS, moveFrames, moveMarkup, moveMs, stateMarkup } from './states'
+import { MOVES, STATES, STATE_IDS, enterMarkup, moveFrames, moveMarkup, moveMs, stateMarkup } from './states'
 import { pixelsOutside } from './sprite'
 
 const NOW = 1_000_000
@@ -157,6 +157,17 @@ describe('the moves between states', () => {
       expect(same(f[0]!, STATES[from].frames[0]!), `${key} start`).toBe(true)
       expect(same(f[f.length - 1]!, STATES[to].frames[0]!), `${key} end`).toBe(true)
     }
+  })
+  test('a state change is one drawing: the move, then the loop that starts when it ends', () => {
+    const e = enterMarkup('idle', 'thinking')
+    const dur = moveMs('idle', 'thinking') / 1000
+    expect(e.markup).toContain('repeatCount="1"')
+    expect(e.markup).toContain('repeatCount="indefinite"')
+    expect(e.markup).toContain(`begin="${dur.toFixed(2)}s"`) // the loop waits for the move
+    expect(e.markup).toContain('attributeName="display"') // and the move hides when it is over
+    expect(e.width).toBe(stateMarkup('thinking').width)
+    expect(enterMarkup('idle', 'thinking').markup).toBe(e.markup) // the same string every time: no reload
+    expect(enterMarkup('idle', 'idle').markup).toBe(stateMarkup('idle').markup)
   })
   test('a pair without a hand-drawn move gets a morph; staying put gets nothing', () => {
     expect(moveMs('idle', 'asleep')).toBeGreaterThan(0)

@@ -241,18 +241,20 @@ function pathsOf(grid, pal) {
 }
 
 /** The frames of one state, swapped by SMIL opacity (a sandboxed Svg with isInteractive plays it; elsewhere frame one shows). */
-export function renderFrames(frames: Pose[], fd: number, w: number, drift: boolean, scale = 2): string {
+export function renderFrames(frames: Pose[], fd: number, w: number, drift: boolean, scale = 2, delay = 0): string {
   const n = frames.length
   const keyTimes = frames.map((_, i) => (i / n).toFixed(4)).join(';')
   const dur = (n * fd).toFixed(2)
+  // A delay starts the loop after a move that plays first in the same drawing: nothing shows until then.
+  const begin = delay > 0 ? ` begin="${delay.toFixed(2)}s"` : ''
   const groups = frames
     .map((o, i) => {
       const k = clawd({ w, ...o })
-      const anim = n > 1 ? `<animate attributeName="opacity" values="${frames.map((_, j) => (j === i ? 1 : 0)).join(';')}" keyTimes="${keyTimes}" dur="${dur}s" calcMode="discrete" repeatCount="indefinite"/>` : ''
-      return `<g opacity="${i === 0 ? 1 : 0}">${anim}${pathsOf(k.g, { ...PAL, ...(o.pal || {}) })}</g>`
+      const anim = n > 1 ? `<animate attributeName="opacity" values="${frames.map((_, j) => (j === i ? 1 : 0)).join(';')}" keyTimes="${keyTimes}" dur="${dur}s" calcMode="discrete"${begin} repeatCount="indefinite"/>` : delay > 0 ? `<set attributeName="opacity" to="1"${begin}/>` : ''
+      return `<g opacity="${delay > 0 ? 0 : i === 0 ? 1 : 0}">${anim}${pathsOf(k.g, { ...PAL, ...(o.pal || {}) })}</g>`
     })
     .join('')
-  const move = drift ? `<animateTransform attributeName="transform" type="translate" values="-4 0;4 0;-4 0" dur="${(n * fd * 4).toFixed(2)}s" repeatCount="indefinite"/>` : ''
+  const move = drift ? `<animateTransform attributeName="transform" type="translate" values="-4 0;4 0;-4 0" dur="${(n * fd * 4).toFixed(2)}s"${begin} repeatCount="indefinite"/>` : ''
   return `<g shape-rendering="crispEdges" transform="scale(${scale})"><g>${move}${groups}</g></g>`
 }
 
@@ -268,7 +270,8 @@ export function renderOnce(frames: Pose[], fd: number, w: number, scale = 2): st
       return `<g opacity="${i === 0 ? 1 : 0}">${anim}${pathsOf(k.g, { ...PAL, ...(o.pal || {}) })}</g>`
     })
     .join('')
-  return `<g shape-rendering="crispEdges" transform="scale(${scale})">${groups}</g>`
+  // Once the move is over the whole group is hidden for good, so the loop that follows has the drawing to itself.
+  return `<g shape-rendering="crispEdges" transform="scale(${scale})"><g><set attributeName="display" to="none" begin="${dur}s"/>${groups}</g></g>`
 }
 
 /** Pixels any frame of the state draws outside the canvas (must be none). */

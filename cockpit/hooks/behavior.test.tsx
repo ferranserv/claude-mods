@@ -679,6 +679,19 @@ const svgOf = async ($: unknown) => {
   await ui.unmount()
   return source
 }
+
+test('after a state change the drawing is replaced once, and not again when the move ends', async ($, on) => {
+  const w = world(on)
+  await started($)
+  const before = await svgOf($)
+  await $.command.run({ command: 'cockpit', args: 'demo typing' } as never)
+  const during = await svgOf($)
+  expect(during).not.toBe(before) // the change: one new drawing, with the move and the loop in it
+  await w.clock.advance(700) // longer than any move
+  expect(await svgOf($)).toBe(during)
+  await w.clock.advance(2000)
+  expect(await svgOf($)).toBe(during)
+})
 const heightOf = (source: string) => Number(/ height="(\d+)"/.exec(source)?.[1])
 
 test('/cockpit mascot small and off shrink or remove Clawd, remember the choice, and keep the meters', async ($, on) => {
