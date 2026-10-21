@@ -8,7 +8,7 @@
       "name": "cockpit",
       "source": "./cockpit",
       "description": "One band above the prompt with Clawd, the Claude Code mascot, who reacts to what is happening: context, cache, 5-hour and weekly limits, tools at work, finished turns, permission prompts. Collapsed row of meters with an expand arrow, a speech bubble with the button for every warning, saver routing, preflight warnings, the prompt enhancer, and a chime. Replaces meters, saver, preflight-guard and prompt-enhancer.",
-      "version": "0.21.0"
+      "version": "0.22.0"
     }
   ]
 }

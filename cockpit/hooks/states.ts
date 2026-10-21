@@ -6,7 +6,7 @@ import type { Pose } from './sprite'
 export type StateId =
   | 'idle' | 'typing' | 'thinking' | 'bell' | 'coins' | 'walk' | 'talk' | 'drunk' | 'fire' | 'hourglass' | 'cold'
   | 'gauge' | 'mad' | 'sleepy' | 'asleep' | 'love' | 'detective' | 'oops' | 'wand' | 'hello' | 'idea' | 'coffee'
-  | 'reading' | 'building' | 'browse' | 'plug' | 'dizzy' | 'lab' | 'hand' | 'writing' | 'creating'
+  | 'reading' | 'building' | 'browse' | 'plug' | 'dizzy' | 'lab' | 'hand' | 'writing' | 'creating' | 'boom' | 'ship'
 
 type Def = {
   /** What a screen reader hears. */
@@ -46,7 +46,7 @@ export const STATES: Record<StateId, Def> = {
   oops: { label: 'Clawd says oops: a tool failed', face: '(x_x)!', fd: 0.35, frames: [{ eyes: 'x', mouth: 'o', bang: 1, bangX: OX + 21 }, { eyes: 'x', mouth: 'o', bang: 1, bangX: OX + 21, dy: 1 }] },
   wand: { label: 'Clawd the wizard enhanced your draft', face: '(^_^)*', fd: 0.4, frames: [{ hat: 'wizard', wand: 1, eyes: 'happy', mouth: 'smile', armR: 'up' }, { hat: 'wizard', wand: 1, eyes: 'open', mouth: 'smile', armR: 'up', star: 1 }] },
   hello: { label: 'Clawd waves hello', face: '(^_^)/', fd: 0.3, frames: [{ armR: 'high', mouth: 'smile', eyes: 'happy' }, { armR: 'up', mouth: 'smile', eyes: 'open' }] },
-  idea: { label: 'Clawd has an idea: a plan is ready', face: '(o_o)!', fd: 0.4, frames: [{ bulb: 1, eyes: 'open', mouth: 'smile', armR: 'up' }, { bulb: 2, eyes: 'happy', mouth: 'smile', armR: 'up' }] },
+  idea: { label: 'Clawd has an idea: the plan was approved', face: '(o_o)!', fd: 0.4, frames: [{ bulb: 1, eyes: 'open', mouth: 'smile', armR: 'up' }, { bulb: 2, eyes: 'happy', mouth: 'smile', armR: 'up' }] },
   coffee: { label: 'Clawd drinks coffee: this turn is taking a while', face: '(-_-)c', fd: 0.5, frames: [0, 1].map(t => ({ cup: t + 1, armR: 'hold', mouth: 'smile', eyes: 'open' })) },
   reading: { label: 'Clawd is reading files, turning pages of a book, a stack of books beside him', face: '(o_o)=', fd: 0.5, frames: [{ glasses: 1, book: 1, stack: 1, look: 'down', armL: 'hold', armR: 'hold' }, { glasses: 1, book: 1, stack: 1, look: 'down', eyes: 'blink', armL: 'hold', armR: 'hold' }, { glasses: 1, book: 2, stack: 1, look: 'down', armL: 'hold', armR: 'hold' }, { glasses: 1, book: 3, stack: 1, look: 'down', armL: 'hold', armR: 'hold' }] },
   creating: { label: 'Clawd, a moustache on, holds a color palette and a paintbrush and is painting a picture on an easel: Claude is writing a file', face: '(o_o)~', fd: 0.28, frames: [[0, 0], [1, 1], [1, 2], [2, 3], [3, 4], [3, 2]].map(([easel, brush]) => ({ stache: 1, palette: 1, easel, brush, armR: 'half', armL: 'half', look: 'right', eyes: 'open' })) },
@@ -57,6 +57,35 @@ export const STATES: Record<StateId, Def> = {
   lab: { label: 'Clawd holds bubbling flasks: the tests passed', face: '(^_^)8', fd: 0.35, frames: [0, 1, 2].map(t => ({ flask: t + 1, mouth: 'smile', eyes: t === 1 ? 'happy' : 'open' })) },
   hand: { label: 'Clawd holds a clipboard and a pencil and raises a hand: Claude asked you a question and waits for your answer', face: '(o_o)[]!', fd: 0.2, frames: [[1, 1], [1, 2], [2, 3], [2, 2], [3, 1], [3, 2], [3, 3], [3, 2]].map(([clipboard, bangC]) => ({ clipboard, look: 'down', mouth: 'flat', bangC })) },
   writing: { label: 'Clawd writes it down with a quill', face: '(o_o)~', fd: 0.4, frames: [1, 2, 3, 4].map(paper => ({ glasses: 1, paper, look: 'down', mouth: 'flat' })) },
+  boom: { label: 'Clawd\'s flask swells, cracks and blows up in his face: the checks failed', face: '(x_x)*', fd: 0.2, frames: [
+    { beaker: 1, armR: 'up', eyes: 'open', look: 'right', mouth: 'flat' },
+    { beaker: 2, armR: 'up', eyes: 'wide', look: 'right', mouth: 'o', dx: -1 },
+    { beaker: 2, armR: 'up', eyes: 'wide', look: 'right', mouth: 'o', dx: 1 },
+    { beaker: 3, armR: 'up', eyes: 'wide', look: 'right', mouth: 'o', dx: -1 },
+    { beaker: 3, armR: 'up', eyes: 'wide', look: 'right', mouth: 'o', dx: 1, bang: 1, bangX: OX + 1 },
+    { burst: 1, armR: 'high', eyes: 'wide', mouth: 'o' },
+    { burst: 2, armR: 'high', armL: 'up', eyes: 'x', mouth: 'o', dy: -1 },
+    { burst: 3, armR: 'high', armL: 'high', eyes: 'x', mouth: 'o', dy: -2, dx: -1 },
+    { burst: 4, soot: 1, frizz: 1, eyes: 'dizzy', mouth: 'o', armR: 'up', armL: 'up', dy: -1 },
+    { soot: 1, frizz: 1, puff: 1, eyes: 'half', mouth: 'grim', armL: 'half', armR: 'half' },
+    { soot: 1, frizz: 1, puff: 2, eyes: 'blink', mouth: 'o', armL: 'half', armR: 'half', dy: 1 },
+    { soot: 1, frizz: 1, puff: 3, eyes: 'half', mouth: 'grim', armL: 'half', armR: 'half' },
+  ] },
+  ship: { label: 'Clawd presses the big red button and watches a rocket blast off: it shipped', face: '(^o^)^', fd: 0.4, frames: [
+    { console: 0, rocket: 15, look: 'right', eyes: 'open', mouth: 'smile' },
+    { console: 0, rocket: 15, look: 'down', eyes: 'open', mouth: 'flat', armL: 'type1' },
+    { console: 1, rocket: 15, look: 'down', eyes: 'wide', mouth: 'o', armL: 'type0' },
+    { console: 1, rocket: 15, rocketDx: 1, thrust: 1, smokeP: 1, look: 'right', eyes: 'wide', mouth: 'o', armL: 'type1' },
+    { console: 1, rocket: 15, rocketDx: -1, thrust: 2, smokeP: 2, look: 'right', eyes: 'wide', mouth: 'o', armL: 'half', dx: -1 },
+    { console: 1, rocket: 13, thrust: 3, smokeP: 3, look: 'right', eyes: 'wide', mouth: 'open', armL: 'half' },
+    { console: 1, rocket: 8, thrust: 3, smokeP: 3, look: 'up', eyes: 'open', mouth: 'open', armL: 'up', armR: 'up' },
+    { console: 1, rocket: 2, thrust: 3, smokeP: 4, look: 'up', eyes: 'open', mouth: 'open', armL: 'high', armR: 'high', dy: -1 },
+    { console: 1, rocket: -6, thrust: 3, smokeP: 4, look: 'up', eyes: 'happy', mouth: 'open', armL: 'high', armR: 'high', dy: -2 },
+    { console: 1, star: 1, smokeP: 3, eyes: 'happy', mouth: 'open', armL: 'high', armR: 'high', dy: -1 },
+    { console: 1, star: 1, smokeP: 2, eyes: 'happy', mouth: 'smile', armL: 'up', armR: 'up' },
+    { console: 0, smokeP: 1, eyes: 'open', mouth: 'smile', look: 'right', armL: 'half' },
+    { console: 0, rocket: 15, star: 1, eyes: 'wide', mouth: 'o', look: 'right' },
+  ] },
 }
 
 /**
@@ -129,6 +158,30 @@ const OOPS: Pose = { eyes: 'x', mouth: 'o', bang: 1, bangX: OX + 21 }
 const HAT: Pose = { hat: 'hard', wrench: 1, armR: 'up', mouth: 'smile', eyes: 'open' }
 const READ: Pose = { glasses: 1, book: 1, stack: 1, look: 'down', armL: 'hold', armR: 'hold' }
 export const MOVES: Partial<Record<string, Move>> = {
+  // Shipping (a rocket and a big red button) and the blast (a flask that explodes): after the work and before the bell, or back to it.
+  'typing>ship': { fd: 0.18, frames: [F('typing'), { look: 'right', eyes: 'open', mouth: 'smile' }, F('ship')] },
+  'ship>typing': { fd: 0.18, frames: [F('ship'), { look: 'down', eyes: 'half', mouth: 'smile' }, F('typing')] },
+  'building>ship': { fd: 0.18, frames: [F('building'), { hat: 'hard', look: 'right', eyes: 'open', armR: 'half' }, { look: 'right', eyes: 'open', mouth: 'smile' }, F('ship')] },
+  'ship>building': { fd: 0.18, frames: [F('ship'), { look: 'down', eyes: 'open', mouth: 'smile' }, { hat: 'hard', look: 'down', armR: 'half' }, F('building')] },
+  'thinking>ship': { fd: 0.16, frames: [F('thinking'), { look: 'right', eyes: 'wide', armR: 'up', mouth: 'open' }, F('ship')] },
+  'ship>thinking': { fd: 0.16, frames: [F('ship'), { eyes: 'open', look: 'up', mouth: 'smile' }, F('thinking')] },
+  'lab>ship': { fd: 0.16, frames: [F('lab'), { eyes: 'happy', mouth: 'smile', armR: 'up' }, F('ship')] },
+  'ship>lab': { fd: 0.16, frames: [F('ship'), { eyes: 'happy', mouth: 'smile', armR: 'up' }, F('lab')] },
+  'ship>bell': { fd: 0.16, frames: [F('ship'), { eyes: 'happy', mouth: 'smile', look: 'right', armL: 'up' }, { ...READY }, F('bell')] },
+  'bell>ship': { fd: 0.16, frames: [F('bell'), { eyes: 'happy', mouth: 'smile', armR: 'half' }, { eyes: 'open', mouth: 'smile', look: 'right' }, F('ship')] },
+  'ship>idle': { fd: 0.16, frames: [F('ship'), { eyes: 'happy', mouth: 'smile', armL: 'half' }, F('idle')] },
+  'idle>ship': { fd: 0.16, frames: [F('idle'), { eyes: 'open', mouth: 'smile' }, F('ship')] },
+  'typing>boom': { fd: 0.18, frames: [F('typing'), { laptop: 1, eyes: 'wide', mouth: 'o', look: 'down', armL: 'type1', armR: 'type0' }, { eyes: 'wide', mouth: 'o', armR: 'up' }, F('boom')] },
+  'boom>typing': { fd: 0.18, frames: [F('boom'), { soot: 1, frizz: 1, eyes: 'half', mouth: 'grim', armL: 'half', armR: 'half' }, { look: 'down', eyes: 'half', mouth: 'flat' }, F('typing')] },
+  'building>boom': { fd: 0.18, frames: [F('building'), { hat: 'hard', eyes: 'wide', mouth: 'o', armR: 'high' }, { eyes: 'wide', mouth: 'o', armR: 'up' }, F('boom')] },
+  'boom>building': { fd: 0.18, frames: [F('boom'), { soot: 1, frizz: 1, eyes: 'half', mouth: 'grim', armL: 'half', armR: 'half' }, { hat: 'hard', look: 'down', armR: 'half' }, F('building')] },
+  'thinking>boom': { fd: 0.16, frames: [F('thinking'), { eyes: 'wide', mouth: 'o', armR: 'up', look: 'right' }, F('boom')] },
+  'boom>thinking': { fd: 0.16, frames: [F('boom'), { soot: 1, frizz: 1, eyes: 'half', mouth: 'grim' }, F('thinking')] },
+  'reading>boom': { fd: 0.16, frames: [F('reading'), { glasses: 1, look: 'down', eyes: 'wide', mouth: 'o' }, { eyes: 'wide', mouth: 'o', armR: 'up' }, F('boom')] },
+  'boom>reading': { fd: 0.16, frames: [F('boom'), { soot: 1, frizz: 1, eyes: 'half', mouth: 'grim', armL: 'half', armR: 'half' }, { glasses: 1, look: 'down', eyes: 'half' }, F('reading')] },
+  'boom>bell': { fd: 0.16, frames: [F('boom'), { soot: 1, frizz: 1, eyes: 'half', mouth: 'grim', armL: 'half', armR: 'half' }, { eyes: 'half', mouth: 'smile', armR: 'half' }, { ...READY }, F('bell')] },
+  'boom>idle': { fd: 0.16, frames: [F('boom'), { soot: 1, frizz: 1, eyes: 'half', mouth: 'grim', armL: 'half', armR: 'half' }, { eyes: 'half', mouth: 'smile' }, F('idle')] },
+  'idle>boom': { fd: 0.16, frames: [F('idle'), { eyes: 'wide', mouth: 'o' }, F('boom')] },
   // The painter and the other kinds of work: the brush and the palette are put away (or fetched) by hand, the moustache is the last to go.
   'creating>building': { fd: 0.2, frames: [F('creating'), { stache: 1, palette: 1, brush: 0, look: 'down', eyes: 'open', armL: 'half', armR: 'half' }, { stache: 1, look: 'down', eyes: 'open', mouth: 'smile' }, { ...HAT }] },
   'building>creating': { fd: 0.2, frames: [{ ...HAT }, { hat: 'hard', look: 'down', armR: 'half' }, { look: 'right', eyes: 'open', mouth: 'smile' }, { stache: 1, palette: 1, brush: 0, look: 'right', eyes: 'open', armL: 'half', armR: 'half' }, F('creating')] },
@@ -201,7 +254,7 @@ const RISE: Pose[] = [
 ]
 
 /** Props he wears or holds: when one goes or comes, his hand takes it or fetches it. */
-const HELD = ['magnifier', 'brush', 'palette', 'shades', 'hat', 'glasses', 'laptop', 'book', 'stack', 'scroll', 'clipboard', 'cup', 'flask', 'glass', 'browser', 'bell', 'wrench', 'paper', 'bulb', 'wand']
+const HELD = ['magnifier', 'brush', 'palette', 'shades', 'hat', 'glasses', 'laptop', 'book', 'stack', 'scroll', 'clipboard', 'cup', 'flask', 'glass', 'browser', 'bell', 'wrench', 'paper', 'bulb', 'wand', 'beaker']
 /** The drawing of a prop in his hand: a hat is told apart by its kind (hard hat, fedora, wizard hat). */
 const carried = (k: string, p: Pose): string => (k === 'hat' ? `hat-${p.hat}` : k)
 const without = (p: Pose, ks: string[]): Pose => {

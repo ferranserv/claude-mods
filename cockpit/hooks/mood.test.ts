@@ -25,9 +25,9 @@ describe('which state wins', () => {
     expect(mood({ waiting: true, fleet: { idea: NOW + 1 } })).toBe('hand')
   })
 
-  test('among fleeting events the order is oops, bell, lab, love, wand, coins, plug', () => {
-    const all = { oops: NOW + 1, bell: NOW + 1, lab: NOW + 1, love: NOW + 1, wand: NOW + 1, coins: NOW + 1, plug: NOW + 1 }
-    const order = ['oops', 'bell', 'lab', 'love', 'wand', 'coins', 'plug'] as const
+  test('among fleeting events the order is oops, boom, bell, lab, ship, love, wand, coins, plug', () => {
+    const all = { oops: NOW + 1, boom: NOW + 1, bell: NOW + 1, lab: NOW + 1, ship: NOW + 1, love: NOW + 1, wand: NOW + 1, coins: NOW + 1, plug: NOW + 1 }
+    const order = ['oops', 'boom', 'bell', 'lab', 'ship', 'love', 'wand', 'coins', 'plug'] as const
     const left: Partial<typeof all> = { ...all }
     for (const id of order) {
       expect(mood({ fleet: left })).toBe(id)
@@ -53,7 +53,7 @@ describe('which state wins', () => {
     expect(mood({ ...all, busy: true, hasTool: true })).toBe('typing')
     expect(mood({ ...all, busy: true, tool: { kind: 'reading', until: NOW + 1 } })).toBe('reading')
     for (const id of ['asleep', 'mad', 'fire', 'gauge', 'sleepy', 'drunk', 'cold', 'hourglass', 'detective', 'plug'] as const) expect(isAlert(id)).toBe(true)
-    for (const id of ['hand', 'idea', 'oops', 'bell', 'lab', 'typing', 'coffee', 'talk', 'idle'] as const) expect(isAlert(id)).toBe(false)
+    for (const id of ['hand', 'idea', 'oops', 'boom', 'ship', 'bell', 'lab', 'typing', 'coffee', 'talk', 'idle'] as const) expect(isAlert(id)).toBe(false)
   })
 
   test('when it is over the alerts are listed worst first and each is true only on its own range', () => {
@@ -149,8 +149,8 @@ describe('the drawings', () => {
       expect(d.label.length).toBeGreaterThan(5)
     }
   })
-  test('31 states, each with a terminal face', () => {
-    expect(STATE_IDS.length).toBe(31)
+  test('33 states, each with a terminal face', () => {
+    expect(STATE_IDS.length).toBe(33)
     for (const id of STATE_IDS) expect(STATES[id].face.length).toBeGreaterThan(2)
   })
   test('the alarm clock shows the wake-up time it is given', () => {
