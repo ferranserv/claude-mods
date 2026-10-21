@@ -455,8 +455,7 @@ async function compactNow($: EngineInterface) {
     return
   }
   try {
-    const r = await $.session.compact()
-    if ('skip' in r && r.skip) await tell($, 'Not compacted.', `Not compacted: ${r.skip}`)
+    await $.command.run({ command: 'compact' })
   } catch {
     await tell($, 'Could not compact. Type /compact.')
   }
@@ -676,13 +675,6 @@ async function newWorktree($: EngineInterface, selfId: string): Promise<void> {
 async function switchInto($: EngineInterface): Promise<void> {
   const path = String((await $.store.get('lastWorktree')) ?? '')
   if (path === '') return say($, 'No worktree made yet.', true)
-  // The tool is called directly: no model turn (which would re-read the whole context). The permission dialog still shows.
-  try {
-    await $.tool.call({ tool: 'EnterWorktree', path } as never)
-    return say($, 'Switched into the worktree.')
-  } catch {
-    // The tool is not there (or refused to be called from here): fall back to asking Claude, one short turn.
-  }
   await say($, 'Asking Claude to switch into the worktree (one short turn).')
   void $.prompt.submit({ text: `Call EnterWorktree with path "${path}" to switch this session into the existing worktree. Do nothing else.` })
 }
@@ -1545,12 +1537,8 @@ export const register: Register = (on, options) => {
       await patchCache($, c => ({ ...c, detected: ttl, misses: 0 }))
       await $.store.set('cacheDetected', ttl)
     }
-    return next(e)
-  }).catch(($, e, next) => next(e))
-
-  // The prompt cache belongs to a model: after a switch the new model starts with none, whatever the countdown said.
-  on('classic.PostModelSwitch', async ($, e, next) => {
-    await patchCache($, c => ({ ...c, lastAt: 0, lastEndAt: 0, notifiedAt: 0 }))
+    // The prompt cache belongs to a model: after a switch the new model starts with none, whatever the countdown said.
+    if (e.source !== 'resume') await patchCache($, c => ({ ...c, lastAt: 0, lastEndAt: 0, notifiedAt: 0 }))
     return next(e)
   }).catch(($, e, next) => next(e))
 
