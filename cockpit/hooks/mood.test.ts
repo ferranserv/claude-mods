@@ -2,7 +2,8 @@ import { describe, expect, test } from 'claude-code/testing'
 
 import { COFFEE_AFTER_MS, bubbleFor, clockOf, pickState } from './mood'
 import type { BubbleInput, MoodInput } from './mood'
-import { STATES, STATE_IDS, stateMarkup } from './states'
+import type { StateId } from './states'
+import { MOVES, STATES, STATE_IDS, moveMarkup, moveMs, stateMarkup } from './states'
 import { pixelsOutside } from './sprite'
 
 const NOW = 1_000_000
@@ -128,5 +129,25 @@ describe('the drawings', () => {
       expect(f.legsUp).toBeUndefined()
     }
     expect(stateMarkup('walk').markup).toContain('animateTransform')
+  })
+})
+
+describe('the moves between states', () => {
+  test('every move fits its canvas, plays once and then holds', () => {
+    for (const key of Object.keys(MOVES)) {
+      const [from, to] = key.split('>') as [StateId, StateId]
+      const m = MOVES[key]!
+      expect(STATE_IDS).toContain(from)
+      expect(STATE_IDS).toContain(to)
+      expect(pixelsOutside(m.frames, 34)).toBe(0)
+      expect(moveMs(from, to)).toBeGreaterThan(0)
+      const made = moveMarkup(from, to)!
+      expect(made.markup).toContain('fill="freeze"')
+      expect(made.markup).not.toContain('repeatCount="indefinite"')
+    }
+  })
+  test('a pair without a move has none', () => {
+    expect(moveMs('idle', 'asleep')).toBe(0)
+    expect(moveMarkup('idle', 'asleep')).toBeNull()
   })
 })
