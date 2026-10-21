@@ -26,37 +26,178 @@ const T: Pose = { eyes: 'half', look: 'down', laptop: 1 }
 const range = (n: number) => Array.from({ length: n }, (_, i) => i)
 
 export const STATES: Record<StateId, Def> = {
-  idle: { label: 'Clawd is relaxing in sunglasses', face: '(-_-)~', fd: 0.5, frames: range(4).map(() => ({ shades: 1, mouth: 'smile' })) },
-  typing: { label: 'Clawd is typing on a laptop, chewing gum and blowing bubbles', face: '[o_o]>', fd: 0.16, frames: [0, 0, 1, 1, 2, 2, 3, 3, 3, 4, 0, 0, 0, 0, 0, 0].map((gum, i) => ({ ...T, mouth: gum === 0 ? (i % 4 < 2 ? 'focus' : 'chew') : gum === 4 ? 'o' : 'chewOpen', ...(gum === 0 ? {} : { gum }), armL: i % 2 ? 'type0' : 'type1', armR: i % 2 ? 'type1' : 'type0' })) },
-  thinking: { label: 'Clawd is thinking', face: '(o_o)...', fd: 0.11, frames: range(8).map(t => ({ spinner: t, look: 'up', armR: 'chin' })) },
-  bell: { label: 'Clawd rings a bell: the turn is finished', face: '(^o^)ding', fd: 0.1, frames: [0, -1, -1, 0, 1, 1, 0, -1, 0, 1].map((s, i) => ({ eyes: 'happy', mouth: 'open', armR: 'high', bell: s, notes: i })) },
-  coins: { label: 'Clawd counts coins the saver kept', face: '($_$)', fd: 0.4, frames: [0, 1].map(t => ({ eyes: 'happy', mouth: 'smile', coins: t, star: t })) },
-  walk: { label: 'Clawd walks in to start the session', face: '(o_o)/', fd: 0.16, drift: true, frames: [{ mouth: 'smile' }, { legsUp: [2, 7], mouth: 'smile', dy: -1 }, { mouth: 'smile' }, { mouth: 'smile', dy: -1 }, { mouth: 'smile' }, { legsUp: [4, 9], mouth: 'smile', dy: -1 }, { mouth: 'smile' }, { mouth: 'smile', dy: -1 }] },
-  talk: { label: 'Clawd has something to say', face: '(o_o)"', fd: 0.22, frames: [{ armR: 'half', mouth: 'open' }, { armR: 'out', mouth: 'flat' }, { armR: 'half', armL: 'half', mouth: 'open' }, { armR: 'out', mouth: 'flat' }] },
-  drunk: { label: 'Clawd is tipsy and wobbly: the context is getting full', face: '(@_@)~', fd: 0.14, frames: [0, 1, 1, 2, 2, 1, 0, -1, -1, -2, -2, -1].map((dx, i) => ({ dx, eyeL: i % 4 < 2 ? 'half' : 'wide', eyeR: i % 4 < 2 ? 'wide' : 'half', blush: 1, mouth: i % 6 === 0 ? 'o' : 'smile', armR: 'hold', bottle: (i % 4 < 2 ? 1 : 2), bubbles: i, dy: i % 6 === 3 ? 1 : 0 })) },
-  fire: { label: 'Clawd is on fire: the context is nearly full', face: '(>_<)!!', fd: 0.16, frames: [0, 1, 2, 1].map((_, i) => ({ eyes: 'wide', mouth: 'o', flame: i % 3, forehead: i, armL: i % 2 ? 'half' : 'high', armR: i % 2 ? 'high' : 'half', dy: i % 2 })) },
-  hourglass: { label: 'Clawd watches an hourglass: the prompt cache is about to expire', face: '(o_o)z', fd: 0.6, frames: range(4).map(sand => ({ eyes: 'open', look: 'right', mouth: 'flat', armR: 'up', hourglass: 1, sand })) },
-  cold: { label: 'Clawd is frozen: the prompt cache is cold', face: '(-_-)*', fd: 0.45, frames: [1, 2, 3].map(snow => ({ pal: { c: '#8fb9d9', k: '#6d97b8', f: '#b6d5ea' }, eyes: 'half', mouth: 'grim', snow, ice: 1, armL: 'half', armR: 'half' })) },
-  gauge: { label: 'Clawd checks a nearly empty gauge: today\'s allowance is almost used', face: '(o_o)!', fd: 0.35, frames: [{ look: 'left', eyes: 'wide', gauge: 2, bang: 1, bangX: OX + 20 }, { look: 'right', eyes: 'wide', gauge: 2, bang: 1, bangX: OX + 20, dy: 1 }] },
-  mad: { label: 'Clawd is angry: over today\'s allowance', face: '(`o\')', fd: 0.22, frames: [0, 1, 2].map(t => ({ pal: { c: '#e2553f', k: '#b83a29', f: '#f08a74' }, eyes: 'angry', mouth: 'grim', steam: t, armL: 'up', armR: 'up', dy: t % 2 })) },
-  sleepy: { label: 'Clawd is getting sleepy and yawns, wide awake: the 5-hour limit is nearly used', face: '(-_-)z', fd: 0.4, frames: [{ eyes: 'open', z: 0 }, { eyes: 'open', dy: 1, z: 1 }, { eyes: 'open', mouth: 'o', armR: 'half' }, { eyes: 'happy', mouth: 'yawn', armR: 'up', dy: -1, z: 1 }, { eyes: 'happy', mouth: 'yawn', armR: 'up', dy: -1, z: 2 }, { eyes: 'open', mouth: 'o', armR: 'half', dy: 1 }, { eyes: 'open', dy: 1, z: 1 }] },
-  asleep: { label: 'Clawd is asleep, collapsed on the alarm clock that is set beneath him: the 5-hour limit is reached', face: '(-.-)zZ', fd: 0.5, frames: range(4).map(t => ({ lift: 3, noLegs: 1, dy: [0, 1, 2, 1][t], mask: 1, clock: '00:00', zzz: t })) },
-  love: { label: 'Clawd hugs himself: the handoff is saved', face: '(^_^)<3', fd: 0.3, frames: range(6).map(t => ({ eyes: 'happy', mouth: 'smile', armL: 'cross', armR: 'cross', heart: t % 4 })) },
-  detective: { label: 'Clawd the detective found something in the repo', face: '(o_o)?!', fd: 0.5, frames: [{ hat: 'fedora', eyes: 'half', look: 'right', magnifier: 1, armR: 'up', mouth: 'flat', bang: 1, bangX: OX + 1 }, { hat: 'fedora', eyes: 'open', look: 'right', magnifier: 1, armR: 'up', mouth: 'o', dy: 1, bang: 1, bangX: OX + 1 }] },
-  oops: { label: 'Clawd says oops: a tool failed', face: '(x_x)!', fd: 0.35, frames: [{ eyes: 'x', mouth: 'o', bang: 1, bangX: OX + 21 }, { eyes: 'x', mouth: 'o', bang: 1, bangX: OX + 21, dy: 1 }] },
-  wand: { label: 'Clawd the wizard enhanced your draft', face: '(^_^)*', fd: 0.4, frames: [{ hat: 'wizard', wand: 1, eyes: 'happy', mouth: 'smile', armR: 'up' }, { hat: 'wizard', wand: 1, eyes: 'open', mouth: 'smile', armR: 'up', star: 1 }] },
-  hello: { label: 'Clawd waves hello', face: '(^_^)/', fd: 0.3, frames: [{ armR: 'high', mouth: 'smile', eyes: 'happy' }, { armR: 'up', mouth: 'smile', eyes: 'open' }] },
-  idea: { label: 'Clawd has an idea: the plan was approved', face: '(o_o)!', fd: 0.4, frames: [{ bulb: 1, eyes: 'open', mouth: 'smile', armR: 'up' }, { bulb: 2, eyes: 'happy', mouth: 'smile', armR: 'up' }] },
-  coffee: { label: 'Clawd drinks coffee: this turn is taking a while', face: '(-_-)c', fd: 0.5, frames: [0, 1].map(t => ({ cup: t + 1, armR: 'hold', mouth: 'smile', eyes: 'open' })) },
-  reading: { label: 'Clawd is reading files, turning pages of a book, a stack of books beside him', face: '(o_o)=', fd: 0.5, frames: [{ glasses: 1, book: 1, stack: 1, look: 'down', armL: 'hold', armR: 'hold' }, { glasses: 1, book: 1, stack: 1, look: 'down', eyes: 'blink', armL: 'hold', armR: 'hold' }, { glasses: 1, book: 2, stack: 1, look: 'down', armL: 'hold', armR: 'hold' }, { glasses: 1, book: 3, stack: 1, look: 'down', armL: 'hold', armR: 'hold' }] },
+  idle: { label: 'Clawd is relaxing in sunglasses', face: '(-_-)~', fd: 0.5, frames: [
+    { shades: 1, mouth: 'smile' },
+    { shades: 1, mouth: 'smile' },
+    { shades: 1, mouth: 'smile', armL: 'half' },
+    { shades: 1, mouth: 'o', notes: 0, armL: 'half' },
+    { shades: 1, mouth: 'o', notes: 1 },
+    { shades: 1, mouth: 'o', notes: 2, armR: 'half' },
+    { shades: 1, mouth: 'smile', glint: 1 },
+    { shades: 1, mouth: 'smile', glint: 2, spark: 1 },
+    { shades: 1, mouth: 'smirk', glint: 1, armL: 'up', spark: 2 },
+    { shades: 1, mouth: 'smile' },
+    { shades: 1, mouth: 'smile', armR: 'half' },
+    { shades: 1, mouth: 'smile' },
+  ] },
+  typing: { label: 'Clawd is typing on a laptop, chewing gum and blowing bubbles', face: '[o_o]>', fd: 0.16, frames: [0, 0, 1, 1, 2, 2, 3, 3, 3, 4, 0, 0, 0, 0, 0, 0].map((gum, i) => ({ ...T, mouth: gum === 0 ? (i % 4 < 2 ? 'focus' : 'chew') : gum === 4 ? 'o' : 'chewOpen', ...(gum === 0 ? {} : { gum }), ...(gum === 4 ? { spark: 1 } : {}), armL: i % 2 ? 'type0' : 'type1', armR: i % 2 ? 'type1' : 'type0', ...(i === 12 || i === 13 ? { armL: 'up', armR: 'type0', eyes: i === 12 ? 'half' : 'blink' } : {}) })) },
+  thinking: { label: 'Clawd is thinking', face: '(o_o)...', fd: 0.11, frames: [
+    { spinner: 0, look: 'up', armR: 'chin' },
+    { spinner: 1, look: 'up', armR: 'chin' },
+    { spinner: 2, look: 'right', armR: 'chin', brow: 'up' },
+    { spinner: 3, look: 'right', armR: 'chin', brow: 'up', armL: 'half' },
+    { spinner: 4, look: 'up', armR: 'chin', armL: 'up', mouth: 'flat' },
+    { spinner: 5, look: 'up', armR: 'chin', armL: 'up', mouth: 'flat', dots: 1 },
+    { spinner: 6, look: 'left', armR: 'chin', armL: 'up', dots: 2 },
+    { spinner: 7, look: 'left', armR: 'chin', armL: 'half', dots: 3, brow: 'worry' },
+    { spinner: 0, look: 'up', armR: 'chin', eyes: 'half', mouth: 'o' },
+    { spinner: 1, look: 'up', armR: 'chin', eyes: 'blink' },
+    { spinner: 2, look: 'right', armR: 'chin', brow: 'up', armL: 'half' },
+    { spinner: 3, look: 'up', armR: 'chin', mouth: 'smirk', dots: 1 },
+    { spinner: 4, look: 'left', armR: 'chin', brow: 'furrow', dots: 2 },
+    { spinner: 5, look: 'left', armR: 'chin', brow: 'furrow', armL: 'up', dots: 3 },
+    { spinner: 6, look: 'up', armR: 'chin', armL: 'half' },
+    { spinner: 7, look: 'up', armR: 'chin' },
+  ] },
+  bell: { label: 'Clawd rings a bell: the turn is finished', face: '(^o^)ding', fd: 0.1, frames: [0, -1, -1, 0, 1, 1, 0, -1, 0, 1].map((s, i) => ({ eyes: 'happy', mouth: 'open', armR: 'high', bell: s, notes: i, ...(i > 0 ? { armL: i % 2 ? 'up' : 'half', spark: i, ...(s !== 0 ? { lines: 'shake', lcol: 's' } : {}) } : {}) })) },
+  coins: { label: 'Clawd counts coins the saver kept', face: '($_$)', fd: 0.4, frames: [0, 1, 0, 1, 0, 1].map((t, i) => ({ eyes: 'happy', mouth: 'smile', coins: t, star: t, ...(i > 0 ? { spark: i, armL: i % 2 ? 'half' : 'up' } : {}) })) },
+  walk: { label: 'Clawd walks in to start the session', face: '(o_o)/', fd: 0.16, drift: true, frames: [
+    { mouth: 'smile' },
+    { legsUp: [2, 7], mouth: 'smile', dy: -1, armL: 'half' },
+    { mouth: 'smile', dust: 2 },
+    { mouth: 'smile', dy: -1, armR: 'half' },
+    { mouth: 'smile', lines: 'speed' },
+    { legsUp: [4, 9], mouth: 'smile', dy: -1, armR: 'half' },
+    { mouth: 'smile', dust: 2 },
+    { mouth: 'smile', dy: -1, armL: 'half' },
+  ] },
+  talk: { label: 'Clawd has something to say', face: '(o_o)"', fd: 0.22, frames: [
+    { armR: 'half', mouth: 'open' },
+    { armR: 'out', mouth: 'flat', lines: 'speak' },
+    { armR: 'half', armL: 'half', mouth: 'open' },
+    { armR: 'out', armL: 'out', mouth: 'flat', lines: 'speak' },
+    { armR: 'high', mouth: 'open', brow: 'up' },
+    { armR: 'half', armL: 'half', mouth: 'flat' },
+    { armR: 'out', armL: 'half', mouth: 'open', lines: 'speak' },
+    { armR: 'half', mouth: 'flat' },
+  ] },
+  drunk: { label: 'Clawd is tipsy and wobbly: the context is getting full', face: '(@_@)~', fd: 0.14, frames: [0, 1, 1, 2, 2, 1, 0, -1, -1, -2, -2, -1].map((dx, i) => ({ dx, eyeL: i % 4 < 2 ? 'half' : 'wide', eyeR: i % 4 < 2 ? 'wide' : 'half', blush: 1, mouth: i % 6 === 0 ? 'o' : 'smile', armR: 'hold', bottle: (i % 4 < 2 ? 1 : 2), bubbles: i, dy: i % 6 === 3 ? 1 : 0, ...(i > 0 ? { orbit: i, armL: i % 3 === 0 ? 'out' : i % 3 === 1 ? 'half' : 'up' } : {}) })) },
+  fire: { label: 'Clawd is on fire: the context is nearly full', face: '(>_<)!!', fd: 0.16, frames: [0, 1, 2, 1, 0, 1, 2, 1].map((_, i) => ({ eyes: 'wide', mouth: 'o', flame: i % 3, forehead: i, armL: i % 2 ? 'half' : 'high', armR: i % 2 ? 'high' : 'half', dy: i % 2, ...(i > 0 ? { sweatFly: 1 + (i % 3), ...(i % 2 ? { lines: 'shake', lcol: 'y' } : {}), ...(i % 4 === 2 ? { spark: i } : {}) } : {}) })) },
+  hourglass: { label: 'Clawd watches an hourglass: the prompt cache is about to expire', face: '(o_o)z', fd: 0.6, frames: [0, 1, 2, 3, 3, 2, 1, 0].map((sand, i) => ({ eyes: i === 5 ? 'blink' : 'open', look: i % 4 === 2 ? 'down' : 'right', mouth: i > 2 ? 'grim' : 'flat', armR: 'up', hourglass: 1, sand, ...(i > 0 ? { armL: i % 2 ? 'half' : 'rest' } : {}), ...(i >= 4 ? { brow: 'worry' } : {}), ...(i === 6 ? { sweatFly: 1 } : {}) })) },
+  cold: { label: 'Clawd is frozen: the prompt cache is cold', face: '(-_-)*', fd: 0.32, frames: [
+    { eyes: 'wide', look: 'left', mouth: 'chatter', snow: 1, ice: 1, armL: 'half', armR: 'half' },
+    { eyes: 'wide', look: 'right', mouth: 'chatter2', snow: 2, ice: 1, armL: 'half', armR: 'half', brow: 'worry' },
+    { eyes: 'wide', look: 'up', mouth: 'chatter', snow: 3, ice: 1, armL: 'cross', armR: 'cross', brow: 'worry' },
+    { eyes: 'wide', look: 'down', mouth: 'chatter2', snow: 4, ice: 1, armL: 'cross', armR: 'cross', brow: 'worry' },
+    { eyes: 'wide', look: 'left', mouth: 'grim', snow: 5, ice: 1, armL: 'half', armR: 'half', lines: 'shake', lcol: 'i' },
+    { eyes: 'wide', look: 'right', mouth: 'chatter', snow: 6, ice: 1, armL: 'half', armR: 'half', brow: 'worry' },
+    { eyes: 'half', look: 'down', mouth: 'chatter2', snow: 7, ice: 1, armL: 'cross', armR: 'cross' },
+    { eyes: 'wide', look: 'up', mouth: 'chatter', snow: 8, ice: 1, armL: 'cross', armR: 'cross', brow: 'worry', lines: 'shake', lcol: 'i' },
+  ].map(f => ({ pal: { c: '#8fb9d9', k: '#6d97b8', f: '#b6d5ea' }, ...f })) },
+  gauge: { label: 'Clawd checks a nearly empty gauge: today\'s allowance is almost used', face: '(o_o)!', fd: 0.35, frames: [
+    { look: 'left', eyes: 'wide', gauge: 2, bang: 1, bangX: OX + 20 },
+    { look: 'right', eyes: 'wide', gauge: 2, bang: 1, bangX: OX + 20, dy: 1, brow: 'worry' },
+    { look: 'down', eyes: 'wide', gauge: 2, bang: 1, bangX: OX + 20, dy: 0, armL: 'half', sweatFly: 1 },
+    { look: 'left', eyes: 'wide', gauge: 2, bang: 1, bangX: OX + 20, dy: 0, armL: 'up', brow: 'worry', sweatFly: 2 },
+    { look: 'right', eyes: 'half', gauge: 2, bang: 1, bangX: OX + 20, dy: 0, armL: 'half', mouth: 'grim' },
+    { look: 'up', eyes: 'wide', gauge: 2, bang: 1, bangX: OX + 20, dy: 0, lines: 'jolt' },
+  ] },
+  mad: { label: 'Clawd is angry: over today\'s allowance', face: '(`o\')', fd: 0.22, frames: [0, 1, 2, 0, 1, 2].map((t, i) => ({ pal: { c: '#e2553f', k: '#b83a29', f: '#f08a74' }, eyes: 'angry', mouth: 'grim', steam: t, armL: i % 2 ? 'high' : 'up', armR: i % 2 ? 'up' : 'high', dy: t % 2, ...(i > 0 ? { vein: 1 } : {}), ...(t % 2 === 1 ? { dust: 2, lines: 'shake', lcol: 'y' } : {}) })) },
+  sleepy: { label: 'Clawd is getting sleepy and yawns, wide awake: the 5-hour limit is nearly used', face: '(-_-)z', fd: 0.4, frames: [
+    { eyes: 'open', z: 0 },
+    { eyes: 'open', dy: 1, z: 1 },
+    { eyes: 'open', mouth: 'o', armR: 'half' },
+    { eyes: 'happy', mouth: 'yawn', armR: 'up', dy: -1, z: 1 },
+    { eyes: 'happy', mouth: 'yawn', armR: 'up', dy: -1, z: 2, tear: 1 },
+    { eyes: 'open', mouth: 'o', armR: 'half', dy: 1, tear: 1 },
+    { eyes: 'open', dy: 1, z: 1, armL: 'up' },
+    { eyes: 'half', dy: 1, armL: 'up', mouth: 'flat', z: 2 },
+    { eyes: 'half', dy: 1, mouth: 'flat' },
+    { eyes: 'open', dy: 0, z: 0, brow: 'up' },
+  ] },
+  asleep: { label: 'Clawd is asleep, collapsed on the alarm clock that is set beneath him: the 5-hour limit is reached', face: '(-.-)zZ', fd: 0.45, frames: range(8).map(t => ({ lift: 3, noLegs: 1, dy: [0, 1, 2, 1][t % 4], mask: 1, clock: '00:00', zzz: t % 4, snore: [1, 2, 3, 4, 0, 0, 0, 0][t] })) },
+  love: { label: 'Clawd hugs himself: the handoff is saved', face: '(^_^)<3', fd: 0.3, frames: range(8).map(t => ({ eyes: 'happy', mouth: 'smile', armL: 'cross', armR: 'cross', heart: t % 4, ...(t > 0 ? { spark: t } : {}), ...(t % 4 === 2 ? { blush: 1 } : {}) })) },
+  detective: { label: 'Clawd the detective found something in the repo', face: '(o_o)?!', fd: 0.5, frames: [
+    { hat: 'fedora', eyes: 'half', look: 'right', magnifier: 1, armR: 'up', mouth: 'flat', bang: 1, bangX: OX + 1 },
+    { hat: 'fedora', eyes: 'open', look: 'right', magnifier: 1, mgx: -2, armR: 'up', mouth: 'o', dy: 1, bang: 1, bangX: OX + 1 },
+    { hat: 'fedora', eyes: 'half', look: 'right', magnifier: 1, mgx: -4, armR: 'up', mouth: 'flat', brow: 'furrow', armL: 'half' },
+    { hat: 'fedora', eyes: 'open', look: 'right', magnifier: 1, mgx: -8, mgy: 1, armR: 'up', mouth: 'flat', brow: 'furrow', armL: 'half' },
+    { hat: 'fedora', eyes: 'wide', look: 'right', magnifier: 1, mgx: -8, mgy: 1, armR: 'up', mouth: 'o', brow: 'up', armL: 'half', spark: 1 },
+    { hat: 'fedora', eyes: 'half', look: 'right', magnifier: 1, mgx: -4, armR: 'up', mouth: 'smirk', brow: 'up', armL: 'up', bang: 1, bangX: OX + 1 },
+    { hat: 'fedora', eyes: 'half', look: 'left', magnifier: 1, mgx: 0, armR: 'up', mouth: 'smirk', armL: 'up', bang: 1, bangX: OX + 1 },
+    { hat: 'fedora', eyes: 'half', look: 'left', magnifier: 1, mgx: 0, armR: 'up', mouth: 'flat', brow: 'furrow', armL: 'half' },
+  ] },
+  oops: { label: 'Clawd says oops: a tool failed', face: '(x_x)!', fd: 0.35, frames: [
+    { eyes: 'x', mouth: 'o', bang: 1, bangX: OX + 21 },
+    { eyes: 'x', mouth: 'o', bang: 1, bangX: OX + 21, dy: 1, lines: 'shake' },
+    { eyes: 'x', mouth: 'o', armL: 'up', armR: 'up', sweatFly: 1, lines: 'shake' },
+    { eyes: 'x', mouth: 'o', armL: 'up', armR: 'up', sweatFly: 2, dy: 1 },
+    { eyes: 'dizzy', mouth: 'grim', armL: 'half', armR: 'half', tear: 1, brow: 'worry' },
+    { eyes: 'x', mouth: 'o', bang: 1, bangX: OX + 21, dy: 1, lines: 'shake' },
+  ] },
+  wand: { label: 'Clawd the wizard enhanced your draft', face: '(^_^)*', fd: 0.4, frames: [
+    { hat: 'wizard', wand: 1, eyes: 'happy', mouth: 'smile', armR: 'up' },
+    { hat: 'wizard', wand: 1, eyes: 'open', mouth: 'smile', armR: 'up', star: 1, spark: 1 },
+    { hat: 'wizard', wand: 1, eyes: 'happy', mouth: 'smirk', armR: 'up', armL: 'half', spark: 2 },
+    { hat: 'wizard', wand: 1, eyes: 'open', mouth: 'open', armR: 'up', armL: 'up', star: 1, spark: 3 },
+    { hat: 'wizard', wand: 1, eyes: 'happy', mouth: 'smile', armR: 'up', armL: 'half', spark: 4 },
+    { hat: 'wizard', wand: 1, eyes: 'open', mouth: 'smile', armR: 'up', star: 1, spark: 1 },
+  ] },
+  hello: { label: 'Clawd waves hello', face: '(^_^)/', fd: 0.3, frames: [
+    { armR: 'high', mouth: 'smile', eyes: 'happy' },
+    { armR: 'up', mouth: 'smile', eyes: 'open' },
+    { armR: 'high', armL: 'half', mouth: 'open', eyes: 'happy', spark: 1 },
+    { armR: 'up', armL: 'half', mouth: 'smile', eyes: 'open' },
+    { armR: 'high', armL: 'up', mouth: 'open', eyes: 'happy', spark: 2 },
+    { armR: 'up', mouth: 'smile', eyes: 'open' },
+  ] },
+  idea: { label: 'Clawd has an idea: the plan was approved', face: '(o_o)!', fd: 0.4, frames: [
+    { bulb: 1, eyes: 'open', mouth: 'smile', armR: 'up' },
+    { bulb: 2, eyes: 'happy', mouth: 'smile', armR: 'up' },
+    { bulb: 1, eyes: 'wide', mouth: 'o', armR: 'up', armL: 'half', lines: 'jolt', lineT: 0 },
+    { bulb: 2, eyes: 'happy', mouth: 'open', armR: 'up', armL: 'up', spark: 1, lines: 'jolt', lineT: 2 },
+    { bulb: 1, eyes: 'happy', mouth: 'smile', armR: 'up', armL: 'up', spark: 2 },
+    { bulb: 2, eyes: 'open', mouth: 'smirk', armR: 'up', armL: 'half', spark: 3 },
+  ] },
+  coffee: { label: 'Clawd drinks coffee: this turn is taking a while', face: '(-_-)c', fd: 0.5, frames: [
+    { cup: 1, armR: 'hold', mouth: 'smile', eyes: 'open' },
+    { cup: 2, armR: 'hold', mouth: 'smile', eyes: 'open' },
+    { cup: 1, armR: 'hold', mouth: 'o', eyes: 'half', armL: 'half' },
+    { cup: 2, armR: 'hold', mouth: 'o', eyes: 'half', armL: 'half' },
+    { cup: 1, armR: 'hold', mouth: 'smile', eyes: 'happy' },
+    { cup: 2, armR: 'hold', mouth: 'smile', eyes: 'happy', armL: 'half' },
+    { cup: 1, armR: 'hold', mouth: 'smile', eyes: 'happy', brow: 'up' },
+    { cup: 2, armR: 'hold', mouth: 'open', eyes: 'wide', brow: 'both' },
+    { cup: 1, armR: 'hold', mouth: 'open', eyes: 'wide', dx: -1, lines: 'shake', armL: 'up' },
+    { cup: 2, armR: 'hold', mouth: 'open', eyes: 'wide', dx: 1, lines: 'shake', armL: 'half' },
+    { cup: 1, armR: 'hold', mouth: 'o', eyes: 'wide', dx: -1, lines: 'shake', armL: 'up', spark: 1 },
+    { cup: 2, armR: 'hold', mouth: 'smile', eyes: 'half', dx: 1, armL: 'half' },
+  ] },
+  reading: { label: 'Clawd is reading files, turning pages of a book, a stack of books beside him', face: '(o_o)=', fd: 0.5, frames: [
+    { glasses: 1, book: 1, stack: 1, look: 'down', armL: 'hold', armR: 'hold' },
+    { glasses: 1, book: 1, stack: 1, look: 'down', eyes: 'blink', armL: 'hold', armR: 'hold' },
+    { glasses: 1, book: 2, stack: 1, look: 'down', armL: 'up', armR: 'hold', glint: 1, glintAt: 5 },
+    { glasses: 1, book: 3, stack: 1, look: 'down', armL: 'hold', armR: 'hold', brow: 'up' },
+    { glasses: 1, book: 3, stack: 1, look: 'right', armL: 'hold', armR: 'hold', brow: 'up', mouth: 'o' },
+    { glasses: 1, book: 1, stack: 1, look: 'down', armL: 'hold', armR: 'hold', mouth: 'smirk' },
+    { glasses: 1, book: 2, stack: 1, look: 'down', armL: 'up', armR: 'hold' },
+    { glasses: 1, book: 3, stack: 1, look: 'down', armL: 'hold', armR: 'hold', glint: 2, glintAt: 15, spark: 1 },
+  ] },
   creating: { label: 'Clawd, a moustache on, holds a color palette and a paintbrush and is painting a picture on an easel: Claude is writing a file', face: '(o_o)~', fd: 0.28, frames: [[0, 0], [1, 1], [1, 2], [2, 3], [3, 4], [3, 2]].map(([easel, brush]) => ({ stache: 1, palette: 1, easel, brush, armR: 'half', armL: 'half', look: 'right', eyes: 'open' })) },
-  building: { label: 'Clawd is editing code with a hammer', face: '(>_<)T', fd: 0.22, frames: [0, 1].map(t => ({ hat: 'hard', wrench: t + 1, armR: 'up', mouth: 'smile', eyes: 'open' })) },
-  browse: { label: 'Clawd is searching the web', face: '(o_o)Q', fd: 0.5, frames: [1, 2, 1, 2].map(b => ({ browser: b, glass: 1, look: 'right' })) },
-  plug: { label: 'Clawd holds an unplugged cable: a connector is offline', face: '(;_;)~', fd: 0.4, frames: [0, 1].map(t => ({ plug: t, eyes: 'sad', mouth: 'grim', armL: 'half', armR: 'half', dy: t })) },
-  dizzy: { label: 'Clawd is dizzy: the conversation is being compacted', face: '(@_@)', fd: 0.2, frames: [0, -1, 0, 1].map((dx, i) => ({ spiral: (i % 2) + 1, eyes: 'dizzy', dx, mouth: 'o' })) },
-  lab: { label: 'Clawd holds bubbling flasks: the tests passed', face: '(^_^)8', fd: 0.35, frames: [0, 1, 2].map(t => ({ flask: t + 1, mouth: 'smile', eyes: t === 1 ? 'happy' : 'open' })) },
-  hand: { label: 'Clawd holds a clipboard and a pencil and raises a hand: Claude asked you a question and waits for your answer', face: '(o_o)[]!', fd: 0.2, frames: [[1, 1], [1, 2], [2, 3], [2, 2], [3, 1], [3, 2], [3, 3], [3, 2]].map(([clipboard, bangC]) => ({ clipboard, look: 'down', mouth: 'flat', bangC })) },
-  writing: { label: 'Clawd writes it down with a quill', face: '(o_o)~', fd: 0.4, frames: [1, 2, 3, 4].map(paper => ({ glasses: 1, paper, look: 'down', mouth: 'flat' })) },
+  building: { label: 'Clawd is editing code with a hammer', face: '(>_<)T', fd: 0.2, frames: [
+    { hat: 'hard', wrench: 1, armR: 'up', mouth: 'smile', eyes: 'open' },
+    { hat: 'hard', wrench: 2, armR: 'up', mouth: 'smile', eyes: 'open', armL: 'half' },
+    { hat: 'hard', wrench: 1, armR: 'up', mouth: 'flat', eyes: 'half', armL: 'half', lines: 'hit', lcol: 'y' },
+    { hat: 'hard', wrench: 2, armR: 'up', mouth: 'smile', eyes: 'open', armL: 'half' },
+    { hat: 'hard', wrench: 1, armR: 'up', mouth: 'flat', eyes: 'half', lines: 'hit', lcol: 'y', spark: 1 },
+    { hat: 'hard', wrench: 2, armR: 'up', mouth: 'smile', eyes: 'open', armL: 'up', sweatFly: 1 },
+  ] },
+  browse: { label: 'Clawd is searching the web', face: '(o_o)Q', fd: 0.5, frames: [1, 2, 1, 2, 1, 2, 1, 2].map((b, i) => ({ browser: b, glass: 1, look: i % 4 === 3 ? 'down' : 'right', ...(i > 0 ? { armL: i % 2 ? 'half' : 'type1' } : {}), ...(i === 4 ? { brow: 'up', mouth: 'o' } : {}), ...(i === 6 ? { mouth: 'smirk' } : {}) })) },
+  plug: { label: 'Clawd holds an unplugged cable: a connector is offline', face: '(;_;)~', fd: 0.4, frames: [0, 1, 0, 1, 0, 1].map((t, i) => ({ plug: t, eyes: 'sad', mouth: 'grim', armL: 'half', armR: 'half', dy: t, ...(i > 1 ? { tear: 1 } : {}), ...(t && i > 2 ? { lines: 'shake', lcol: 'y' } : {}) })) },
+  dizzy: { label: 'Clawd is dizzy: the conversation is being compacted', face: '(@_@)', fd: 0.2, frames: [0, -1, 0, 1, 0, -1, 0, 1].map((dx, i) => ({ spiral: (i % 2) + 1, eyes: 'dizzy', dx, mouth: 'o', ...(i > 0 ? { orbit: i, armL: i % 4 < 2 ? 'half' : 'out', armR: i % 4 < 2 ? 'out' : 'half' } : {}) })) },
+  lab: { label: 'Clawd holds bubbling flasks: the tests passed', face: '(^_^)8', fd: 0.3, frames: [0, 1, 2, 3, 4, 5].map(t => ({ flask: (t % 3) + 1, mouth: 'smile', eyes: t % 3 === 1 ? 'happy' : 'open', ...(t > 0 ? { armL: t % 2 ? 'up' : 'half', armR: t % 2 ? 'half' : 'up', spark: t } : {}) })) },
+  hand: { label: 'Clawd holds a clipboard and a pencil and raises a hand: Claude asked you a question and waits for your answer', face: '(o_o)[]!', fd: 0.2, frames: [[1, 1], [1, 2], [2, 3], [2, 2], [3, 1], [3, 2], [3, 3], [3, 2]].map(([clipboard, bangC], i) => ({ clipboard, look: 'down', mouth: 'flat', bangC, ...(i % 3 === 2 ? { armL: 'half' } : {}) })) },
+  writing: { label: 'Clawd writes it down with a quill', face: '(o_o)~', fd: 0.4, frames: [1, 2, 3, 4, 4, 3].map((paper, i) => ({ glasses: 1, paper, look: 'down', mouth: 'flat', ...(i > 0 ? { armL: i % 2 ? 'half' : 'rest' } : {}), ...(i === 4 ? { mouth: 'smile', eyes: 'happy', spark: 1 } : {}) })) },
   boom: { label: 'Clawd\'s flask swells, cracks and blows up in his face: the checks failed', face: '(x_x)*', fd: 0.2, frames: [
     { beaker: 1, armR: 'up', eyes: 'open', look: 'right', mouth: 'flat' },
     { beaker: 2, armR: 'up', eyes: 'wide', look: 'right', mouth: 'o', dx: -1 },
@@ -182,6 +323,40 @@ export const MOVES: Partial<Record<string, Move>> = {
   'boom>bell': { fd: 0.16, frames: [F('boom'), { soot: 1, frizz: 1, eyes: 'half', mouth: 'grim', armL: 'half', armR: 'half' }, { eyes: 'half', mouth: 'smile', armR: 'half' }, { ...READY }, F('bell')] },
   'boom>idle': { fd: 0.16, frames: [F('boom'), { soot: 1, frizz: 1, eyes: 'half', mouth: 'grim', armL: 'half', armR: 'half' }, { eyes: 'half', mouth: 'smile' }, F('idle')] },
   'idle>boom': { fd: 0.16, frames: [F('idle'), { eyes: 'wide', mouth: 'o' }, F('boom')] },
+  // The turn ends and a status alert takes over: he lets go of the bell and slides into the alert.
+  'bell>fire': { fd: 0.14, frames: [F('bell'), { eyes: 'happy', mouth: 'smile', armR: 'half' }, { eyes: 'wide', mouth: 'o', armR: 'up' }, { eyes: 'wide', mouth: 'o', armL: 'half', armR: 'half', forehead: 0 }, F('fire')] },
+  'bell>mad': { fd: 0.14, frames: [F('bell'), { eyes: 'half', mouth: 'flat', armR: 'half' }, { eyes: 'angry', mouth: 'grim', armL: 'up', armR: 'up' }, F('mad')] },
+  'bell>gauge': { fd: 0.14, frames: [F('bell'), { eyes: 'open', look: 'left', mouth: 'smile', armR: 'half' }, { eyes: 'wide', look: 'left', bang: 1, bangX: OX + 20 }, F('gauge')] },
+  'bell>hourglass': { fd: 0.14, frames: [F('bell'), { eyes: 'open', look: 'right', mouth: 'smile', armR: 'half' }, { eyes: 'open', look: 'right', mouth: 'flat', armR: 'up' }, F('hourglass')] },
+  'bell>sleepy': { fd: 0.14, frames: [F('bell'), { eyes: 'happy', mouth: 'smile', armR: 'half' }, { eyes: 'half', mouth: 'o', armR: 'half' }, F('sleepy')] },
+  'bell>drunk': { fd: 0.14, frames: [F('bell'), { eyes: 'happy', mouth: 'smile', armR: 'half' }, { eyes: 'half', mouth: 'o', blush: 1 }, F('drunk')] },
+  'bell>coins': { fd: 0.14, frames: [F('bell'), { eyes: 'happy', mouth: 'open', armR: 'half' }, { eyes: 'wide', mouth: 'o', armR: 'half' }, F('coins')] },
+  'coins>idle': { fd: 0.14, frames: [F('coins'), { eyes: 'happy', mouth: 'smile', armL: 'half' }, F('idle')] },
+  'coins>bell': { fd: 0.14, frames: [F('coins'), { eyes: 'happy', mouth: 'smile', armL: 'half' }, { ...READY }, F('bell')] },
+  // A plan was approved: the idea, then straight to the work.
+  'hand>idea': { fd: 0.14, frames: [F('hand'), { ...BARE, look: 'up' }, { eyes: 'wide', mouth: 'o', armR: 'up' }, F('idea')] },
+  'idea>typing': { fd: 0.14, frames: [F('idea'), { eyes: 'happy', mouth: 'smile', armR: 'half' }, { look: 'down', eyes: 'half', armR: 'half' }, { ...LAPTOP }] },
+  'idea>building': { fd: 0.14, frames: [F('idea'), { eyes: 'happy', mouth: 'smile', armR: 'half' }, { hat: 'hard', look: 'down', armR: 'up', mouth: 'smile', eyes: 'open' }, F('building')] },
+  'idea>thinking': { fd: 0.14, frames: [F('idea'), { eyes: 'open', look: 'up', mouth: 'smile', armR: 'half' }, F('thinking')] },
+  'hand>reading': { fd: 0.14, frames: [F('hand'), { ...BARE, look: 'down' }, { glasses: 1, look: 'down', eyes: 'half' }, F('reading')] },
+  'hand>browse': { fd: 0.14, frames: [F('hand'), { ...BARE, look: 'right' }, { look: 'right', eyes: 'open', glass: 1 }, F('browse')] },
+  // Work moves from one kind of tool to the next.
+  'browse>reading': { fd: 0.14, frames: [F('browse'), { look: 'right', eyes: 'open', glass: 1 }, { glasses: 1, look: 'down', eyes: 'half' }, F('reading')] },
+  'reading>browse': { fd: 0.14, frames: [F('reading'), { glasses: 1, look: 'right', eyes: 'half' }, { look: 'right', eyes: 'open', glass: 1 }, F('browse')] },
+  'browse>building': { fd: 0.14, frames: [F('browse'), { look: 'right', eyes: 'open', glass: 1 }, { hat: 'hard', look: 'down', armR: 'half' }, F('building')] },
+  'building>browse': { fd: 0.14, frames: [F('building'), { hat: 'hard', look: 'right', armR: 'half' }, { look: 'right', eyes: 'open', glass: 1 }, F('browse')] },
+  'browse>thinking': { fd: 0.14, frames: [F('browse'), { look: 'right', eyes: 'open', glass: 1 }, { look: 'up', eyes: 'open' }, F('thinking')] },
+  'building>thinking': { fd: 0.14, frames: [F('building'), { hat: 'hard', look: 'down', armR: 'half' }, { look: 'up', eyes: 'open', armR: 'up' }, F('thinking')] },
+  'reading>thinking': { fd: 0.14, frames: [F('reading'), { glasses: 1, look: 'up', eyes: 'half' }, { look: 'up', eyes: 'open', armR: 'up' }, F('thinking')] },
+  'thinking>dizzy': { fd: 0.14, frames: [F('thinking'), { look: 'up', eyes: 'wide', mouth: 'o', armR: 'up' }, F('dizzy')] },
+  'dizzy>thinking': { fd: 0.14, frames: [F('dizzy'), { eyes: 'half', mouth: 'o' }, F('thinking')] },
+  'lab>building': { fd: 0.14, frames: [F('lab'), { eyes: 'happy', mouth: 'smile', armR: 'half' }, { hat: 'hard', look: 'down', armR: 'half' }, F('building')] },
+  'oops>building': { fd: 0.14, frames: [F('oops'), { eyes: 'half', mouth: 'flat', look: 'down' }, { hat: 'hard', look: 'down', armR: 'half' }, F('building')] },
+  'oops>reading': { fd: 0.14, frames: [F('oops'), { eyes: 'half', mouth: 'flat', look: 'down' }, { glasses: 1, look: 'down', eyes: 'half' }, F('reading')] },
+  'coffee>thinking': { fd: 0.14, frames: [F('coffee'), { eyes: 'open', mouth: 'smile', armR: 'half' }, { look: 'up', eyes: 'open' }, F('thinking')] },
+  'coffee>building': { fd: 0.14, frames: [F('coffee'), { eyes: 'open', mouth: 'smile', armR: 'half' }, { hat: 'hard', look: 'down', armR: 'up' }, F('building')] },
+  'coffee>reading': { fd: 0.14, frames: [F('coffee'), { eyes: 'half', mouth: 'smile', armR: 'half' }, { glasses: 1, look: 'down', eyes: 'half' }, F('reading')] },
+  'coffee>browse': { fd: 0.14, frames: [F('coffee'), { eyes: 'open', mouth: 'smile', armR: 'half' }, { look: 'right', eyes: 'open', glass: 1 }, F('browse')] },
   // The painter and the other kinds of work: the brush and the palette are put away (or fetched) by hand, the moustache is the last to go.
   'creating>building': { fd: 0.2, frames: [F('creating'), { stache: 1, palette: 1, brush: 0, look: 'down', eyes: 'open', armL: 'half', armR: 'half' }, { stache: 1, look: 'down', eyes: 'open', mouth: 'smile' }, { ...HAT }] },
   'building>creating': { fd: 0.2, frames: [{ ...HAT }, { hat: 'hard', look: 'down', armR: 'half' }, { look: 'right', eyes: 'open', mouth: 'smile' }, { stache: 1, palette: 1, brush: 0, look: 'right', eyes: 'open', armL: 'half', armR: 'half' }, F('creating')] },
@@ -266,9 +441,17 @@ const without = (p: Pose, ks: string[]): Pose => {
 /**
  * Between two frames, a prop that goes away is taken by his hand: the hand reaches it, lifts it away from where it
  * was (shown small in his hand), and the arm swings out to put it behind him, out of sight. A prop that comes is
- * fetched the other way: the arm swings out, brings it up, and it goes on. The frames on either side are
- * untouched, so a move still meets its neighbours.
+ * fetched the other way: the arm swings out, brings it up, and it goes on. One hand takes a thing off and the other
+ * puts the next on (head and two-handed things leave with the left hand, the rest with the right). The frames on
+ * either side are untouched, so a move still meets its neighbours.
  */
+/** Worn on the head or held in two hands: taken away with the left hand. Everything else is in the right one. */
+const LEFT_FIRST = ['shades', 'glasses', 'hat', 'laptop', 'book', 'stack', 'scroll', 'palette', 'paper']
+const takenBy = (k: string): 'L' | 'R' => (LEFT_FIRST.includes(k) ? 'L' : 'R')
+/** A prop's pose while it is in a hand: the arm that holds it, and which side the small drawing goes. */
+const inHand = (hand: 'L' | 'R', k: string, at: 1 | 3): Pose => ({ [hand === 'L' ? 'armL' : 'armR']: at === 1 ? 'up' : 'out', carry: k, at, carrySide: hand })
+const handUp = (hand: 'L' | 'R'): Pose => ({ [hand === 'L' ? 'armL' : 'armR']: 'up' })
+
 function stage(frames: Pose[]): Pose[] {
   const out: Pose[] = []
   frames.forEach((g, i) => {
@@ -278,17 +461,21 @@ function stage(frames: Pose[]): Pose[] {
       const gone = HELD.filter(k => f[k] !== undefined && g[k] === undefined)
       const came = HELD.filter(k => f[k] === undefined && g[k] !== undefined)
       let cur = f
+      let off: 'L' | 'R' | null = null
       if (gone.length) {
         const k = carried(gone[0]!, f)
-        out.push({ ...cur, armR: 'up' })
-        out.push({ ...without(cur, gone), armR: 'up', carry: k, at: 1 })
-        out.push({ ...without(cur, gone), armR: 'out', carry: k, at: 3 })
+        off = takenBy(gone[0]!)
+        out.push({ ...cur, ...handUp(off) })
+        out.push({ ...without(cur, gone), ...inHand(off, k, 1) })
+        out.push({ ...without(cur, gone), ...inHand(off, k, 3) })
         cur = without(cur, gone)
       }
       if (came.length) {
         const k = carried(came[0]!, g)
-        out.push({ ...cur, armR: 'out', carry: k, at: 3 })
-        out.push({ ...cur, armR: 'up', carry: k, at: 1 })
+        // One hand takes a thing off and the other puts the next one on.
+        const on: 'L' | 'R' = off ? (off === 'L' ? 'R' : 'L') : 'R'
+        out.push({ ...cur, ...inHand(on, k, 3) })
+        out.push({ ...cur, ...inHand(on, k, 1) })
       }
     }
     out.push(g)
@@ -353,6 +540,43 @@ function tinted(frames: Pose[], toCold: boolean): { fd: number; frames: Pose[] }
 }
 
 /**
+ * How each state begins: one or two poses between his neutral self and the state's first frame (what he does as it
+ * takes hold). A morph between two states with no hand-drawn move plays the way out of the first, then the way in
+ * to the second, so every pair has a move with some character and the hand-drawn ones are only the special cases.
+ */
+const ENTER: Partial<Record<StateId, Pose[]>> = {
+  typing: [{ look: 'down', eyes: 'half', mouth: 'focus' }],
+  thinking: [{ eyes: 'wide', armR: 'up', mouth: 'open' }],
+  bell: [{ eyes: 'happy', mouth: 'smile', armR: 'half' }],
+  coins: [{ eyes: 'wide', mouth: 'o', armR: 'half' }],
+  talk: [{ eyes: 'open', mouth: 'open', armR: 'half' }],
+  drunk: [{ eyes: 'half', mouth: 'o', blush: 1 }],
+  fire: [{ eyes: 'wide', mouth: 'o', armL: 'half', armR: 'half' }, { eyes: 'wide', mouth: 'o', armL: 'high', armR: 'half' }],
+  hourglass: [{ eyes: 'open', look: 'right', mouth: 'flat' }],
+  gauge: [{ eyes: 'wide', look: 'left', mouth: 'flat' }],
+  mad: [{ eyes: 'angry', mouth: 'grim' }, { eyes: 'angry', mouth: 'grim', armL: 'up', armR: 'up' }],
+  sleepy: [{ eyes: 'open', mouth: 'o', armR: 'half' }],
+  love: [{ eyes: 'happy', mouth: 'smile', armL: 'half', armR: 'half' }],
+  detective: [{ eyes: 'half', look: 'right', mouth: 'flat' }],
+  oops: [{ eyes: 'wide', mouth: 'o', armL: 'high', armR: 'high' }],
+  wand: [{ eyes: 'wide', mouth: 'o' }],
+  hello: [{ eyes: 'happy', mouth: 'smile', armR: 'up' }],
+  idea: [{ eyes: 'wide', mouth: 'o', armR: 'up' }],
+  coffee: [{ eyes: 'half', mouth: 'smile', armR: 'half' }],
+  building: [{ look: 'down', eyes: 'open', mouth: 'smile', armR: 'half' }],
+  browse: [{ look: 'right', eyes: 'open', mouth: 'flat' }],
+  plug: [{ eyes: 'sad', mouth: 'grim' }],
+  dizzy: [{ eyes: 'dizzy', mouth: 'o' }],
+  lab: [{ eyes: 'happy', mouth: 'smile', armR: 'up' }],
+  hand: [{ look: 'down', mouth: 'flat' }],
+  writing: [{ look: 'down', mouth: 'flat' }],
+  creating: [{ look: 'right', eyes: 'open', mouth: 'smile' }],
+  boom: [{ eyes: 'wide', mouth: 'o' }],
+  ship: [{ eyes: 'open', look: 'right', mouth: 'smile' }],
+}
+const leaving = (id: StateId): Pose[] => [...(ENTER[id] ?? [])].reverse()
+
+/**
  * The move between two states: the hand-drawn one when there is one, otherwise a morph. The morph drops what
  * he holds (a bare, blinking Clawd) and picks up the next thing, which works for any pair because every state
  * starts from the same neutral pose. Null only when nothing changes.
@@ -374,7 +598,7 @@ function moveOf(from: StateId, to: StateId): (Move & { w: number }) | null {
   // Reading brings a lot with it (glasses, a book, a stack of books): they come and go one at a time, not all at once.
   if (to === 'reading') return { ...paced(smooth([...first, { ...NEUTRAL }, { glasses: 1, look: 'down', eyes: 'half' }, { glasses: 1, stack: 1, look: 'down', eyes: 'half', armL: 'hold', armR: 'hold' }, b.frames[0] ?? {}]), from), w }
   if (from === 'reading') return { ...paced(smooth([...first, { glasses: 1, stack: 1, look: 'down', eyes: 'half' }, { glasses: 1, look: 'down', eyes: 'half' }, { ...NEUTRAL }, b.frames[0] ?? {}]), from), w }
-  return { ...paced(smooth([...first, { ...NEUTRAL }, b.frames[0] ?? {}]), from), w }
+  return { ...paced(smooth([...first, ...leaving(from), { ...NEUTRAL }, ...(ENTER[to] ?? []), b.frames[0] ?? {}]), from), w }
 }
 
 /** How long a move plays, in ms; 0 when nothing changes. */

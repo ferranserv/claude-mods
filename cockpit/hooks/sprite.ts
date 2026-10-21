@@ -110,6 +110,15 @@ function clawd(o) {
   };
   const ek = o.eyes || 'open';
   eye(X + 6, o.eyeL || ek, false); eye(X + 16, o.eyeR || ek, true);
+  if (o.brow) {   // eyebrows, dark, just above the eyes; 'up' lifts the right one, 'furrow' slopes both to the middle, 'both' lifts both
+    const bl = (x, y, w) => fill(x, y, w, 1, 'e');
+    if (o.brow === 'up') { bl(X + 5, Y + 1, 3); bl(X + 16, Y, 3); }
+    if (o.brow === 'both') { bl(X + 5, Y, 3); bl(X + 16, Y, 3); }
+    if (o.brow === 'furrow') { bl(X + 5, Y, 2); bl(X + 7, Y + 1, 2); bl(X + 15, Y + 1, 2); bl(X + 17, Y, 2); }
+    if (o.brow === 'worry') { bl(X + 5, Y + 1, 2); bl(X + 7, Y, 2); bl(X + 15, Y, 2); bl(X + 17, Y + 1, 2); }
+  }
+  if (o.tear) { set(X + 6, Y + 4, 'q'); set(X + 6, Y + 5, 'q'); set(X + 7, Y + 5, 'Q'); }
+  if (o.vein) { set(X + 18, Y, 'r'); set(X + 20, Y, 'r'); set(X + 19, Y + 1, 'r'); set(X + 18, Y + 2, 'r'); set(X + 20, Y + 2, 'r'); }
   if (o.blush) { fill(X + 4, Y + 5, 3, 1, 'p'); fill(X + 17, Y + 5, 3, 1, 'p'); }
   // little white mouth (the shape seen on the reference sheet)
   const mc = X + 10, my = Y + 5;
@@ -122,6 +131,8 @@ function clawd(o) {
   if (o.mouth === 'chew') fill(mc + 3, my + 1, 3, 1, 'w');   // chewing gum, closed
   if (o.mouth === 'chewOpen') { fill(mc + 3, my + 1, 3, 2, 'k'); fill(mc + 3, my + 1, 3, 1, 'w'); }   // and open   // concentrating: a very small flat line, low and off to one side, well away from the eyes
 
+  if (o.mouth === 'chatter' || o.mouth === 'chatter2') { fill(mc - 1, my, 6, 1, 'w'); fill(mc - 1, my + 1, 6, 1, 'w'); [0, 2, 4].forEach(i => set(mc - 1 + i + (o.mouth === 'chatter2' ? 1 : 0), my, 'e')); }   // teeth chattering
+  if (o.mouth === 'smirk') { fill(mc + 1, my, 4, 1, 'w'); set(mc + 5, my - 1, 'w'); }
   if (o.mouth === 'grim') { fill(mc, my, 4, 1, 'w'); set(mc - 1, my + 1, 'w'); set(mc + 4, my + 1, 'w'); }
   if (o.gum) {   // bubble gum from the mouth: it swells (1 to 3) and pops (4), pink with a darker rim and a glint
     const gx = X + 15, gy = Y + 7, g = o.gum;
@@ -196,9 +207,9 @@ function clawd(o) {
     fill(hx, Y, 6, 2, 'w'); set(hx + 2, Y + 1, 'v'); set(hx + 4, Y, 'v'); fill(hx - 2, Y, 2, 2, 'f');
   }
   if (o.magnifier) {
-    const mx = X + 22, my2 = Y - 3;
+    const mx = X + 22 + (o.mgx || 0), my2 = Y - 3 + (o.mgy || 0);
     fill(mx + 1, my2, 5, 1, 'g'); fill(mx + 1, my2 + 6, 5, 1, 'g'); fill(mx, my2 + 1, 1, 5, 'g'); fill(mx + 6, my2 + 1, 1, 5, 'g'); fill(mx + 1, my2 + 1, 5, 5, 'i');
-    set(mx + 2, my2 + 2, 'w'); set(mx + 3, my2 + 2, 'w'); set(mx + 2, my2 + 3, 'w');
+    if ((o.mgx || 0) <= -8) { fill(mx + 2, my2 + 2, 3, 3, 'e'); set(mx + 2, my2 + 2, 'w'); } else { set(mx + 2, my2 + 2, 'w'); set(mx + 3, my2 + 2, 'w'); set(mx + 2, my2 + 3, 'w'); }   // up close his eye is big behind the glass
     for (let i = 0; i < 4; i++) fill(mx + 1 - i, my2 + 7 + i, 2, 1, 'X');
   }
   if (o.wand) { for (let i = 0; i < 7; i++) fill(X + 21 + i, Y + 5 - i, 2, 1, i < 6 ? 'w' : 'w'); px(PAT.STAR, X + 24, Y - 7, 's'); }
@@ -259,7 +270,11 @@ function clawd(o) {
   if (o.star) { px(PAT.STAR, X - 4, Y - 6, 's'); px(PAT.STAR, X + 23, Y - 4, 's'); }
   if (o.flame !== undefined) { const f = PAT.FLAME[o.flame], g2 = PAT.FLAME[(o.flame + 1) % 3]; px(f, X - 3, F - 7, 'r'); px(g2, X + 3, F - 6, 'y'); px(f, X + 9, F - 7, 'r'); px(g2, X + 15, F - 6, 'y'); px(f, X + 21, F - 7, 'r'); [[X + 5, Y - 3], [X + 18, Y - 2], [X + 11, Y - 5]].forEach(([x, y], i) => set(x, y - (o.flame + i) % 3, i % 2 ? 'y' : 'r')); }
   if (o.steam !== undefined) { const t = o.steam; [[6, 2], [11, 0], [16, 2]].forEach(([x, , ], i) => fill(X + x, Y - 4 - ((t + i) % 3) * 2, 2, 2, 'v')); }
-  if (o.snow) { const t = o.snow - 1; px(PAT.FLAKE, X + 23 - (t % 2), Y - 6 + t * 3, 'i'); px(PAT.FLAKE, X - 4 + (t % 2), Y - 1 + ((t + 1) % 3) * 3, 'i'); set(X + 20, Y - 3 + ((t + 2) % 3) * 4, 'i'); set(X + 1, Y - 2 + ((t + 1) % 3) * 4, 'i'); }
+  if (o.snow) {   // flakes fall down the far edges and over his head, never near his hands
+    const t = o.snow;
+    [[0, 0], [31, 5], [0, 11], [31, 16]].forEach(([x0, off]) => { const y = (t * 3 + off) % 22; stamp(['#.#', '.#.', '#.#'], x0, y, 'i'); set(x0 + 1, y + 1, 'w'); });
+    [[9, 0], [15, 4], [22, 2], [18, 6]].forEach(([x, off]) => set(x, (t * 2 + off) % 7, 'w'));
+  }
   if (o.ice) { fill(X - 1, F - 1, 26, 4, 'i'); fill(X - 1, F - 1, 26, 1, 'w'); fill(X + 1, F + 3, 22, 1, 'Q'); for (const x of [X + 1, X + 8, X + 15, X + 21]) { fill(x, F - 3, 2, 2, 'i'); } }
   if (o.sweat !== undefined) px(['.#.', '###', '###'], X + 22, Y + 1 + o.sweat, 'q');
   if (o.gauge !== undefined) { fill(X + 6, Y - 7, 12, 4, 'g'); fill(X + 7, Y - 6, 10, 2, 'd'); fill(X + 7, Y - 6, o.gauge, 2, 'r'); }
@@ -317,8 +332,32 @@ function clawd(o) {
     const pf = (x, y, c) => { cs(x, y, c); cs(x + 1, y, c); cs(x, y + 1, c); cs(x + 1, y + 1, c); };
     pf(X + 10, py(n), 'M'); if (n >= 2) pf(X + 13, py(n - 1) - 2, 'g'); if (n >= 3) pf(X + 8, py(n - 2) - 3, 'L');
   }
+  // ---- comic effects: sparkles, motion and impact lines, orbiting stars, dust, ellipsis
+  if (o.snore) { const n = o.snore, sx = X + 22, sy = Y + 5; if (n === 1) fill(sx, sy, 2, 2, 'v'); if (n === 2) { fill(sx, sy - 1, 4, 4, 'v'); fill(sx + 1, sy, 2, 2, 'i'); } if (n === 3) { fill(sx, sy - 3, 6, 6, 'v'); fill(sx + 1, sy - 2, 4, 4, 'i'); set(sx + 1, sy - 2, 'w'); } if (n === 4) { [[0, -3], [5, -2], [5, 3], [0, 3], [-1, 0]].forEach(([dx, dy]) => set(sx + dx, sy + dy, 'v')); } }
+  if (o.spark) {   // four twinkles around him, each growing and shrinking out of step
+    [[1, 3], [30, 2], [31, 15], [2, 13]].forEach(([cx0, cy0], i) => {
+      const sz = (o.spark + i) % 4;
+      if (sz === 1) set(cx0, cy0, 'w');
+      if (sz === 2) { set(cx0, cy0, 'w'); [[-1, 0], [1, 0], [0, -1], [0, 1]].forEach(([dx, dy]) => set(cx0 + dx, cy0 + dy, 's')); }
+      if (sz === 3) { set(cx0, cy0, 'w'); [[-1, 0], [1, 0], [0, -1], [0, 1]].forEach(([dx, dy]) => set(cx0 + dx, cy0 + dy, 'w')); }
+    });
+  }
+  if (o.glint) { const gx = X + (o.glintAt ?? 17), gy = Y + 2; set(gx, gy, 'w'); if (o.glint > 1) [[-1, 0], [1, 0], [0, -1], [0, 1]].forEach(([dx, dy]) => set(gx + dx, gy + dy, 'w')); }
+  if (o.lines) {   // comic strokes: shake (little ticks at both sides of the head), hit (an impact burst at the right), speed (streaks behind him), speak (ticks by his mouth)
+    const c = o.lcol || 'w', t = o.lineT || 0, L = (pts) => pts.forEach(([x, y]) => set(x, y, c));
+    if (o.lines === 'shake') L([[X - 2, Y], [X - 3, Y + 1], [X - 2, Y + 3], [X - 3, Y + 4], [X + 25, Y], [X + 26, Y + 1], [X + 25, Y + 3], [X + 26, Y + 4]]);
+    if (o.lines === 'hit') L([[X + 21, Y - 6], [X + 21, Y - 7], [X + 24, Y - 6], [X + 25, Y - 8], [X + 28, Y - 5], [X + 28, Y - 3]]);
+    if (o.lines === 'speed') L([[X - 5, Y + 3], [X - 4, Y + 3], [X - 3, Y + 3], [X - 4, Y + 6], [X - 3, Y + 6], [X - 2, Y + 6], [X - 5, Y + 9], [X - 4, Y + 9]]);
+    if (o.lines === 'speak') L([[X + 26, Y + 2], [X + 27, Y + 1], [X + 26, Y + 4], [X + 27, Y + 4], [X + 26, Y + 6], [X + 27, Y + 7]]);
+    if (o.lines === 'jolt') L([[X + 26, Y - 3 + t], [X + 27, Y - 2 + t], [X + 26, Y - 1 + t], [X + 27, Y + t], [X + 26, Y + 1 + t]]);   // a zig-zag
+  }
+  if (o.orbit !== undefined) { const P = [[-8, -1], [-4, -4], [4, -4], [8, -1]]; [0, 1, 2].forEach(i => { const [dx, dy] = P[(o.orbit + i) % 4]; set(X + 12 + dx, Y - 4 + dy + 2, i === 0 ? 'w' : 's'); set(X + 13 + dx, Y - 4 + dy + 2, 's'); }); }
+  if (o.dots) { for (let i = 0; i < Math.min(3, o.dots); i++) fill(X + i * 4, Y - 5, 2, 2, 'v'); }
+  if (o.dust) { const n = o.dust, fy = F - 2; [[X + 1, 0], [X + 24, 1]].forEach(([dx, d], i) => { const r = Math.min(3, n); fill(dx - (i ? -r : r), fy, 2, 2, 'v'); if (r > 1) set(dx - (i ? -r - 1 : r + 1), fy + 1, 'w'); }); }
+  if (o.sweatFly) { const n = o.sweatFly; [[-1, -1], [1, -1]].forEach(([sx], i) => { const x = X + 12 + sx * (6 + n * 2), y = Y - n * 2; set(x, y, 'q'); set(x + sx, y + 1, 'q'); }); }
   if (o.carry) {   // the prop in his hand: at 1 above the raised hand, at 3 just under the arm that swings out to put it behind him
-    const [cxo, cyo] = o.at === 3 ? [X + 22, Y + 7] : [X + 19, Y - 5];
+    const left = o.carrySide === 'L';   // the left hand: the same two spots, mirrored
+    const [cxo, cyo] = left ? (o.at === 3 ? [X - 3, Y + 7] : [X - 1, Y - 5]) : o.at === 3 ? [X + 22, Y + 7] : [X + 19, Y - 5];
     stamp(MINI[o.carry] || MINI.thing, cxo, cyo, 'g');
   }
   if (o.clock) {   // under him, inside the normal canvas: he sits raised (lift) and the alarm clock is below. Drawn clipped, so it can rise into view from the bottom edge
