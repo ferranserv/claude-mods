@@ -598,19 +598,25 @@ test('a failed tool is an oops, a passing test run is the lab, an approved plan 
   expect(await altOf($)).toContain('idea')
 })
 
-test('a permission prompt raises a hand until the call runs', async ($, on) => {
+test('a permission prompt raises a hand until the asked call ends; other calls and queries do not move it', async ($, on) => {
   const w = world(on)
   on('tool.check', () => ({ decision: 'ask' }) as never)
   on('tool.call', ok)
   await started($)
   await w.clock.advance(6000)
-  await ($ as unknown as Do).tool.check({ tool: 'Bash', input: { command: 'rm -rf x' } })
+  const d = $ as unknown as Do
+  await d.tool.check({ tool: 'Bash', input: { command: 'ls' } }) // a query: nothing will run, nobody is asked
+  await w.clock.advance(6000)
+  expect(await altOf($)).not.toContain('clipboard')
+  await d.tool.check({ tool: 'Bash', input: { command: 'rm -rf x' }, tool_use_id: 'a' } as never)
   expect(await altOf($)).not.toContain('clipboard') // an ask settled at once by a rule shows nothing
   await w.clock.advance(4000)
   expect(await altOf($)).not.toContain('clipboard') // still inside the 5 s it takes to be sure
   await w.clock.advance(1100)
   expect(await altOf($)).toContain('clipboard')
-  await ($ as unknown as Do).tool.call({ tool: 'Bash', command: 'ls' })
+  await d.tool.call({ tool: 'Read', file_path: '/x/a.ts', tool_use_id: 'b' } as never) // a parallel call ends: the question is still open
+  expect(await altOf($)).toContain('clipboard')
+  await d.tool.call({ tool: 'Bash', command: 'ls', tool_use_id: 'a' } as never) // the asked call has run and ended
   expect(await altOf($)).not.toContain('clipboard')
 })
 

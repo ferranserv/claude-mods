@@ -60,7 +60,7 @@ Checked against the code (0.11.0). "Resets by itself" means no new measurement o
 
 | State | Ends when |
 | --- | --- |
-| hand (clipboard, "!") | the tool starts (approved), the turn starts or ends. The bubble goes with it at once |
+| hand (clipboard, "!") | the asked call ends, the next model request starts, or the turn ends. Only a real call counts (a `$.tool.check` query has no `tool_use_id`). The engine gives no "approved" signal, so a call you approved that keeps running keeps the hand until it ends. The bubble goes with it at once |
 | writing | the handoff or enhance finishes, or the `/handoff` turn ends |
 | oops, bell, lab, love, idea, wand, coins, plug | after 5 s (plug 6 s) |
 | dizzy | the compaction ends |

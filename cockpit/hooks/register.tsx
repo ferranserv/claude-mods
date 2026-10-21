@@ -140,7 +140,8 @@ const mood = {
   resetAt: 0, // the next limit reset a redraw is already booked for
   lastSaid: null as string | null, // what the bubble said last, so it can fade out in the same drawing
   draftTurn: false, // the turn is a /handoff: Claude writes the brief as text, with no tool to show it
-  askAt: 0, // when a permission ask was seen; it only counts if the call has not started a moment later
+  askAt: 0, // when a permission ask was seen; it only counts if nothing has moved on a moment later
+  askId: '', // the call that ask is for: only that call starting running again, or ending, settles it
   drawn: null as { id: StateId; since: number } | null, // what is on screen, and since when
   move: null as { from: StateId; to: StateId } | null, // the state he left, so the drawing can play the move into the one he is in
 }
@@ -174,7 +175,7 @@ async function flash($: EngineInterface, id: Fleet): Promise<void> {
   poke($, FLEET_MS[id])
 }
 
-type ToolInput = { tool?: string; file_path?: string; notebook_path?: string; pattern?: string; command?: string }
+type ToolInput = { tool?: string; tool_use_id?: string; file_path?: string; notebook_path?: string; pattern?: string; command?: string }
 const TEST_COMMAND = /\b(pytest|vitest|jest|mocha|rspec|phpunit|ctest|go test|cargo test|npm (run )?test|pnpm (run )?test|yarn test|bun test|deno test|dotnet test|make (test|check)|mvn( \S+)* test|gradlew? (\S+ )*test|node --test|unittest|tox|nox|plugin test)\b/i
 const baseName = (p: string) => p.replace(/\\/g, '/').split('/').filter(Boolean).pop() ?? ''
 
@@ -189,8 +190,6 @@ function toolKind(tool: string): ToolKind | null {
 function toolStarts($: EngineInterface, input: ToolInput): void {
   const tool = String(input.tool ?? '')
   mood.hasTool = true
-  mood.waiting = false
-  mood.askAt = 0
   const kind = toolKind(tool)
   if (kind) {
     mood.tool = { kind, until: Number.MAX_SAFE_INTEGER }
@@ -203,6 +202,13 @@ function toolStarts($: EngineInterface, input: ToolInput): void {
 async function toolEnds($: EngineInterface, input: ToolInput, r: { isError?: boolean } | undefined): Promise<void> {
   const tool = String(input.tool ?? '')
   const now = await $.clock.now()
+  // tool.call wraps the permission prompt, so a call is "starting" before it is asked and running only after: the end of
+  // the asked call is the first moment it is certainly settled. Another call ending (parallel calls) settles nothing.
+  if (mood.askId !== '' && (input.tool_use_id === undefined || input.tool_use_id === mood.askId)) {
+    mood.waiting = false
+    mood.askAt = 0
+    mood.askId = ''
+  }
   if (mood.tool) {
     mood.tool = { kind: mood.tool.kind, until: now + TOOL_LINGER_MS }
     poke($, TOOL_LINGER_MS)
@@ -1324,6 +1330,7 @@ export const register: Register = (on, options) => {
       mood.draftTurn = false
       mood.waiting = false
       mood.askAt = 0
+      mood.askId = ''
       mood.tool = null
       mood.compacting = false
       if (hasSound && e.reason !== 'aborted') await chime($)
@@ -1383,6 +1390,7 @@ export const register: Register = (on, options) => {
 
     mood.waiting = false
     mood.askAt = 0
+    mood.askId = ''
     const before = await read($, cache)
     const startedAt = await $.clock.now()
     // The request is going out: whatever was cached is read now, which restarts the whole window.
@@ -1486,10 +1494,12 @@ export const register: Register = (on, options) => {
   // A permission prompt is about to be put to the person: Clawd raises a hand until the call runs or the turn moves on.
   on('tool.check', async ($, e, next) => {
     const r = await next(e)
-    if (r.decision === 'ask') {
+    // A query (another plugin's $.tool.check) has no tool_use_id: nothing will run and nobody is asked, so it never counts.
+    if (r.decision === 'ask' && e.tool_use_id !== undefined) {
       // An ask is often settled by a rule or the mode before anyone is shown a prompt: only one still open after a moment counts.
       const at = await $.clock.now()
       mood.askAt = at
+      mood.askId = e.tool_use_id
       $.clock.after(askMs, () => {
         if (mood.askAt === at) {
           mood.waiting = true
