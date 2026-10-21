@@ -84,3 +84,19 @@ Report anything off in plain words ("the palm tree overlaps", "no animation", "a
 | 51 | Look at the wand and click it | Stick, a gap, then a sparkle and a small one apart; clickable; enhances the draft | |
 | 52 | Run tests: `npm test`, `bun test`, `dotnet test`, `make test`, `pytest` | The flasks (lab) when they pass | |
 
+## 0.10.0 additions
+
+| # | Do | Expect | OK? |
+|---|---|---|---|
+| 53 | `What is 2+2?` from idle | You see the sunglasses (small) in his hand: lifted off his face, raised above the hand, then swung out behind him. At the bell the bell goes the same way and the sunglasses come back from behind him | |
+| 54 | Read a file, then edit one | Glasses, hard hat, laptop, book: each carried by hand, not just vanishing | |
+| 55 | Any bubble (a failed tool, "Done.") | Soft dim behind it with no hard line at the left or the bottom; it grows into place with a little overshoot and shrinks away | |
+| 56 | Bubble with a button (context warning or cold cache, band collapsed) | The button is inside the bubble, dark with light text, labelled `Handoff` (no H, no arrow); clicking it works | |
+| 57 | Let a turn finish while that bubble is open | "Done." does not replace it; he stays in the warning pose (does not go back to idle) until you click or send something else | |
+| 58 | Look at the alert rows, Hide, OK and preflight buttons | Grey pills, plain labels, no hotkey badge, clickable | |
+| 59 | `/cockpit demo sleepy` | Awake: eyes open, yawn with eyes squeezed, small Zs | |
+| 60 | Reach the 5-hour limit, or `/cockpit demo asleep` | From the previous state: the alarm clock rises under him and pushes him up, he hops, his legs fold away, he slumps onto it, mask and Zs. No legs while asleep | |
+| 61 | Raise a permission prompt | A red "!" above him with the clipboard | |
+| 62 | `/cockpit demo detective` | He has a mouth | |
+| 63 | Click the wand slightly off its centre | Still clicks (the area is 3 columns now) | |
+

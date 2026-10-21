@@ -19,6 +19,8 @@ import {
   clockText,
   C,
   cockpitSvg,
+  pillCols,
+  pillSvg,
   learnWindow,
   line,
   model,
@@ -132,7 +134,7 @@ const mood = {
   demo: null as { id: StateId; until: number } | null,
   demoRun: 0,
   writing: false, // a handoff brief or an enhanced draft is being written
-  sticky: null as Bubble | null, // a bubble that asks for a decision stays until you click its button or send something else
+  sticky: null as { bubble: Bubble; state: StateId } | null, // a bubble that asks for a decision stays until you click its button or send something else
   linger: null as { bubble: Bubble; until: number } | null, // any other bubble stays a while after its state ends
   lastSaid: null as string | null, // what the bubble said last, so it can fade out in the same drawing
   draftTurn: false, // the turn is a /handoff: Claude writes the brief as text, with no tool to show it
@@ -877,8 +879,10 @@ async function snapshot($: EngineInterface, propsWorking: boolean): Promise<Snap
           hasTool: mood.hasTool,
         })
   // A state stays on screen at least HOLD_MS, unless one that is more important comes along (a raised hand never waits).
+  // While a bubble waits for a decision, an idle Clawd stays in the pose that goes with it (cold, on fire...), not back to idle.
+  const wanted: StateId = !isDemo && mood.sticky && (picked === 'idle' || picked === 'talk') ? mood.sticky.state : picked
   const shown = mood.drawn
-  const state: StateId = !isDemo && shown && shown.id !== picked && shown.id !== 'hand' && now - shown.since < HOLD_MS && rank(picked) >= rank(shown.id) ? shown.id : picked
+  const state: StateId = !isDemo && shown && shown.id !== wanted && shown.id !== 'hand' && now - shown.since < HOLD_MS && rank(wanted) >= rank(shown.id) ? shown.id : wanted
   if (!mood.drawn || mood.drawn.id !== state) {
     mood.move = mood.drawn ? { from: mood.drawn.id, to: state } : null
     mood.drawn = { id: state, since: now }
@@ -904,10 +908,11 @@ async function snapshot($: EngineInterface, propsWorking: boolean): Promise<Snap
   if (state === 'hand') {
     mood.linger = null
   } else {
-    if (bubble?.action) mood.sticky = bubble
+    if (bubble?.action) mood.sticky = { bubble, state }
     if (bubble && (!mood.linger || mood.linger.bubble.text !== bubble.text)) $.clock.after(BUBBLE_LINGER_MS + 80, () => $.ui.invalidate('ui.render'))
     if (bubble) mood.linger = { bubble, until: now + BUBBLE_LINGER_MS }
-    else speech = mood.sticky ?? (mood.linger && mood.linger.until > now ? mood.linger.bubble : null)
+    if (bubble && !bubble.action && mood.sticky) speech = mood.sticky.bubble // a pending decision is not pushed aside by a passing message
+    else if (!bubble) speech = mood.sticky ? mood.sticky.bubble : mood.linger && mood.linger.until > now ? mood.linger.bubble : null
   }
   return {
     m,
@@ -947,13 +952,34 @@ async function setView($: EngineInterface, value: 'open' | 'close' | 'auto'): Pr
   await $.store.set('pinnedOpen', value === 'open')
 }
 
-type Comps = { Box: never; Text: never; Button: never }
+type Comps = { Box: never; Text: never; Button: never; Svg?: never }
 const el = (type: unknown, props: Record<string, unknown>, ...children: unknown[]) => h(type as never, props as never, ...(children as never[])) as never
 
 /** One alert: its words and the buttons that answer it. Handoff and fresh wait while Claude works. */
-/** A button in the cockpit gray with dark text: the same color as the speech bubble, whatever the app's own button style is. */
+const NBSP = '\u00A0'
+
+/**
+ * A button in the cockpit gray with dark text, the same as the speech bubble, whatever the app's own button style is.
+ * On the desktop it is a drawing (pillSvg) with the real, plain button laid over it, one non-breaking space per column
+ * so it has the size of the drawing; on the terminal it is text. A leading symbol of the label is dropped: it says what it does.
+ */
 function pill(c: Comps, label: string, props: Record<string, unknown>) {
-  return el(c.Button, { plain: true, ...props }, el(c.Text, { color: '#1b1a19', backgroundColor: C.gray }, ` ${label} `))
+  const text = label.replace(/^[^\p{L}\p{N}]+/u, '')
+  if (c.Svg) {
+    const { key, ...rest } = props
+    const art = pillSvg(text)
+    return el(c.Box, { key: `${String(key)}-pill`, position: 'relative' }, el(c.Svg, { key: 'art', source: art.source, alt: text, width: art.width, height: art.height }), el(c.Box, { key: 'hit', position: 'absolute', top: 0, left: 0 }, el(c.Button, { key, plain: true, ...rest }, NBSP.repeat(art.cols))))
+  }
+  return el(c.Button, { plain: true, ...props }, el(c.Text, { color: '#1b1a19', backgroundColor: C.gray }, ` ${text} `))
+}
+
+/** What each answer to a warning is called, and what pressing it does. */
+const ACTION_LABELS: Record<string, string> = { handoff: 'Handoff', copy: 'Copy brief', fresh: 'Fresh', saverOn: 'Saver on' }
+function runAction(id: ActionId, fx: Fx): void {
+  if (id === 'handoff') fx.handoff('full')
+  else if (id === 'copy') fx.handoff('brief')
+  else if (id === 'fresh') fx.fresh()
+  else fx.saver(true)
 }
 
 /** Pressing a button, or sending something else, is the decision a bubble was waiting for. */
@@ -964,14 +990,11 @@ function dismissBubble(): void {
 
 /** One action button; `short` is the compact label used in Clawd's speech bubble. */
 function actionButton(id: ActionId, c: Comps, fx: Fx, short: boolean) {
-  const go = (run: () => void) => () => {
+  const go = () => {
     if (short) dismissBubble()
-    run()
+    runAction(id, fx)
   }
-  if (id === 'handoff') return pill(c, '➜ Handoff', { key: 'handoff', hotkey: 'h', onPress: go(() => fx.handoff('full')) })
-  if (id === 'copy') return pill(c, '❐ Copy brief', { key: 'copy', hotkey: 'c', onPress: go(() => fx.handoff('brief')) })
-  if (id === 'fresh') return pill(c, '↺ Fresh', { key: 'fresh', hotkey: 'n', onPress: go(() => fx.fresh()) })
-  return pill(c, '⚡ Saver on', { key: 'saver', onPress: go(() => fx.saver(true)) })
+  return pill(c, ACTION_LABELS[id] ?? id, { key: id === 'saverOn' ? 'saver' : id, onPress: go })
 }
 
 /** One alert: its words and the buttons that answer it. Handoff and fresh wait while Claude works. */
@@ -1055,7 +1078,7 @@ function controls(s: Snap, c: Comps, fx: Fx, onToggle: () => void, Svg: unknown 
       // A Button cannot hold a drawing: the flat white wand is an Svg, with a plain button of blank text laid over it.
       const wand = wandSvg(!s.enh.hasDraft)
       items.push(
-        el(c.Box, { key: 'enhance-wrap', position: 'relative' }, el(Svg as never, { key: 'wand', source: wand.source, alt: 'Enhance my draft', width: wand.width, height: wand.height }), el(c.Box, { key: 'wand-hit', position: 'absolute', top: 0, left: 0 }, el(c.Button, { key: 'enhance', plain: true, onPress: () => fx.enhance() }, '\u00A0\u00A0')), tip(tipText)),
+        el(c.Box, { key: 'enhance-wrap', position: 'relative' }, el(Svg as never, { key: 'wand', source: wand.source, alt: 'Enhance my draft', width: wand.width, height: wand.height }), el(c.Box, { key: 'wand-hit', position: 'absolute', top: 0, left: 0 }, el(c.Button, { key: 'enhance', plain: true, onPress: () => fx.enhance() }, '\u00A0\u00A0\u00A0')), tip(tipText)),
       )
     } else items.push(el(c.Box, { key: 'enhance-wrap' }, el(c.Button, { key: 'enhance', dimColor: !s.enh.hasDraft, onPress: () => fx.enhance() }, el(c.Text, { color: 'white' }, WAND)), tip(tipText)))
   }
@@ -1643,8 +1666,8 @@ export const register: Register = (on, options) => {
     // A collapse only holds while the alert level stays where it was; once calm, forget it.
     if (s.attention === 0 && (await read($, snooze)) !== 0) $.clock.after(0, () => void update($, snooze, () => 0))
 
-    const { Box, Text, Button } = $.ui.resolve(e)
-    const c = { Box, Text, Button } as unknown as Comps
+    const { Box, Text, Button, Svg: Draw } = $.ui.resolve(e)
+    const c = { Box, Text, Button, Svg: e.surface === 'terminal' ? undefined : Draw } as unknown as Comps
     const fx = makeFx($)
     const onToggle = () => void toggle($, s.isOpen, s.attention)
 
@@ -1658,11 +1681,12 @@ export const register: Register = (on, options) => {
       const said = speaks && s.bubble ? s.bubble.text : null
       if (said) mood.lastSaid = said
       // When it has nothing to say it fades out of the same drawing (invisible) instead of being redrawn away.
-      const speech = said ? { text: said, phase: 'in' as const } : mood.lastSaid ? { text: mood.lastSaid, phase: 'out' as const } : null
-      const svg = cockpitSvg(Math.max(300, bandWidth(e.props.bodyColumns) - 90), s.m, s.mascot, speech)
       const act = speaks && s.bubble?.action && !(s.isWorking && s.bubble.action !== 'saverOn') ? s.bubble.action : null
-      // The button sits beside the bubble, laid over the row (a column is about 8 px).
-      const beside = act ? [el(c.Box, { key: 'bubble', position: 'absolute', top: Math.max(0, Math.round((svg.bubbleY + 13) / 18 - 0.5)), left: Math.round(svg.bubbleEnd / 8) + 1 }, actionButton(act, c, fx, true))] : []
+      const speech = said ? { text: said, phase: 'in' as const, button: act ? (ACTION_LABELS[act] ?? act) : null } : mood.lastSaid ? { text: mood.lastSaid, phase: 'out' as const } : null
+      const svg = cockpitSvg(Math.max(300, bandWidth(e.props.bodyColumns) - 90), s.m, s.mascot, speech)
+      // The button is drawn inside the bubble; the real one is laid over it (a column is about 8 px, a row about 18).
+      const bb = svg.buttonBox
+      const beside = act && bb ? [el(c.Box, { key: 'bubble', position: 'absolute', top: Math.max(0, Math.round((bb.y + 9) / 18 - 0.5)), left: Math.round(bb.x / 8) }, el(c.Button, { key: act === 'saverOn' ? 'saver' : act, plain: true, onPress: () => { dismissBubble(); runAction(act, fx) } }, NBSP.repeat(pillCols(ACTION_LABELS[act] ?? act))))] : []
       // An interactive Svg is drawn in a frame of its own: give it its real size, or the frame is far taller than the drawing.
       row = el(c.Box, { key: 'row', position: 'relative', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, el(Svg, { key: 'svg', source: svg.source, alt: `${STATES[s.state].label}. ${said ? `${said}. ` : ''}${altText(s.m)}`, isInteractive: true, width: svg.width, height: svg.height }), controls(s, c, fx, onToggle, Svg), ...beside)
     }
@@ -1673,8 +1697,8 @@ export const register: Register = (on, options) => {
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const s = await snapshot($, false)
-    const { Box, Text, Button } = $.ui.resolve(e)
-    const c = { Box, Text, Button } as unknown as Comps
+    const { Box, Text, Button, Svg: Draw } = $.ui.resolve(e)
+    const c = { Box, Text, Button, Svg: e.surface === 'terminal' ? undefined : Draw } as unknown as Comps
     const fx = makeFx($)
     const rows = details({ ...s, isOpen: true }, c, fx, e.surface)
     if (e.surface === 'terminal') {

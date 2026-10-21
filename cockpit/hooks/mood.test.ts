@@ -183,6 +183,38 @@ describe('the moves between states', () => {
       expect(m.frames.slice(1, -1).some(f => f.eyes === 'blink' || (f.eyes !== undefined && f.eyes !== 'open' && f.eyes !== 'half')), `${key} blink or an expressive look in the middle`).toBe(true)
     }
   })
+  test('a prop that goes is carried in his hand and put behind him; one that comes is fetched the same way', () => {
+    const gone = moveFrames('idle', 'thinking')!.frames
+    const carried = gone.filter(f => f.carry === 'shades')
+    expect(carried.length).toBeGreaterThanOrEqual(2) // lifted in his hand, then swung out behind him
+    expect(carried.some(f => f.at === 1 && f.armR === 'up')).toBe(true)
+    expect(carried.some(f => f.at === 3 && f.armR === 'out')).toBe(true)
+    expect(carried.every(f => f.shades === undefined)).toBe(true) // it is in his hand, no longer on his face
+    const came = moveFrames('bell', 'idle')!.frames
+    expect(came.some(f => f.carry === 'shades' && f.at === 3 && f.armR === 'out')).toBe(true) // fetched from behind him
+    expect(came.some(f => f.carry === 'bell')).toBe(true) // and the bell was put away first
+  })
+  test('going to bed: the clock rises and pushes him up, he hops, his legs fold away and he slumps onto it', () => {
+    const f = moveFrames('sleepy', 'asleep')!.frames
+    const rise = f.filter(x => x.clockY !== undefined)
+    expect(rise.length).toBeGreaterThanOrEqual(3)
+    expect(rise.map(x => x.clockY)).toEqual([...rise.map(x => x.clockY)].sort((a, b) => b - a)) // it only goes up
+    expect(f.some(x => x.dy === -1 && x.lift === 3)).toBe(true) // the hop
+    expect(f.some(x => x.noLegs === 1 && (x.dy ?? 0) >= 1)).toBe(true) // collapsed on it
+    expect(f[f.length - 1]!.mask).toBe(1) // and asleep, mask on
+    expect(STATES.asleep.frames.every(x => x.noLegs === 1)).toBe(true)
+  })
+  test('sleepy yawns wide awake (eyes open between yawns), asking nothing of the zzz', () => {
+    const fr = STATES.sleepy.frames
+    expect(fr.some(x => x.mouth === 'yawn' && x.eyes === 'happy')).toBe(true)
+    expect(fr.filter(x => x.eyes === 'open').length).toBeGreaterThanOrEqual(3)
+    expect(fr.some(x => x.eyes === 'blink')).toBe(false)
+    expect(fr.some(x => x.z !== undefined)).toBe(true)
+  })
+  test('the raised hand has an exclamation mark, and the detective a mouth', () => {
+    expect(STATES.hand.frames.every(x => x.bang === 1)).toBe(true)
+    expect(STATES.detective.frames.every(x => x.mouth !== undefined)).toBe(true)
+  })
   test('a pair without a hand-drawn move gets a morph; staying put gets nothing', () => {
     expect(moveMs('idle', 'asleep')).toBeGreaterThan(0)
     expect(moveMarkup('idle', 'asleep')).not.toBeNull()

@@ -423,21 +423,40 @@ export function wandSvg(dim: boolean): { source: string; width: number; height: 
 }
 
 const BUBBLE_H = 26
-/** How wide the speech bubble is for this text, in px. */
-export const bubbleWidth = (text: string): number => Math.min(420, Math.max(60, Math.round(text.length * 7 + 24)))
+const BTN_H = 18
+/** How wide a button drawn as a pill is, in whole terminal columns (the click area is laid over it in columns of 8 px). */
+export const pillCols = (label: string): number => Math.ceil((label.length * 7 + 18) / 8)
+
+/** One button as a drawing: the cockpit gray with dark text and stepped pixel corners. The real, clickable button is laid over it. */
+export function pillSvg(label: string): { source: string; width: number; height: number; cols: number } {
+  const cols = pillCols(label)
+  const w = cols * 8
+  const h = BTN_H
+  const r = (x: number, y: number, rw: number, rh: number) => `<rect x="${x}" y="${y}" width="${rw}" height="${rh}" fill="${C.gray}"/>`
+  const out = `${r(2, 0, w - 4, h)}${r(0, 2, w, h - 4)}<text x="${w / 2}" y="${h / 2 + 4}" text-anchor="middle" font-size="11" font-weight="400" fill="#1b1a19">${esc(label)}</text>`
+  return { source: wrapSvg(w, h, out), width: w, height: h, cols }
+}
+
+/** How wide the speech bubble is for this text (and the button inside it, if any), in px. */
+const bubbleWidth = (text: string, button: string | null, room: number): number =>
+  Math.min(Math.max(60, room), Math.max(60, Math.round(text.length * 7 + 24 + (button ? pillCols(button) * 8 + 12 : 0))))
 
 /**
- * Clawd's speech bubble in pixels, drawn inside the band at its foot, so it covers only the small print under the
- * meters and the band never grows: the cockpit gray inside, a dark stepped border, a tail pointing left to Clawd,
- * regular text. What is behind it is dimmed in a feathered halo so the bubble stands out. It slides and fades in
- * (phase in) or out (phase out: it stays in the drawing, invisible, so leaving takes no second redraw).
+ * Clawd's speech bubble in pixels, drawn inside the band at its foot, over the small print and not the meters, so the
+ * band never grows: the cockpit gray inside, a dark stepped border, a tail pointing left to Clawd, regular text, and
+ * its button drawn inside it at the right. What is behind it is dimmed by a radial fade (no edges to cut off). It
+ * materializes (grows with a small overshoot and fades in) or, leaving, shrinks and fades; leaving stays in the
+ * drawing, invisible, so it takes no second redraw. (bx, by) is its top left.
  */
-function bubbleOut(text: string, bx: number, by: number, w: number, phase: 'in' | 'out'): string {
+function bubbleOut(text: string, bx: number, by: number, w: number, phase: 'in' | 'out', button: string | null): string {
   const h = BUBBLE_H
+  const cx = bx + Math.round(w / 2)
+  const cy = by + h / 2
   const r = (x: number, y: number, rw: number, rh: number, c: string) => `<rect x="${x}" y="${y}" width="${rw}" height="${rh}" fill="${c}"/>`
   const D = '#0b0705'
   const G = C.gray
-  const halo = [12, 9, 6, 3].map(g => `<rect x="${bx - 6 - g}" y="${by - g}" width="${w + 6 + g * 2}" height="${h + g * 2}" rx="${g + 4}" fill="#000" fill-opacity="0.17"/>`).join('')
+  const bw = button ? pillCols(button) * 8 : 0
+  const textMid = button ? bx + Math.round((w - bw - 6) / 2) : bx + Math.round(w / 2)
   const art = [
     r(bx + 2, by, w - 4, h, D), r(bx, by + 2, w, h - 4, D), // the border: a block with its corners stepped
     r(bx + 4, by + 2, w - 8, h - 4, G), r(bx + 2, by + 4, w - 4, h - 8, G), // the inside, stepped the same way
@@ -445,12 +464,17 @@ function bubbleOut(text: string, bx: number, by: number, w: number, phase: 'in' 
     r(bx - 2, by + 8, 2, 10, D), r(bx - 2, by + 10, 2, 6, G),
     r(bx - 4, by + 10, 2, 6, D), r(bx - 4, by + 12, 2, 2, G),
     r(bx - 6, by + 12, 2, 2, D),
-    `<text x="${bx + Math.round(w / 2)}" y="${by + h / 2 + 4}" text-anchor="middle" font-size="12" font-weight="400" fill="#1b1a19">${esc(text)}</text>`,
+    `<text x="${textMid}" y="${by + h / 2 + 4}" text-anchor="middle" font-size="12" font-weight="400" fill="#1b1a19">${esc(text)}</text>`,
+    button ? `${r(bx + w - bw - 6 + 2, by + 4, bw - 4, BTN_H, '#2b2a28')}${r(bx + w - bw - 6, by + 6, bw, BTN_H - 4, '#2b2a28')}<text x="${bx + w - bw / 2 - 6}" y="${by + 4 + BTN_H / 2 + 4}" text-anchor="middle" font-size="11" font-weight="400" fill="#ece8e1">${esc(button)}</text>` : '',
   ].join('')
-  const move = phase === 'in' ? ['0', '-10 0', '0 0'] : ['1', '0 0', '-10 0']
+  const id = 'bdim'
+  const dim = `<defs><radialGradient id="${id}"><stop offset="0" stop-color="#000" stop-opacity="0.6"/><stop offset="0.55" stop-color="#000" stop-opacity="0.35"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient></defs><ellipse cx="${cx - 4}" cy="${cy}" rx="${w / 2 + 34}" ry="${h / 2 + 14}" fill="url(#${id})"/>`
+  const dur = phase === 'in' ? '0.26' : '0.3'
+  const scale = phase === 'in' ? 'values="0.55;1.06;1" keyTimes="0;0.65;1"' : 'values="1;0.82" keyTimes="0;1"'
   const fade = phase === 'in' ? ['0', '1'] : ['1', '0']
-  const anim = `<animate attributeName="opacity" from="${fade[0]}" to="${fade[1]}" dur="${phase === 'in' ? '0.22' : '0.3'}s" fill="freeze"/><animateTransform attributeName="transform" type="translate" from="${move[1]}" to="${move[2]}" dur="${phase === 'in' ? '0.22' : '0.3'}s" fill="freeze"/>`
-  return `<g${phase === 'out' ? ' opacity="0"' : ''}>${anim}${halo}${art}</g>`
+  const anim = `<animate attributeName="opacity" from="${fade[0]}" to="${fade[1]}" dur="${dur}s" fill="freeze"/>`
+  const grow = `<animateTransform attributeName="transform" type="scale" ${scale} dur="${dur}s" fill="freeze"/>`
+  return `<g transform="translate(${cx} ${cy})"${phase === 'out' ? ' opacity="0"' : ''}>${anim}<g>${grow}<g transform="translate(${-cx} ${-cy})">${dim}${art}</g></g></g>`
 }
 
 /** One slim band: the meters side by side, a few lines tall. */
@@ -535,9 +559,10 @@ export function bandSvg(width: number, m: Model): { source: string; width: numbe
 export const MIN_ROW = 46
 
 /** The whole cockpit drawing: the mascot on the left (if any), the meters beside it. */
-export type SpeechBubble = { text: string; phase: 'in' | 'out' }
+export type SpeechBubble = { text: string; phase: 'in' | 'out'; button?: string | null }
+export type Rect = { x: number; y: number; w: number; h: number }
 
-export function cockpitSvg(width: number, m: Model, mascot: { markup: string; width: number; height: number }, bubble: SpeechBubble | null = null): { source: string; width: number; height: number; bubbleEnd: number; bubbleY: number } {
+export function cockpitSvg(width: number, m: Model, mascot: { markup: string; width: number; height: number }, bubble: SpeechBubble | null = null): { source: string; width: number; height: number; bubbleBox: Rect | null; buttonBox: Rect | null } {
   const gap = mascot.width > 0 ? 12 : 0
   const bodyW = Math.max(200, width - mascot.width - gap)
   const body = bandBody(bodyW, m)
@@ -546,18 +571,22 @@ export function cockpitSvg(width: number, m: Model, mascot: { markup: string; wi
   const top = Math.max(0, Math.round((height - body.height) / 2) - 3)
   const mascotY = Math.round((height - mascot.height) / 2)
   let out = `<g transform="translate(0 ${mascotY})">${mascot.markup}</g><g transform="translate(${mascot.width + gap} ${top})">${body.out}</g>`
-  // A speech bubble sits at the foot of the band, over the small print and not the meters; the room for the action button beside it is left out of its width.
-  let bubbleEnd = 0
-  let bubbleY = 0
+  let bubbleBox: Rect | null = null
+  let buttonBox: Rect | null = null
   if (bubble) {
+    const button = bubble.phase === 'in' ? (bubble.button ?? null) : null
     const bx = mascot.width + gap + 6
-    const w = Math.min(bubbleWidth(bubble.text), Math.max(60, bodyW - 150))
-    // Below the bars (a meter row is label at 11, bar to 24), so only the small print is covered.
-    bubbleY = Math.min(height - BUBBLE_H, Math.max(top + 28, height - BUBBLE_H - 4))
-    out += bubbleOut(bubble.text, bx, bubbleY, w, bubble.phase)
-    bubbleEnd = bx + w
+    const w = bubbleWidth(bubble.text, button, bodyW - 40)
+    // Below the bars (a meter row is label at 11, bar to 24), so only the small print is covered, and clear of the bottom edge.
+    const by = Math.min(height - BUBBLE_H - 6, Math.max(top + 28, height - BUBBLE_H - 8))
+    out += bubbleOut(bubble.text, bx, Math.max(0, by), w, bubble.phase, button)
+    bubbleBox = { x: bx, y: Math.max(0, by), w, h: BUBBLE_H }
+    if (button) {
+      const bw = pillCols(button) * 8
+      buttonBox = { x: bx + w - bw - 6, y: Math.max(0, by) + 4, w: bw, h: BTN_H }
+    }
   }
-  return { source: wrapSvg(mascot.width + gap + bodyW, height, out), width: mascot.width + gap + bodyW, height, bubbleEnd, bubbleY }
+  return { source: wrapSvg(mascot.width + gap + bodyW, height, out), width: mascot.width + gap + bodyW, height, bubbleBox, buttonBox }
 }
 
 /** A hairline with room above and below it, to set one band apart from the next. */
