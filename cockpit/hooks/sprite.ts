@@ -129,7 +129,6 @@ function clawd(o) {
   if (o.hat === 'hard') { fill(X + 4, Y - 3, 16, 3, 'E'); fill(X + 7, Y - 4, 10, 1, 'E'); fill(X + 2, Y, 20, 1, 'D'); fill(X + 11, Y - 4, 2, 4, 'D'); }
   if (o.hat === 'fedora') { fill(X + 6, Y - 4, 12, 4, 'X'); fill(X + 6, Y - 1, 12, 1, 'B'); fill(X + 2, Y, 20, 1, 'X'); set(X + 7, Y - 5, 'X'); fill(X + 8, Y - 5, 8, 1, 'X'); }
   if (o.hat === 'wizard') { fill(X + 3, Y, 18, 1, 'N'); fill(X + 6, Y - 1, 12, 1, 'n'); fill(X + 7, Y - 2, 10, 1, 'n'); fill(X + 8, Y - 3, 8, 1, 'n'); fill(X + 9, Y - 4, 6, 1, 'n'); fill(X + 10, Y - 5, 4, 1, 'n'); fill(X + 11, Y - 6, 3, 1, 'n'); fill(X + 12, Y - 7, 2, 1, 'n'); set(X + 14, Y - 7, 'n'); set(X + 15, Y - 6, 'n'); set(X + 9, Y - 2, 's'); set(X + 13, Y - 4, 's'); set(X + 11, Y - 1, 's'); fill(X + 6, Y - 1, 12, 1, 'N'); }
-  if (o.hat === 'beret') { fill(X + 4, Y - 2, 15, 2, 'P'); fill(X + 6, Y - 3, 11, 1, 'P'); fill(X + 8, Y - 4, 7, 1, 'P'); fill(X + 11, Y - 5, 2, 1, 'N'); fill(X + 4, Y, 17, 1, 'h'); }
   // ---- hand props
   if (o.coat) {
     if (!o.armL || o.armL === 'rest') fill(X, Y + 4, 4, 4, 'w'); if (!o.armR || o.armR === 'rest') fill(X + 20, Y + 4, 4, 4, 'w'); fill(X + 4, Y + 4, 16, 8, 'w'); fill(X + 4, Y + 11, 16, 1, 'v');
@@ -139,17 +138,17 @@ function clawd(o) {
   if (o.flask) { const t = o.flask, one = (fx, fy, liquid) => { fill(fx + 2, fy, 3, 3, 'i'); fill(fx + 1, fy + 3, 5, 1, 'i'); fill(fx, fy + 4, 7, 3, 'i'); fill(fx + 1, fy + 5, 5, 3, liquid); fill(fx + 2, fy + 8, 3, 1, liquid); fill(fx + 1, fy + 3, 1, 4, 'v'); set(fx + 3 - (t % 2), fy - 1 - t % 3, liquid); set(fx + 4, fy - 3 + (t % 2), liquid); set(fx + 2, fy + 5, 'w'); set(fx + 4, fy + 6, 'w'); }; one(X + 22, Y - 3, 'l'); one(X - 5, Y - 3, 'h'); }
   if (o.tubes) { const tx = X - 4; for (let i = 0; i < 3; i++) { fill(tx + i * 3, Y + 6, 2, 7, 'i'); fill(tx + i * 3, Y + 9 - (i % 2), 2, 4 + (i % 2), ['q', 'h', 'y'][i]); } fill(tx - 1, Y + 13, 9, 1, 'X'); }
   if (o.laptop) { fill(X + 3, OYv + 11, 18, 8, 'L'); fill(X + 3, OYv + 11, 18, 1, 'M'); fill(X + 11, OYv + 14, 2, 2, 'M'); }
-  if (o.canvas !== undefined) {   // a painting in front of him, coming together: sky, hill, sun, a flower (0 to 3)
-    const cx = X + 3, cy = OYv + 10, p = o.canvas;
-    fill(cx, cy, 18, 9, 'X'); fill(cx + 1, cy + 1, 16, 7, 'o');
-    if (p >= 1) fill(cx + 1, cy + 1, 16, 3, 'q');
-    if (p >= 2) { fill(cx + 1, cy + 5, 9, 3, 'l'); fill(cx + 1, cy + 4, 5, 1, 'l'); }
-    if (p >= 3) { fill(cx + 12, cy + 2, 3, 3, 's'); set(cx + 8, cy + 5, 'h'); set(cx + 8, cy + 4, 'G'); }
+  if (o.palette) {   // a painter's palette in his left hand: a wooden kidney shape with a thumb hole and four blobs of paint
+    const px0 = X - 3, py0 = Y + 6;
+    stamp(['.KKKKK.', 'KKKKKKK', 'KKKKKKK', 'KKKKKK.', '.KKKKK.', '..TTT..'], px0, py0, 'K');
+    set(px0 + 1, py0 + 1, 'h'); set(px0 + 3, py0 + 1, 'q'); set(px0 + 5, py0 + 1, 'l'); set(px0 + 5, py0 + 3, 's'); set(px0 + 2, py0 + 3, 'P');
+    set(px0 + 2, py0 + 2, 'f'); set(px0 + 3, py0 + 2, 'f');   // the thumb through the hole
+    for (let i = 0; i < 7; i++) set(px0 + i, py0 + 5, i > 1 && i < 5 ? 'T' : null);
   }
-  if (o.brush !== undefined) {   // the brush from his raised hand to a stroke on the canvas
-    const tips = [[X + 6, OYv + 12], [X + 10, OYv + 13], [X + 14, OYv + 12], [X + 16, OYv + 14], [X + 8, OYv + 15]], [tx, ty] = tips[o.brush % tips.length], hx = X + 21, hy = Y + 6;
+  if (o.brush !== undefined) {   // the paintbrush in his right hand: it dips into the palette, then strokes the air
+    const tips = [[X + 14, Y + 10], [X + 8, Y + 8], [X + 4, Y + 9], [X + 12, Y + 8], [X + 18, Y + 6]], [tx, ty] = tips[o.brush % tips.length], hx = X + 22, hy = Y + 6;
     const n = Math.max(Math.abs(tx - hx), Math.abs(ty - hy));
-    for (let i = 0; i <= n; i++) set(Math.round(hx + ((tx - hx) * i) / n), Math.round(hy + ((ty - hy) * i) / n), i >= n - 1 ? ['h', 'q', 'l', 's', 'P'][o.brush % 5] : 'x');
+    for (let i = 0; i <= n; i++) set(Math.round(hx + ((tx - hx) * i) / n), Math.round(hy + ((ty - hy) * i) / n), i >= n - 1 ? ['h', 'q', 'l', 's', 'P'][o.brush % 5] : i >= n - 3 ? 'g' : 'x');
   }
   if (o.bell !== undefined) {
     const s2 = o.bell, bx = X + 23 + s2;

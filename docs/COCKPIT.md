@@ -134,5 +134,5 @@ From the owner's testing of 0.15.0.
 
 ## 0.17.0: a painter, and the cockpit under a question
 
-- New pose `creating` (31 states): Clawd in a beret and a curled moustache paints a picture while the model is writing a file (the "Creating 11.3k tokens" stretch). Signal: the model's own stream in `turn.step` (a `tool` chunk for Write, Edit, MultiEdit or NotebookEdit, then the first `input` pieces name the file: bubble "Creating new_module.py"); the stream is passed on untouched. When the tool runs the hammer takes over at once (creating, building, reading and browse follow each other without the 5 s hold).
+- New pose `creating` (31 states): Clawd with a curled moustache, a color palette in one hand and a paintbrush in the other, paints while the model is writing a file (the "Creating 11.3k tokens" stretch). Signal: the model's own stream in `turn.step` (a `tool` chunk for Write, Edit, MultiEdit or NotebookEdit, then the first `input` pieces name the file: bubble "Creating new_module.py"); the stream is passed on untouched. When the tool runs the hammer takes over at once (creating, building, reading and browse follow each other without the 5 s hold).
 - The cockpit no longer yields to a survey or to a question from Claude (`hasSurvey`): it stays under it, and Clawd raises his hand for the question.

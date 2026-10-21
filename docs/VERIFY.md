@@ -152,5 +152,5 @@ Report anything off in plain words ("the palm tree overlaps", "no animation", "a
 | 93 | Let Claude edit a file, then finish | The bubble says "Editing x" only while he is the builder; when he changes pose the words are deleted | |
 | 94 | Permission prompt vs. a question (AskUserQuestion) | The raised hand with the bobbing "!" only for the question | |
 
-| 95 | Ask Claude to write a long new file | Clawd paints (beret, moustache, a canvas filling in) with the bubble "Creating <file>"; the hammer when the tool runs | |
+| 95 | Ask Claude to write a long new file | Clawd paints (moustache, a palette in one hand, a brush in the other) with the bubble "Creating <file>"; the hammer when the tool runs | |
 | 96 | Let Claude ask you a question (AskUserQuestion) | The cockpit stays under the question; Clawd raises his hand with the bobbing "!" | |

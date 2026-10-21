@@ -50,4 +50,4 @@ SVG per frame set, frames swapped by SMIL (`animate` on opacity, `isInteractive:
 - Frozen flakes move; drunk and hourglass start from the neutral pose.
 - Meters: collapsed and open are the same drawing; 5-hour shows "Resets at HH:MM (in ...)", weekly "usage % and difference"; context and cache add a subtitle only near their warning. Narrow windows use short labels.
 
-- 0.17.0: `creating` (a beret, a curled moustache, a canvas that fills in with sky, hill, sun and a flower, a brush from the raised hand); 31 states.
+- 0.17.0: `creating` (a curled moustache and no hat, a color palette with four blobs of paint in the left hand, a paintbrush in the right that dips into the palette and strokes the air with the color of each blob); 31 states.
