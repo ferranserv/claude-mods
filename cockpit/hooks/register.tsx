@@ -34,8 +34,8 @@ import {
   windowMinutes,
 } from './lib'
 import type { ActionId, Alert, Model, Thresholds } from './lib'
-import { COFFEE_AFTER_MS, FLEET_MS, HOLD_MS, START_MS, TOOL_LINGER_MS, bubbleFor, clockOf, hoverHint, pickState, rank } from './mood'
-import type { Bubble, Fleet, ToolKind } from './mood'
+import { COFFEE_AFTER_MS, FLEET_MS, HOLD_MS, START_MS, TOOL_LINGER_MS, bubbleFor, clockOf, hoverHint, isAlert, nextShift, pickState, rank } from './mood'
+import type { Bubble, Fleet, MoodInput, ToolKind } from './mood'
 import {
   WRITE_TOOLS,
   advise,
@@ -133,6 +133,9 @@ const mood = {
   isFirstPrompt: true,
   busySince: 0,
   hasTool: false,
+  offline: false, // a connector failed to connect and is still down
+  coinsDue: false, // the saver routed during this turn: the coins play after the bell, not over the work
+  shiftAt: 0, // when the next timed change of pose (coffee, the next alert) is already booked
   demo: null as { id: StateId; until: number; single: boolean } | null, // single: the only state of the demo; one with a button then stays until you answer it
   demoRun: 0,
   writing: false, // a handoff brief or an enhanced draft is being written
@@ -194,6 +197,10 @@ async function tell($: EngineInterface, text: string, detail = text): Promise<vo
 }
 
 async function flash($: EngineInterface, id: Fleet): Promise<void> {
+  if (id === 'coins' && (await read($, isBusy))) {
+    mood.coinsDue = true
+    return
+  }
   mood.fleet[id] = (await $.clock.now()) + FLEET_MS[id]
   poke($, FLEET_MS[id])
 }
@@ -1011,35 +1018,40 @@ async function snapshot($: EngineInterface, propsWorking: boolean): Promise<Snap
   mood.dismissed = mood.dismissed.filter(id => alerts.some(a => a.id === id)) // a warning that ended may speak again when it returns
   if (mood.sticky?.bubble.alertId !== undefined && !alerts.some(a => a.id === mood.sticky?.bubble.alertId)) mood.sticky = null
   const isDemo = mood.demo !== null && mood.demo.until > now
-  const picked: StateId =
-    mood.demo && mood.demo.until > now
-      ? mood.demo.id
-      : pickState({
-          now,
-          waiting: mood.waiting,
-          writing: mood.writing || (mood.draftTurn && isWorking && !mood.tool),
-          fleet: mood.fleet,
-          compacting: mood.compacting,
-          tool: mood.tool,
-          walkUntil: mood.walkUntil,
-          helloUntil: mood.helloUntil,
-          ctx: m.ctx.level,
-          cache: m.cache?.view.state ?? 'unknown',
-          fiveUsed: m.five.used,
-          weekRoom,
-          hasAdvice: rows.length > 0,
-          hasNote: note !== null,
-          busy: isWorking,
-          busyMs: mood.busySince > 0 ? now - mood.busySince : 0,
-          hasTool: mood.hasTool,
-        })
+  const moodInput: MoodInput = {
+    now,
+    waiting: mood.waiting,
+    writing: mood.writing || (mood.draftTurn && isWorking && !mood.tool),
+    fleet: mood.fleet,
+    compacting: mood.compacting,
+    tool: mood.tool,
+    walkUntil: mood.walkUntil,
+    helloUntil: mood.helloUntil,
+    ctx: m.ctx.level,
+    cache: m.cache?.view.state ?? 'unknown',
+    fiveUsed: m.five.used,
+    weekRoom,
+    hasAdvice: rows.length > 0,
+    hasNote: note !== null,
+    busy: isWorking,
+    busyMs: mood.busySince > 0 ? now - mood.busySince : 0,
+    hasTool: mood.hasTool,
+    offline: mood.offline,
+  }
+  const picked: StateId = mood.demo && mood.demo.until > now ? mood.demo.id : pickState(moodInput)
+  // Coffee comes and goes while he works, and the status alerts take turns when he is done: book a redraw for the next change.
+  const shift = nextShift(moodInput)
+  if (shift !== null && now + shift !== mood.shiftAt) {
+    mood.shiftAt = now + shift
+    $.clock.after(shift + 60, () => $.ui.invalidate('ui.render'))
+  }
   // A state stays on screen at least HOLD_MS, unless one that is more important comes along (a raised hand never waits).
   // While a bubble waits for a decision, an idle Clawd stays in the pose that goes with it (cold, on fire...), not back to idle.
   const wanted: StateId = !isDemo && mood.sticky && (picked === 'idle' || picked === 'talk') ? mood.sticky.state : picked
   const shown = mood.drawn
   // Painting a file and then hammering it (or reading, then browsing) is one piece of work: those follow each other at once.
   const isWork = (id: StateId) => id === 'creating' || id === 'building' || id === 'reading' || id === 'browse'
-  const state: StateId = !isDemo && shown && shown.id !== wanted && shown.id !== 'hand' && now - shown.since < HOLD_MS && rank(wanted) >= rank(shown.id) && !(isWork(wanted) && isWork(shown.id)) ? shown.id : wanted
+  const state: StateId = !isDemo && shown && shown.id !== wanted && shown.id !== 'hand' && now - shown.since < HOLD_MS && rank(wanted) >= rank(shown.id) && !(isWorking && isAlert(shown.id)) && !(isWork(wanted) && isWork(shown.id)) ? shown.id : wanted
   if (!mood.drawn || mood.drawn.id !== state) {
     mood.move = mood.drawn ? { from: mood.drawn.id, to: state } : null
     mood.drawn = { id: state, since: now }
@@ -1529,6 +1541,14 @@ export const register: Register = (on, options) => {
       if (hasSound && e.reason !== 'aborted') await chime($)
       if (e.reason !== 'aborted') await safe(() => flash($, 'bell'))
       else poke($)
+      if (mood.coinsDue) {
+        mood.coinsDue = false
+        await safe(async () => {
+          await flash($, 'coins')
+          if (e.reason !== 'aborted') mood.fleet.coins = (mood.fleet.bell ?? 0) + FLEET_MS.coins // after the bell
+          poke($, FLEET_MS.bell + FLEET_MS.coins)
+        })
+      }
     }
     await safe(() => beat($, 'idle'))
     void refresh($)
@@ -1739,7 +1759,10 @@ export const register: Register = (on, options) => {
   on('mcp.connect', async ($, e, next) => {
     const r = await next(e)
     const v = 'value' in r ? r.value : undefined
-    if (v && v.isConnected === false && v.reason === 'failed') await safe(() => flash($, 'plug'))
+    if (v && v.isConnected === false && v.reason === 'failed') {
+      mood.offline = true
+      await safe(() => flash($, 'plug'))
+    } else if (v && v.isConnected === true) mood.offline = false
     return r
   }).catch(($, e, next) => next(e))
 

@@ -19,8 +19,13 @@ Cockpit signals
 Tool and session scenarios (added by Claude; owner pre-approved)
 - hello (first message) | idea: floating glowing lightbulb, not touching him (plan ready) | coffee break: coffee visible in the cup, no sparks (turn over 2 min) | reading: glasses and scroll (Read, Grep, Glob) | building: hard hat and hammer (Edit, Write) | browsing: browser window and magnifying glass (WebSearch, WebFetch) | unplugged (MCP or network down) | dizzy: swirl (compacting) | lab: lab coat, bubbling flask, test tubes (tests passed) | reviewed: glasses and check (review clean) | needs your approval: raised hand (permission prompt)
 
-## Priority (owner's rule: a state that lasts less outranks one that lasts longer, because the other returns)
-Implemented in `hooks/mood.ts` (header comment) and tested in `hooks/mood.test.ts`. Highest first: raised hand (clipboard and pencil); writing (glasses, quill and paper: Claude is writing into your prompt box);  fleeting events (oops, bell, lab, love, idea, wizard, coins, unplugged); dizzy and the tool at work (building, reading, browsing); walk, hello; lasting warnings (asleep, mad, on fire, detective, frozen, hourglass, gauge low, tipsy, sleepy); background (coffee, typing, thinking, talk, idle). Cache states apply only while idle.
+## Hierarchy (0.21.0)
+Implemented in `hooks/mood.ts` (header comment), tested in `hooks/mood.test.ts` and `hooks/behavior.test.tsx`. Three levels, so the account's general state never talks over the task:
+1. **Needs you now**: hand (permission prompt), writing, idea (a plan waits for approval).
+2. **The task, while Claude works**: oops, lab, plug (events of the task), dizzy (compacting), then creating, building, reading, browse (the tool that runs), then typing or thinking. Coffee comes after 7 minutes of work, shows 6 s every 40 s and goes back to the work. Session events (walk, hello) and the owner's own actions (love, wand) play 5 s when they happen and are not kept.
+3. **When the turn is over**: bell, then coins (the saver kept money; deferred from mid-turn to just after the bell), then a notice (talk), then the **status alerts, in turns of 6 s, worst first**: asleep, mad, fire, gauge, sleepy, drunk, cold, hourglass, detective, plug (a connector still down). One alert stays; none left is idle.
+
+While a turn runs no status alert is shown, not even asleep (5-hour limit reached): owner's choice. Their bubbles and buttons go with the pose, so they wait too. A bubble with a button belongs to its pose: when the rotation moves on, the bubble goes with it (the warning stays in the meters). The hold rule (5 s minimum) does not keep an alert on screen once a turn starts.
 
 ## Canvas and bubble
 Canvas 34 x 28 px, drawn at 2x (68 x 56). Every state is checked by the sheet for pixels outside the canvas (red tag, none now). The speech bubble is drawn in the band at its foot, over the small print and not the meters (so the band never grows), in the cockpit grey with a dark stepped border, a tail to Clawd and a feathered dim behind it; it slides and fades in and out. A bubble with a button stays until you click it or send something else; the others stay about 9 s after their state ends; the raised hand goes the moment you answer.
@@ -54,3 +59,5 @@ SVG per frame set, frames swapped by SMIL (`animate` on opacity, `isInteractive:
 - 0.18.0: `creating` redrawn as a clear painter (handlebar moustache, palette, brush, an easel with a canvas that fills in); `typing` has a concentration mouth (`focus`).
 - 0.18.2: hand-drawn moves painter <-> builder and painter <-> typing; the brush and the palette are carried props (small in his hand while put away or fetched).
 - 0.19.0: `typing` chews gum and blows pink bubbles (gum 1 to 3, pop 4; mouths `chew` and `chewOpen`); the painter's moustache is two rows clear of the eyes.
+
+- 0.21.0: pose hierarchy (task / needs you / status alerts); alerts hidden while Claude works and rotating when it is over; coffee at 7 min, cycling with the task; idea ranks with the raised hand; coins after the bell; plug stays as an alert while a connector is down.

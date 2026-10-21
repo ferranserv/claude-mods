@@ -725,21 +725,21 @@ test('a bubble goes with its pose: "Done." is said while the bell rings and is d
   await settle($, w, 100)
   expect(await altOf($)).not.toContain('Done.') // no bubble about what he is no longer doing
 })
-test('a finished turn rings the bell over a warning, then the warning returns', async ($, on) => {
+test('a warning waits while Claude works; the bell rings when the turn ends, then the warning returns', async ($, on) => {
   const w = world(on)
   on('turn.complete', (_, e) => ({ text: e.answer }) as never)
   await started($)
   await w.clock.advance(6000)
   await measureCtx($, 90)
   await ($ as unknown as Do).turn.start({ text: 'go', turnId: 't1' })
-  expect(await altOf($, true)).toContain('on fire')
+  expect(await altOf($, true)).toContain('thinking') // the context warning is not shown over the work
   await ($ as unknown as Do).turn.complete({ reason: 'answer', answer: 'x', durationMs: 5, isAborted: false, turnId: 't1' })
   expect(await altOf($)).toContain('rings a bell')
   await w.clock.advance(5000)
   expect(await altOf($)).toContain('on fire')
 })
 
-test('thinking before any tool, typing after, coffee when the turn drags on', async ($, on) => {
+test('thinking before any tool, typing after, coffee after seven minutes of work, for a few seconds at a time', async ($, on) => {
   const w = world(on)
   on('tool.call', ok)
   await started($)
@@ -751,7 +751,11 @@ test('thinking before any tool, typing after, coffee when the turn drags on', as
   await w.clock.advance(2000)
   expect(await altOf($, true)).toContain('typing')
   await w.clock.advance(125_000)
+  expect(await altOf($, true)).toContain('typing') // two minutes in: still no coffee
+  await w.clock.advance(295_000)
   expect(await altOf($, true)).toContain('coffee')
+  await w.clock.advance(10_000)
+  expect(await altOf($, true)).toContain('typing') // and back to the work
 })
 
 test('/cockpit demo shows a state you ask for, and says when it does not know one', async ($, on) => {

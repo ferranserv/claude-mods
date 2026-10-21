@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'claude-code/testing'
 
-import { COFFEE_AFTER_MS, bubbleFor, clockOf, pickState } from './mood'
+import { COFFEE_AFTER_MS, COFFEE_CYCLE_MS, COFFEE_SHOW_MS, ROTATE_MS, activeAlerts, bubbleFor, clockOf, isAlert, nextShift, pickState } from './mood'
 import type { BubbleInput, MoodInput } from './mood'
 import type { StateId } from './states'
 import { MOVES, STATES, STATE_IDS, enterMarkup, moveFrames, moveMarkup, moveMs, stateMarkup } from './states'
@@ -9,7 +9,7 @@ import { pixelsOutside } from './sprite'
 const NOW = 1_000_000
 const calm: MoodInput = {
   now: NOW, waiting: false, writing: false, fleet: {}, compacting: false, tool: null, walkUntil: 0, helloUntil: 0,
-  ctx: 'calm', cache: 'warm', fiveUsed: 10, weekRoom: 30, hasAdvice: false, hasNote: false, busy: false, busyMs: 0, hasTool: false,
+  ctx: 'calm', cache: 'warm', fiveUsed: 10, weekRoom: 30, hasAdvice: false, hasNote: false, busy: false, busyMs: 0, hasTool: false, offline: false,
 }
 const mood = (o: Partial<MoodInput>) => pickState({ ...calm, ...o })
 
@@ -20,15 +20,14 @@ describe('which state wins', () => {
     expect(mood({ waiting: true, fleet: { oops: NOW + 1000 }, fiveUsed: 100 })).toBe('hand')
   })
 
-  test('fleeting events beat lasting warnings, and the warning returns when they end', () => {
-    const lasting = { ctx: 'alert' as const, fiveUsed: 100, weekRoom: -5 }
-    expect(mood({ ...lasting, fleet: { bell: NOW + 2000 } })).toBe('bell')
-    expect(mood({ ...lasting, fleet: { bell: NOW - 1 } })).toBe('asleep')
+  test('a plan waiting for approval ranks with the raised hand, over the task events', () => {
+    expect(mood({ fleet: { idea: NOW + 1, oops: NOW + 1 } })).toBe('idea')
+    expect(mood({ waiting: true, fleet: { idea: NOW + 1 } })).toBe('hand')
   })
 
-  test('among fleeting events the order is oops, bell, lab, love, idea, wand, coins, plug', () => {
-    const all = { oops: NOW + 1, bell: NOW + 1, lab: NOW + 1, love: NOW + 1, idea: NOW + 1, wand: NOW + 1, coins: NOW + 1, plug: NOW + 1 }
-    const order = ['oops', 'bell', 'lab', 'love', 'idea', 'wand', 'coins', 'plug'] as const
+  test('among fleeting events the order is oops, bell, lab, love, wand, coins, plug', () => {
+    const all = { oops: NOW + 1, bell: NOW + 1, lab: NOW + 1, love: NOW + 1, wand: NOW + 1, coins: NOW + 1, plug: NOW + 1 }
+    const order = ['oops', 'bell', 'lab', 'love', 'wand', 'coins', 'plug'] as const
     const left: Partial<typeof all> = { ...all }
     for (const id of order) {
       expect(mood({ fleet: left })).toBe(id)
@@ -37,40 +36,77 @@ describe('which state wins', () => {
     expect(mood({ fleet: left })).toBe('idle')
   })
 
-  test('a tool at work shows over a lasting warning, then the warning returns after the linger', () => {
-    expect(mood({ ctx: 'alert', tool: { kind: 'building', until: NOW + 500 } })).toBe('building')
-    expect(mood({ ctx: 'alert', tool: { kind: 'building', until: NOW - 1 } })).toBe('fire')
+  test('the bell plays first, the alerts come after it', () => {
+    const lasting = { fiveUsed: 100 }
+    expect(mood({ ...lasting, fleet: { bell: NOW + 2000 } })).toBe('bell')
+    expect(mood({ ...lasting, fleet: { bell: NOW - 1 } })).toBe('asleep')
   })
 
-  test('compacting beats a tool', () => {
+  test('a tool at work shows over everything but the hand; compacting beats a tool', () => {
+    expect(mood({ busy: true, tool: { kind: 'building', until: NOW + 500 } })).toBe('building')
     expect(mood({ compacting: true, tool: { kind: 'reading', until: NOW + 1 } })).toBe('dizzy')
   })
 
-  test('lasting warnings, worst first', () => {
-    expect(mood({ fiveUsed: 100, weekRoom: -1, ctx: 'alert', hasAdvice: true, cache: 'cold' })).toBe('asleep')
-    expect(mood({ weekRoom: -1, ctx: 'alert', hasAdvice: true, cache: 'cold' })).toBe('mad')
-    expect(mood({ ctx: 'alert', hasAdvice: true, cache: 'cold' })).toBe('fire')
-    expect(mood({ hasAdvice: true, cache: 'cold' })).toBe('detective')
-    expect(mood({ hasAdvice: true, busy: true })).toBe('thinking') // findings are not offered while Claude works, so neither is the detective
-    expect(mood({ cache: 'cold', weekRoom: 1, ctx: 'warn' })).toBe('cold')
-    expect(mood({ cache: 'soon', weekRoom: 1, ctx: 'warn' })).toBe('hourglass')
-    expect(mood({ weekRoom: 1, ctx: 'warn', fiveUsed: 85 })).toBe('gauge')
-    expect(mood({ ctx: 'warn', fiveUsed: 85 })).toBe('drunk')
-    expect(mood({ fiveUsed: 85 })).toBe('sleepy')
+  test('while Claude works no status alert shows, not even a critical one', () => {
+    const all = { fiveUsed: 100, weekRoom: -5, ctx: 'alert' as const, cache: 'cold' as const, hasAdvice: true, offline: true, hasNote: true }
+    expect(mood({ ...all, busy: true })).toBe('thinking')
+    expect(mood({ ...all, busy: true, hasTool: true })).toBe('typing')
+    expect(mood({ ...all, busy: true, tool: { kind: 'reading', until: NOW + 1 } })).toBe('reading')
+    for (const id of ['asleep', 'mad', 'fire', 'gauge', 'sleepy', 'drunk', 'cold', 'hourglass', 'detective', 'plug'] as const) expect(isAlert(id)).toBe(true)
+    for (const id of ['hand', 'idea', 'oops', 'bell', 'lab', 'typing', 'coffee', 'talk', 'idle'] as const) expect(isAlert(id)).toBe(false)
   })
 
-  test('cache states apply only while idle: a running turn keeps the cache warm', () => {
+  test('when it is over the alerts are listed worst first and each is true only on its own range', () => {
+    expect(activeAlerts({ ...calm, fiveUsed: 100, weekRoom: -1, ctx: 'alert', hasAdvice: true, cache: 'cold', offline: true })).toEqual(['asleep', 'mad', 'fire', 'cold', 'detective', 'plug'])
+    expect(activeAlerts({ ...calm, weekRoom: 1, ctx: 'warn', fiveUsed: 85, cache: 'soon' })).toEqual(['gauge', 'sleepy', 'drunk', 'hourglass'])
+    expect(activeAlerts(calm)).toEqual([])
+  })
+
+  test('several alerts take turns, ROTATE_MS each; a single one stays', () => {
+    const two = { ctx: 'warn' as const, cache: 'cold' as const }
+    const seen = [0, 1, 2, 3].map(k => mood({ ...two, now: k * ROTATE_MS }))
+    expect(new Set(seen)).toEqual(new Set(['drunk', 'cold']))
+    expect(seen[0]).not.toBe(seen[1])
+    expect(mood({ ctx: 'warn', now: 0 })).toBe(mood({ ctx: 'warn', now: ROTATE_MS }))
+    expect(nextShift({ ...calm, ...two, now: 1000 })).toBe(ROTATE_MS - 1000)
+    expect(nextShift({ ...calm, ctx: 'warn' })).toBeNull()
+  })
+
+  test('a notice shows before the alerts, never while working', () => {
+    expect(mood({ hasNote: true, ctx: 'alert' })).toBe('talk')
+    expect(mood({ hasNote: true, busy: true })).toBe('thinking')
+  })
+
+  test('a connector still down is an alert after the turn, an event during it', () => {
+    expect(mood({ offline: true })).toBe('plug')
+    expect(mood({ offline: true, busy: true })).toBe('thinking')
+    expect(mood({ fleet: { plug: NOW + 1 }, busy: true })).toBe('plug')
+  })
+
+  test('findings and the cache wait for Claude to stop', () => {
+    expect(mood({ hasAdvice: true, busy: true })).toBe('thinking')
+    expect(mood({ hasAdvice: true })).toBe('detective')
     expect(mood({ cache: 'cold', busy: true })).toBe('thinking')
     expect(mood({ cache: 'soon', busy: true, hasTool: true })).toBe('typing')
   })
 
-  test('working: thinking before any tool, typing after, coffee past two minutes', () => {
+  test('working: thinking before any tool, typing after', () => {
     expect(mood({ busy: true })).toBe('thinking')
     expect(mood({ busy: true, hasTool: true })).toBe('typing')
-    expect(mood({ busy: true, hasTool: true, busyMs: COFFEE_AFTER_MS + 1 })).toBe('coffee')
   })
 
-  test('session start: walk, then hello, both below a tool and above a warning', () => {
+  test('coffee starts at 7 minutes, then comes for a few seconds and goes back to the work', () => {
+    expect(COFFEE_AFTER_MS).toBe(7 * 60_000)
+    expect(mood({ busy: true, hasTool: true, busyMs: COFFEE_AFTER_MS - 1 })).toBe('typing')
+    expect(mood({ busy: true, hasTool: true, busyMs: COFFEE_AFTER_MS + 1 })).toBe('coffee')
+    expect(mood({ busy: true, hasTool: true, busyMs: COFFEE_AFTER_MS + COFFEE_SHOW_MS })).toBe('typing')
+    expect(mood({ busy: true, hasTool: true, busyMs: COFFEE_AFTER_MS + COFFEE_CYCLE_MS + 1 })).toBe('coffee')
+    expect(mood({ busy: true, busyMs: COFFEE_AFTER_MS + COFFEE_SHOW_MS })).toBe('thinking')
+    expect(nextShift({ ...calm, busy: true, busyMs: 1000 })).toBe(COFFEE_AFTER_MS - 1000)
+    expect(nextShift({ ...calm, busy: true, busyMs: COFFEE_AFTER_MS + 1000 })).toBe(COFFEE_SHOW_MS - 1000)
+  })
+
+  test('session start: walk, then hello, both below a tool and above an alert', () => {
     expect(mood({ walkUntil: NOW + 1, helloUntil: NOW + 1 })).toBe('walk')
     expect(mood({ helloUntil: NOW + 1, ctx: 'alert' })).toBe('hello')
     expect(mood({ walkUntil: NOW + 1, tool: { kind: 'reading', until: NOW + 1 } })).toBe('reading')
