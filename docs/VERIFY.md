@@ -59,3 +59,12 @@ Report anything off in plain words ("the palm tree overlaps", "no animation", "a
 | 36 | Run `/handoff` (the skill) | Clawd writes with the quill, not the thinking spinner | |
 | 37 | Look at the wand | 18 px, grey like the labels; the clickable square matches it; clicking enhances | |
 | 38 | Raise a permission prompt | The hand shows after 5 s (`askSeconds` option); tune it if it still shows too often | |
+
+## 0.8.0 additions
+
+| # | Do | Expect | OK? |
+|---|---|---|---|
+| 39 | Watch several turns: prompt, an Edit, a Read, a finish | Every change flows: a short start, a blink over the prop swap, a small hop, then a settle. Nothing slideshow-like | |
+| 40 | Approve a permission (Edit, then a plain tool), fail a tool, pass a test run | hand > building / thinking, building > oops, oops > thinking, typing > lab, lab > typing: props swap one at a time | |
+| 41 | Let a turn run long, search the web, compact, write a handoff, enhance a draft | typing / thinking > coffee, browse, dizzy; idle > writing > love > idle; idle > wand > idle | |
+
