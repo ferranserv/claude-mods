@@ -1222,6 +1222,19 @@ function buttonGroup(c: Comps, specs: BtnSpec[], key = 'btns') {
   ]
 }
 
+/**
+ * Clicking Clawd: a layer over his whole square, a stack of rows each holding one real Button (a Button is one row tall, so
+ * rows are what fill the height). Every row is cut at the edges (no ellipsis shows) and any of them says the bubble again.
+ */
+const RECALL_ROWS = 4
+function recallHit(c: Comps, width: number, press: () => void) {
+  const rows = Array.from({ length: RECALL_ROWS }, (_, i) =>
+    el(c.Box, { key: `recall-row-${i}`, flexGrow: 1, height: 0, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center' },
+      el(c.Button, { key: i === 0 ? 'recall' : `recall-${i}`, plain: true, onPress: press }, NBSP.repeat(Math.ceil(width / 3)))),
+  )
+  return el(c.Box, { key: 'recall-hit', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, flexDirection: 'column', overflow: 'hidden' }, ...rows)
+}
+
 /** What one action's button does: pressing it answers the bubble and closes the menu. */
 function actSpec(a: ActRef, fx: Fx, surface: string): BtnSpec {
   const key = a.id === 'saverOn' ? 'saver' : a.arg !== undefined && typeof a.arg === 'string' ? `${a.id}-${a.arg}` : a.id
@@ -1947,7 +1960,7 @@ export const register: Register = (on, options) => {
       const drawn = el(
         c.Box,
         { key: 'art', flexDirection: 'row', alignItems: 'center' },
-        ...(parts.mascot ? [el(c.Box, { key: 'clawd', position: 'relative', flexShrink: 0 }, el(Svg, { key: 'mascot', source: parts.mascot.source, alt: STATES[s.state].label, isInteractive: true, width: parts.mascot.width, height: parts.mascot.height }), ...(s.hover ? [el(c.Box, { key: 'recall-hit', position: 'absolute', top: 1, left: 0, right: 0, overflow: 'hidden' }, el(c.Button, { key: 'recall', plain: true, onPress: () => fx.recall(s.hover?.text ?? '', s.hover?.alertId) }, NBSP.repeat(Math.ceil(parts.mascot.width / 3))))] : []))] : []),
+        ...(parts.mascot ? [el(c.Box, { key: 'clawd', position: 'relative', flexShrink: 0 }, el(Svg, { key: 'mascot', source: parts.mascot.source, alt: STATES[s.state].label, isInteractive: true, width: parts.mascot.width, height: parts.mascot.height }), ...(s.hover ? [recallHit(c, parts.mascot.width, () => fx.recall(s.hover?.text ?? '', s.hover?.alertId))] : []))] : []),
         column,
       )
       row = el(c.Box, { key: 'row', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, drawn, controls(s, c, fx, Svg))
