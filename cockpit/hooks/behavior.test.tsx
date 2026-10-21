@@ -535,8 +535,10 @@ test('a warning with no action to offer is dropped: saver already on, 5-hour at 
 
 type Do = { tool: { call: (i: unknown) => Promise<unknown>; check: (i: unknown) => Promise<unknown> }; turn: { start: (i: unknown) => Promise<unknown>; complete: (i: unknown) => Promise<unknown> } }
 const altOf = async ($: unknown, isWorking = false): Promise<string> => {
-  const ui = await ($ as { ui: { mount: (i: unknown) => Promise<{ find: (q: unknown) => Promise<{ props?: { alt?: string } } | undefined>; unmount: () => Promise<void> }> } }).ui.mount(band('desktop', isWorking))
-  const alt = String((await ui.find({ type: 'Svg' }))?.props?.alt ?? '')
+  const ui = await ($ as { ui: { mount: (i: unknown) => Promise<{ find: (q: unknown) => Promise<{ props?: { alt?: string } } | undefined>; findAll: (q: unknown) => Promise<{ props?: { alt?: string } }[]>; unmount: () => Promise<void> }> } }).ui.mount(band('desktop', isWorking))
+  // The bubble and the wand are Svgs too: Clawd's own drawing is the one described as Clawd.
+  const svgs = await ui.findAll({ type: 'Svg' })
+  const alt = String(svgs.find(v => String(v.props?.alt ?? '').startsWith('Clawd'))?.props?.alt ?? '')
   await ui.unmount()
   return alt
 }

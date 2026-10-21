@@ -415,7 +415,6 @@ export function bandWidth(columns: number): number {
 const LEGEND_SIZE = 9
 const LINE = 10
 
-/** One slim band: the meters side by side, a few lines tall. */
 /** The enhance wand: flat and one color (white), drawn as a shape so no emoji font can color or shade it. */
 export function wandSvg(dim: boolean): { source: string; width: number; height: number } {
   const o = dim ? 0.45 : 1
@@ -423,6 +422,27 @@ export function wandSvg(dim: boolean): { source: string; width: number; height: 
   return { source: wrapSvg(24, 24, out), width: 24, height: 24 }
 }
 
+
+/** Clawd's speech bubble in pixels: white inside, a dark stepped border, a tail pointing down to him, regular text. */
+export function bubbleSvg(text: string): { source: string; width: number; height: number } {
+  const h = 26
+  const w = Math.min(460, Math.max(60, Math.round(text.length * 7 + 24)))
+  const r = (x: number, y: number, rw: number, rh: number, c: string) => `<rect x="${x}" y="${y}" width="${rw}" height="${rh}" fill="${c}"/>`
+  const D = '#0b0705'
+  const W = '#ffffff'
+  const out = [
+    r(2, 0, w - 4, h, D), r(0, 2, w, h - 4, D), // the border: a block with its corners stepped
+    r(4, 2, w - 8, h - 4, W), r(2, 4, w - 4, h - 8, W), // the white inside, stepped the same way
+    r(16, h - 2, 8, 2, W), // the opening in the border for the tail
+    r(14, h, 12, 2, D), r(16, h, 8, 2, W),
+    r(16, h + 2, 8, 2, D), r(18, h + 2, 4, 2, W),
+    r(18, h + 4, 4, 2, D),
+    `<text x="${Math.round(w / 2)}" y="${h / 2 + 4}" text-anchor="middle" font-size="12" font-weight="400" fill="#1b1a19">${esc(text)}</text>`,
+  ].join('')
+  return { source: wrapSvg(w, h + 6, out), width: w, height: h + 6 }
+}
+
+/** One slim band: the meters side by side, a few lines tall. */
 export function bandBody(width: number, m: Model): { out: string; height: number } {
   // Narrow windows get short labels and a smaller size; the numbers are the same.
   const narrow = width < 480

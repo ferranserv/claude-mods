@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'claude-code/testing'
 
-import { alertsOf, attentionOf, cockpitSvg, model, wandSvg } from './lib'
+import { alertsOf, attentionOf, cockpitSvg, model, wandSvg, bubbleSvg } from './lib'
 import { stateMarkup } from './states'
 
 const NOW = new Date(2026, 9, 21, 12).getTime() // a Wednesday: 60% of the week is allotted
@@ -80,5 +80,20 @@ describe('wandSvg', () => {
     expect(on.match(/#[0-9a-fA-F]{6}/g)?.every(c => c.toLowerCase() === '#ffffff')).toBe(true)
     expect(on).not.toContain('Gradient')
     expect(wandSvg(true).source).toContain('fill-opacity="0.45"')
+  })
+})
+
+describe('bubbleSvg', () => {
+  test('a white pixel bubble with a dark border and regular dark text', () => {
+    const b = bubbleSvg('Needs your OK')
+    expect(b.source).toContain('fill="#ffffff"')
+    expect(b.source).toContain('font-weight="400"')
+    expect(b.source).not.toContain('NaN')
+    expect(b.height).toBeGreaterThan(26)
+    expect(b.width).toBeGreaterThan(60)
+  })
+  test('text is escaped and the bubble stays inside a sane width', () => {
+    expect(bubbleSvg('a < b & c').source).toContain('a &lt; b &amp; c')
+    expect(bubbleSvg('x'.repeat(200)).width).toBe(460)
   })
 })
