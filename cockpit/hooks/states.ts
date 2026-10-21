@@ -119,23 +119,30 @@ export type Mascot = { markup: string; width: number; height: number }
  */
 type Move = { frames: Pose[]; fd: number }
 const LAPTOP: Pose = { laptop: 1, look: 'down', eyes: 'half', armL: 'type1', armR: 'type0' }
-const SUN: Pose = { beach: 0, shades: 1, mouth: 'smile', armR: 'half' }
-const READY: Pose = { eyes: 'happy', mouth: 'open', armR: 'high', bell: 0 }
+const SUN: Pose = { beach: 0, shades: 1, drink: 1, mouth: 'smile', armR: 'half' }
+const READY: Pose = { eyes: 'happy', mouth: 'open', armR: 'high', bell: 0, notes: 0 }
+const MUSE: Pose = { spinner: 0, look: 'up', armR: 'chin' }
+const OOPS: Pose = { eyes: 'x', mouth: 'o', bang: 1, bangX: OX + 21 }
+const HAT: Pose = { hat: 'hard', wrench: 1, armR: 'up', mouth: 'smile', eyes: 'open' }
+const READ: Pose = { glasses: 1, scroll: 1, look: 'down', armL: 'hold', armR: 'hold' }
 export const MOVES: Partial<Record<string, Move>> = {
-  'idle>thinking': { fd: 0.18, frames: [{ ...SUN }, { beach: 0, eyes: 'wide', armR: 'up', mouth: 'open' }, { look: 'up', armR: 'chin', eyes: 'open', mouth: 'flat' }] },
-  'thinking>typing': { fd: 0.15, frames: [{ spinner: 4, look: 'up', armR: 'chin' }, { laptop: 1, look: 'down', eyes: 'half', armR: 'chin' }, { ...LAPTOP }] },
-  'typing>building': { fd: 0.2, frames: [{ ...LAPTOP }, { hat: 'hard', look: 'down', armR: 'up', mouth: 'smile', eyes: 'open' }, { hat: 'hard', wrench: 1, armR: 'up', mouth: 'smile', eyes: 'open' }] },
-  'building>typing': { fd: 0.2, frames: [{ hat: 'hard', wrench: 2, armR: 'up', mouth: 'smile', eyes: 'open' }, { hat: 'hard', look: 'down', armR: 'half' }, { ...LAPTOP }] },
-  'typing>reading': { fd: 0.2, frames: [{ ...LAPTOP }, { glasses: 1, look: 'down', eyes: 'half', armL: 'hold', armR: 'hold' }, { glasses: 1, scroll: 1, look: 'down', armL: 'hold', armR: 'hold' }] },
-  'reading>typing': { fd: 0.2, frames: [{ glasses: 1, scroll: 1, look: 'down', armL: 'hold', armR: 'hold' }, { glasses: 1, look: 'down', eyes: 'half', armL: 'type1', armR: 'type0' }, { ...LAPTOP }] },
-  'typing>oops': { fd: 0.25, frames: [{ ...LAPTOP }, { eyes: 'x', mouth: 'o', bang: 1, bangX: OX + 21, armL: 'high', armR: 'high' }] },
-  'oops>typing': { fd: 0.25, frames: [{ eyes: 'x', mouth: 'o', bang: 1, bangX: OX + 21, armL: 'high', armR: 'high' }, { look: 'down', eyes: 'half', mouth: 'flat', armL: 'type1', armR: 'type0' }, { ...LAPTOP }] },
+  'idle>thinking': { fd: 0.18, frames: [{ ...SUN }, { beach: 0, drink: 1, eyes: 'wide', armR: 'up', mouth: 'open' }, { ...MUSE }] },
+  'thinking>typing': { fd: 0.15, frames: [{ ...MUSE }, { laptop: 1, look: 'down', eyes: 'half', armR: 'chin' }, { ...LAPTOP }] },
+  'typing>building': { fd: 0.2, frames: [{ ...LAPTOP }, { hat: 'hard', look: 'down', armR: 'up', mouth: 'smile', eyes: 'open' }, { ...HAT }] },
+  'building>typing': { fd: 0.2, frames: [{ ...HAT }, { hat: 'hard', look: 'down', armR: 'half' }, { ...LAPTOP }] },
+  'typing>reading': { fd: 0.2, frames: [{ ...LAPTOP }, { glasses: 1, look: 'down', eyes: 'half', armL: 'hold', armR: 'hold' }, { ...READ }] },
+  'reading>typing': { fd: 0.2, frames: [{ ...READ }, { glasses: 1, look: 'down', eyes: 'half', armL: 'type1', armR: 'type0' }, { ...LAPTOP }] },
+  'typing>oops': { fd: 0.25, frames: [{ ...LAPTOP }, { armL: 'high', armR: 'high', eyes: 'x', mouth: 'o' }, { ...OOPS }] },
+  'oops>typing': { fd: 0.25, frames: [{ ...OOPS }, { look: 'down', eyes: 'half', mouth: 'flat', armL: 'type1', armR: 'type0' }, { ...LAPTOP }] },
   'typing>bell': { fd: 0.2, frames: [{ ...LAPTOP }, { ...READY }] },
   'bell>idle': { fd: 0.25, frames: [{ ...READY }, { ...SUN }] },
   'typing>hand': { fd: 0.25, frames: [{ ...LAPTOP }, { clipboard: 1, look: 'down', mouth: 'flat' }] },
-  'thinking>hand': { fd: 0.25, frames: [{ spinner: 3, look: 'up', armR: 'chin' }, { clipboard: 1, look: 'down', mouth: 'flat' }] },
-  'hand>typing': { fd: 0.25, frames: [{ clipboard: 3, look: 'down', mouth: 'flat' }, { ...LAPTOP }] },
-  'hello>idle': { fd: 0.2, frames: [{ armR: 'up', mouth: 'smile', eyes: 'open' }, { beach: 0, eyes: 'happy', mouth: 'smile', armR: 'half' }, { ...SUN }] },
+  'thinking>hand': { fd: 0.25, frames: [{ ...MUSE }, { clipboard: 1, look: 'down', mouth: 'flat' }] },
+  'hand>typing': { fd: 0.25, frames: [{ clipboard: 1, look: 'down', mouth: 'flat' }, { ...LAPTOP }] },
+  'hello>idle': { fd: 0.2, frames: [{ armR: 'high', mouth: 'smile', eyes: 'happy' }, { armR: 'up', mouth: 'smile', eyes: 'open' }, { beach: 0, drink: 1, eyes: 'happy', mouth: 'smile', armR: 'half' }, { ...SUN }] },
+  'thinking>reading': { fd: 0.2, frames: [{ ...MUSE }, { glasses: 1, look: 'down', eyes: 'half', armL: 'hold', armR: 'hold' }, { ...READ }] },
+  'thinking>building': { fd: 0.2, frames: [{ ...MUSE }, { hat: 'hard', look: 'down', armR: 'up', mouth: 'smile', eyes: 'open' }, { ...HAT }] },
+  'walk>hello': { fd: 0.2, frames: [{ mouth: 'smile' }, { armR: 'up', mouth: 'smile', eyes: 'open' }, { armR: 'high', mouth: 'smile', eyes: 'happy' }] },
   'walk>idle': { fd: 0.2, frames: [{ mouth: 'smile' }, { ...SUN }] },
 }
 
