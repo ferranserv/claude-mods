@@ -33,3 +33,17 @@ Report anything off in plain words ("the palm tree overlaps", "no animation", "a
 | 20 | Collapse and open the band | Same meters; 5h shows "Resets at"; Week shows % and "under/over" | |
 | 21 | Narrow the window | Short labels, no clipped numbers, controls spread across the row | |
 | 22 | Look at the right-hand controls | One 🪄 button (no sparkle), then the arrow | |
+
+## 0.5.x additions
+
+| # | Do | Expect | OK? |
+|---|---|---|---|
+| 23 | Send a prompt from idle | Sunglasses come off, then the thinking pose (not a fade) | |
+| 24 | Run an Edit, then a Read | Laptop away, hard hat and hammer (Edit); glasses and scroll (Read); and back to typing | |
+| 25 | Make a tool fail | Hands up and "!" (oops), then back to the laptop | |
+| 26 | Finish a turn | Typing, then the bell, then back to the beach with sunglasses | |
+| 27 | Raise a permission prompt | The clipboard appears after about 2.5 s, not at once | |
+| 28 | Any other state change | A short morph: he drops what he holds, then picks up the next thing | |
+| 29 | Trigger a bubble | A white pixel bubble with a dark border above Clawd, regular text, button beside it. The band moves down while it shows | |
+| 30 | Look at the wand | Flat, single colour, white; clicking it enhances the draft | |
+| 31 | Watch each state for a few seconds | Every state moves: hops, sways, shivers, stomps | |
