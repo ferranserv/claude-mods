@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'claude-code/testing'
 
-import { CELL, LANE_H, alertsOf, attentionOf, bandParts, bubbleArt, bubbleTextWidth, bubbleWidth, cockpitSvg, fitText, model, pillSvg, textPx, wandSvg } from './lib'
+import { CELL, LANE_H, alertsOf, attentionOf, bandParts, bubbleArt, bubbleTextWidth, bubbleWidth, cockpitSvg, fitText, model, PILL_GAP, pillGroupSvg, textPx, wandSvg } from './lib'
 import { stateMarkup } from './states'
 
 const NOW = new Date(2026, 9, 21, 12).getTime() // a Wednesday: 60% of the week is allotted
@@ -26,7 +26,7 @@ describe('alertsOf: every warning has an action', () => {
   test('context warns with handoff, copy and fresh', () => {
     const a = alertsOf(m(60), { saverOn: true, now: NOW })
     expect(ids(a)).toEqual(['ctx'])
-    expect(a[0]?.actions).toEqual(['handoff', 'compact', 'copy', 'fresh'])
+    expect(a[0]?.actions).toEqual(['copy', 'handoff', 'compact', 'fresh'])
   })
   test('five-hour and week offer the saver, and are dropped when it is already on', () => {
     expect(alertsOf(m(10, 85), { saverOn: false, now: NOW }).map(x => x.actions)).toEqual([['saverOn']])
@@ -145,16 +145,23 @@ describe('the speech bubble', () => {
   })
 })
 
-describe('a button is a drawing with the Button over it', () => {
-  test('gray with dark text, as wide as its label needs in px and exactly one row tall, like the one Button over it', () => {
-    const p = pillSvg('Handoff')
-    expect(p.width).toBeGreaterThan(pillSvg('OK').width)
-    expect(p.width).toBeGreaterThanOrEqual(textPx('Handoff', 12) + 20)
-    expect(p.height).toBe(CELL.h)
-    expect(p.source).toContain('#8E8E93')
-    expect(p.source).toContain('>Handoff<')
-    expect(p.source).not.toContain('fill-opacity')
-    expect(pillSvg('a < b').source).toContain('a &lt; b')
+describe('the buttons are one picture', () => {
+  test('pills in the bubble gray, dark text, as tall as the bubble, a gap between, all in one drawing', () => {
+    const g = pillGroupSvg(['Copy handoff', '…'])
+    expect(g.parts.length).toBe(2)
+    expect(g.parts[1]!.x).toBe(g.parts[0]!.w + PILL_GAP)
+    expect(g.width).toBe(g.parts[1]!.x + g.parts[1]!.w)
+    expect(g.height).toBe(26)
+    expect(g.source).toContain('#8E8E93')
+    expect(g.source).toContain('>Copy handoff<')
+    expect(g.source).not.toContain('fill-opacity')
+    expect(pillGroupSvg(['a < b']).source).toContain('a &lt; b')
+    expect(pillGroupSvg([]).width).toBe(0)
+  })
+  test('a pill is as wide as its label needs, never narrower than a small button', () => {
+    expect(pillGroupSvg(['Copy handoff']).width).toBeGreaterThan(pillGroupSvg(['OK']).width)
+    expect(pillGroupSvg(['…']).width).toBeGreaterThanOrEqual(34)
+    expect(pillGroupSvg(['Handoff']).parts[0]!.w).toBeGreaterThanOrEqual(textPx('Handoff', 12) + 24)
   })
 })
 

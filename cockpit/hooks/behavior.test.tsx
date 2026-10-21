@@ -237,19 +237,19 @@ test('buttons: shown from the first warning, hidden when calm or while working; 
   for (const surface of ['desktop', 'terminal'] as const) {
     await at(20)
     let ui = await $.ui.mount(band(surface))
-    expect(await ui.find({ key: 'handoff' })).toBeUndefined()
+    expect(await ui.find({ key: 'copy' })).toBeUndefined()
     await ui.unmount()
 
     await at(55)
     await settle($, w) // he settles into the pose before the bubble speaks
     ui = await $.ui.mount(band(surface))
-    expect(await ui.find({ key: 'handoff' })).toBeDefined()
+    expect(await ui.find({ key: 'copy' })).toBeDefined()
     expect(await ui.find({ key: 'more' })).toBeDefined()
     expect(await ui.find({ key: 'fresh' })).toBeUndefined() // in the menu, not on the bubble
     await ui.unmount()
 
     ui = await $.ui.mount(band(surface, true))
-    expect(await ui.find({ key: 'handoff' })).toBeUndefined()
+    expect(await ui.find({ key: 'copy' })).toBeUndefined()
     await ui.unmount()
   }
 
@@ -259,7 +259,7 @@ test('buttons: shown from the first warning, hidden when calm or while working; 
   await ui.press({ key: 'more' })
   await ui.unmount()
   ui = await $.ui.mount(band('desktop'))
-  for (const key of ['compact', 'copy', 'fresh']) expect(await ui.find({ key })).toBeDefined()
+  for (const key of ['handoff', 'compact', 'fresh']) expect(await ui.find({ key })).toBeDefined()
   await ui.press({ key: 'fresh' })
   await w.clock.advance(100)
   expect(w.commands).toEqual(['clear'])
@@ -331,14 +331,14 @@ test('/meters warn, red, tokens: change the context warning levels without the o
 
   await at(10)
   let ui = await $.ui.mount(band('desktop'))
-  expect(await ui.find({ key: 'handoff' })).toBeUndefined() // 10% is calm at the default 50
+  expect(await ui.find({ key: 'copy' })).toBeUndefined() // 10% is calm at the default 50
   await ui.unmount()
 
   expect(text(await $.command.run({ command: 'meters', args: 'warn 5' } as never))).toContain('orange from 5%')
   expect(w.writes.limitOverrides).toEqual({ warnPercent: 5 })
   await settle($, w)
   ui = await $.ui.mount(band('desktop'))
-  expect(await ui.find({ key: 'handoff' })).toBeDefined() // now it warns
+  expect(await ui.find({ key: 'copy' })).toBeDefined() // now it warns
   await ui.unmount()
 
   expect(text(await $.command.run({ command: 'meters', args: 'red 8' } as never))).toContain('red past 8%')
@@ -440,12 +440,12 @@ test('buttons hide while a turn runs even when the app does not set isWorking; t
   await w.clock.advance(6000)
   await $.session.measure({ context: { tokens: 600, window: 1000, percent: 60 }, rateLimits: [], changed: ['context'] } as never)
   let ui = await $.ui.mount(band('desktop'))
-  for (const key of ['handoff', 'more']) expect(await ui.find({ key })).toBeDefined()
+  for (const key of ['copy', 'more']) expect(await ui.find({ key })).toBeDefined()
   await ui.unmount()
 
   await ($ as unknown as { turn: { start: (i: unknown) => Promise<unknown> } }).turn.start({ text: 'go', turnId: 't1' })
   ui = await $.ui.mount(band('desktop', false))
-  expect(await ui.find({ key: 'handoff' })).toBeUndefined()
+  expect(await ui.find({ key: 'copy' })).toBeUndefined()
   expect(await ui.find({ key: 'more' })).toBeUndefined()
   await ui.unmount()
   expect(w.commands).toEqual([])
@@ -455,11 +455,8 @@ test('the copy button keeps the session', async ($, on) => {
   await started($)
   await w.clock.advance(6000)
   await $.session.measure({ context: { tokens: 600, window: 1000, percent: 60 }, rateLimits: [], changed: ['context'] } as never)
-  let ui = await $.ui.mount(band('terminal'))
-  await ui.press({ key: 'more' })
-  await ui.unmount()
-  ui = await $.ui.mount(band('terminal'))
-  await ui.press({ key: 'copy' })
+  const ui = await $.ui.mount(band('terminal'))
+  await ui.press({ key: 'copy' }) // the bubble's own button
   await w.clock.advance(5000)
   expect(w.commands).toEqual([])
   expect(w.fills.at(-1)).toBe('B')
@@ -481,21 +478,21 @@ test('calm: the band is the meters and the wand only; no arrow, no bubble, no sa
   expect(await ui.find({ key: 'enhance' })).toBeDefined()
   await ui.unmount()
 })
-test('a warning speaks in one bubble: Handoff on it, Compact, Copy brief and Fresh behind the …; the meters row is not touched', async ($, on) => {
+test('a warning speaks in one bubble: Copy handoff on it, Handoff, Compact and Fresh behind the …; the meters row is not touched', async ($, on) => {
   const w = world(on)
   await started($)
   await measureCtx($, 60)
   await w.clock.advance(6000)
   let ui = await $.ui.mount(band('desktop'))
   expect(await ui.find({ key: 'lane' })).toBeDefined()
-  expect(await ui.find({ key: 'handoff' })).toBeDefined()
+  expect(await ui.find({ key: 'copy' })).toBeDefined()
   expect(await ui.find({ key: 'row' })).toBeDefined() // the band's own row is always there, with the meters
   expect(await ui.find({ key: 'menu' })).toBeUndefined()
   await ui.press({ key: 'more' })
   await ui.unmount()
   ui = await $.ui.mount(band('desktop'))
   expect(await ui.find({ key: 'menu' })).toBeDefined()
-  for (const key of ['compact', 'copy', 'fresh']) expect(await ui.find({ key })).toBeDefined()
+  for (const key of ['handoff', 'compact', 'fresh']) expect(await ui.find({ key })).toBeDefined()
   await ui.unmount()
 })
 test('the expand arrow and /cockpit open|close|auto are gone: the band is one row', async ($, on) => {
@@ -650,18 +647,18 @@ test('a bubble that asks for a decision stays until you answer it, and clicking 
   await started($)
   await measureCtx($, 60) // a warning with a button, spoken by the bubble
   await w.clock.advance(6000)
-  expect(await hasButton($, 'handoff')).toBe(true)
+  expect(await hasButton($, 'copy')).toBe(true)
   await w.clock.advance(60_000) // the warning still holds: so does the bubble, however long it takes
-  expect(await hasButton($, 'handoff')).toBe(true)
+  expect(await hasButton($, 'copy')).toBe(true)
   await ($ as unknown as { prompt: { submit: (i: unknown) => Promise<unknown> } }).prompt.submit({ text: 'something else', origin: { kind: 'composer' } })
   await w.clock.advance(10_000)
-  expect(await hasButton($, 'handoff')).toBe(false) // sending something else answers it: the bubble is gone...
+  expect(await hasButton($, 'copy')).toBe(false) // sending something else answers it: the bubble is gone...
   let ui = await $.ui.mount(band('desktop'))
   expect(await ui.find({ key: 'recall' })).toBeDefined() // ...but Clawd is a button: one click on him says it again (the app has no hover to count on)
   await ui.press({ key: 'recall' })
   await ui.unmount()
   await settle($, w, 4000)
-  expect(await hasButton($, 'handoff')).toBe(true) // the warning is back, with its button, until it is answered again
+  expect(await hasButton($, 'copy')).toBe(true) // the warning is back, with its button, until it is answered again
 })
 
 test('"Done." speaks over a pending decision while the bell rings, then the decision returns; it ends by itself when its warning does', async ($, on) => {
@@ -677,10 +674,10 @@ test('"Done." speaks over a pending decision while the bell rings, then the deci
   await ($ as unknown as Do).turn.complete({ reason: 'answer', answer: 'x', durationMs: 5, isAborted: false, turnId: 't1' })
   await settle($, w, 2500)
   expect(await altOf($)).toContain('Done.') // the bell outranks the warning: it speaks, with no button
-  expect(await hasButton($, 'handoff')).toBe(false)
+  expect(await hasButton($, 'copy')).toBe(false)
   await settle($, w, 5100) // the bell is over...
   await settle($, w, 3000) // ...he settles back into the pose
-  expect(await hasButton($, 'handoff')).toBe(true) // the open question is back, with its real button beside it
+  expect(await hasButton($, 'copy')).toBe(true) // the open question is back, with its real button beside it
   await w.clock.advance(8000)
   await measureCtx($, 10) // the context is cleared: the warning is over, so the bubble and the pose are too
   await w.clock.advance(6000)
@@ -823,24 +820,30 @@ test('a timed demo takes its bubble away with its state, and leaves nothing pend
   await $.command.run({ command: 'cockpit', args: 'demo' } as never)
   await w.clock.advance(4000 * 40) // the whole tour
   await w.clock.advance(12_000)
-  expect(await hasButton($, 'handoff')).toBe(false)
+  expect(await hasButton($, 'copy')).toBe(false)
   expect(await altOf($)).not.toContain('frozen')
 })
 
-test('a button is a gray pill drawing with ONE real Button laid over it, blank, cut to the drawing', async ($, on) => {
+test('the buttons are ONE gray picture with one real Button per pill laid over it, cut to it; they can never overlap', async ($, on) => {
   const w = world(on)
   await started($)
   await measureCtx($, 60)
   await w.clock.advance(6000)
-  const ui = await ($ as { ui: { mount: (i: unknown) => Promise<{ find: (q: unknown) => Promise<{ props?: Record<string, unknown> } | undefined>; findAll: (q: unknown) => Promise<{ props?: { alt?: string; source?: string } }[]>; unmount: () => Promise<void> }> } }).ui.mount(band('desktop'))
-  const pill = (await ui.findAll({ type: 'Svg' })).find(v => v.props?.alt === 'Handoff')
-  expect(pill?.props?.source).toContain('#8E8E93') // the bubble's own gray, opaque
-  expect(pill?.props?.source).not.toContain('fill-opacity')
-  expect(await ui.find({ key: 'handoff' })).toBeDefined()
-  expect((await ui.find({ key: 'handoff-wrap' }))?.props?.overflow).toBe('hidden') // the click area cannot reach past the drawing
-  expect((await ui.find({ key: 'hit' }))?.props).toMatchObject({ top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden' }) // the Button layer is the drawing's own box, whatever the host's cells are
-  expect(await ui.find({ key: 'handoff-2' })).toBeUndefined() // one Button only: a second would be drawn as a second native button
-  expect((await ui.find({ key: 'handoff-wrap' }))?.props?.width).toBeUndefined() // and nothing is counted in cells
+  await settle($, w)
+  type Mounted = { find: (q: unknown) => Promise<{ props?: Record<string, unknown> } | undefined>; findAll: (q: unknown) => Promise<{ props?: { alt?: string; source?: string; width?: number; height?: number } }[]>; unmount: () => Promise<void> }
+  const ui = (await $.ui.mount(band('desktop'))) as unknown as Mounted
+  const group = (await ui.findAll({ type: 'Svg' })).find(v => v.props?.alt === 'Copy handoff, …')
+  expect(group).toBeDefined() // the primary button and the "…" are one drawing
+  expect(group?.props?.source).toContain('#8E8E93') // the bubble's own gray, opaque
+  expect(group?.props?.source).not.toContain('fill-opacity')
+  expect(group?.props?.height).toBe(26) // as tall as the bubble
+  expect(await ui.find({ key: 'copy' })).toBeDefined()
+  expect(await ui.find({ key: 'more' })).toBeDefined()
+  expect((await ui.find({ key: 'btns-wrap' }))?.props?.overflow).toBe('hidden')
+  expect((await ui.find({ key: 'hit' }))?.props).toMatchObject({ top: 0, left: 0, right: 0, bottom: 0, flexDirection: 'row', overflow: 'hidden' }) // the Button layer is the picture's own box
+  expect((await ui.find({ key: 'hit-copy' }))?.props?.width).toBe(0) // each Button's piece shares the picture by flex ratio, in no unit of the host's
+  expect(Number((await ui.find({ key: 'hit-copy' }))?.props?.flexGrow)).toBeGreaterThan(Number((await ui.find({ key: 'gap-1' }))?.props?.flexGrow))
+  expect(await ui.find({ key: 'copy-2' })).toBeUndefined() // one Button per pill
   await ui.unmount()
 })
 
@@ -888,7 +891,7 @@ test('with Clawd hidden the bubble still speaks and still carries its button', a
   await $.command.run({ command: 'cockpit', args: 'close' } as never)
   const ui = await $.ui.mount(band('desktop'))
   expect(await ui.find({ key: 'lane' })).toBeDefined()
-  expect(await ui.find({ key: 'handoff' })).toBeDefined()
+  expect(await ui.find({ key: 'copy' })).toBeDefined()
   await ui.unmount()
 })
 
@@ -899,12 +902,12 @@ test('a pending warning bubble does not speak over a higher-priority state, and 
   await w.clock.advance(6000)
   await measureCtx($, 60)
   await $.command.run({ command: 'cockpit', args: 'close' } as never) // collapsed: the warning speaks through the bubble
-  expect(await hasButton($, 'handoff')).toBe(true) // a decision bubble is pending for the context warning
+  expect(await hasButton($, 'copy')).toBe(true) // a decision bubble is pending for the context warning
   await ($ as unknown as Do).turn.start({ text: 'go', turnId: 't1' })
   const call = ($ as unknown as Do).tool.call({ tool: 'Edit', file_path: '/x/a.ts' })
   await w.clock.advance(100)
   expect(await altOf($, true)).toContain('hammer')
-  expect(await hasButton($, 'handoff')).toBe(false)
+  expect(await hasButton($, 'copy')).toBe(false)
   expect(await altOf($, true)).not.toContain('quality may slip')
   await call
   await w.clock.advance(8000)
@@ -1046,4 +1049,27 @@ test('while Claude works the detective waits: he thinks (findings are only offer
   const ui = await $.ui.mount(band('desktop', true))
   expect(await ui.find({ key: 'recall' })).toBeDefined() // a click on him says "Thinking…"
   await ui.unmount()
+})
+
+test('words changing are written over one bubble: only one bubble drawing exists at any time', async ($, on) => {
+  const w = world(on)
+  await started($)
+  await measureCtx($, 10)
+  await w.clock.advance(6000)
+  await ($ as unknown as Do).turn.start({ text: 'go', turnId: 't1' })
+  type Mounted = { findAll: (q: unknown) => Promise<{ props?: { alt?: string; height?: number } }[]>; unmount: () => Promise<void> }
+  const bubbles = async (): Promise<string[]> => {
+    const ui = (await $.ui.mount(band('desktop', true))) as unknown as Mounted
+    const all = await ui.findAll({ type: 'Svg' })
+    await ui.unmount()
+    return all.filter(v => v.props?.height === 30 && v.props?.alt !== 'bubble space').map(v => String(v.props?.alt))
+  }
+  await $.command.run({ command: 'newsession', args: '' } as never)
+  await settle($, w, 2000)
+  expect(await bubbles()).toEqual(['Claude is working. Try again after the turn.'])
+  await $.command.run({ command: 'fresh', args: '' } as never) // other words while the first are up
+  await w.clock.advance(50)
+  expect(await bubbles()).toEqual(['Claude is working. Wait for the turn to end.']) // the one drawing, written over, never two
+  await settle($, w, 3000)
+  expect((await bubbles()).length).toBe(1)
 })

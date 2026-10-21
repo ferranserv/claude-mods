@@ -28,7 +28,8 @@ import {
   sideSvg,
   sideWidth,
   bubbleArt,
-  pillSvg,
+  PILL_GAP,
+  pillGroupSvg,
   wandSvg,
   windowMinutes,
 } from './lib'
@@ -142,7 +143,7 @@ const mood = {
   resetAt: 0, // the next limit reset a redraw is already booked for
   draftTurn: false, // the turn is a /handoff: Claude writes the brief as text, with no tool to show it
   askAt: 0, // when a permission ask was seen; it only counts if nothing has moved on a moment later
-  bub: null as { text: string; room: number; seq: number; layers: { key: string; art: ReturnType<typeof bubbleArt>; until: number; dropAt: number; to: string }[] } | null, // the bubble's drawings (see bubbleLane)
+  bub: null as { text: string; room: number; seq: number; art: ReturnType<typeof bubbleArt> | null; until: number } | null, // the bubble's drawing (see bubbleLane)
   msg: null as { text: string; until: number } | null, // a message to you (the one channel: the bubble), over everything but the raised hand
   history: [] as string[], // the last things the bubble said, for /cockpit log
   lastLogged: '', // the text last added to the history
@@ -930,7 +931,7 @@ type Snap = {
 }
 
 /** What each answer to a warning is called. */
-const ACTION_LABELS: Record<ActionId, string> = { handoff: 'Handoff', copy: 'Copy brief', fresh: 'Fresh', saverOn: 'Saver on', compact: 'Compact' }
+const ACTION_LABELS: Record<ActionId, string> = { handoff: 'Handoff', copy: 'Copy handoff', fresh: 'Fresh', saverOn: 'Saver on', compact: 'Compact' }
 
 const files = (n: number) => `${n} file${n === 1 ? '' : 's'}`
 
@@ -1174,52 +1175,72 @@ function runAct(a: ActRef, fx: Fx, surface: string): void {
   else fx.dismissNotice()
 }
 
+type BtnSpec = { key: string; label: string; press: () => void }
+
 /**
- * A button drawn as pixels (the bubble's gray, dark text) with the real Button laid over it, blank, in a box of the same
- * whole cells with the overflow cut: the click area is the drawing and cannot cover anything beside it.
+ * A group of buttons: one picture of pills (as tall as the bubble) and, laid over it, one real Button per pill. The Button
+ * layer spans the picture on all four edges and is cut there; it is a row whose pieces get the pills' widths and the gaps
+ * as flex ratios (`width: 0` and `flexGrow`), so each Button sits over its pill in whatever units the host counts in, and
+ * the pills cannot overlap because they are one picture. Each Button is one row tall, centered on its pill. With no
+ * drawing surface (the terminal), plain text buttons in a row.
  */
-function artButton(c: Comps, label: string, key: string, onPress: () => void) {
-  const art = pillSvg(label)
-  // The drawing is one row tall and px wide; the box around it is exactly that (no cells counted), and ONE Button, one row
-  // tall like the drawing, is cut to it: the Button's box is the drawing and the drawing is where it is clicked.
-  return el(
-    c.Box,
-    { key: `${key}-wrap`, position: 'relative', overflow: 'hidden', flexShrink: 0 },
-    el(c.Svg as never, { key: 'art', source: art.source, alt: label, width: art.width, height: art.height }),
-    el(c.Box, { key: 'hit', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden' }, el(c.Button, { key, plain: true, onPress }, NBSP.repeat(Math.ceil(art.width / 3)))),
-  )
+function buttonGroup(c: Comps, specs: BtnSpec[], key = 'btns') {
+  if (specs.length === 0) return []
+  if (!c.Svg) return [el(c.Box, { key, flexDirection: 'row', alignItems: 'center', gap: 1 }, ...specs.map(b => pill(c, b.label, { key: b.key, onPress: b.press })))]
+  const art = pillGroupSvg(specs.map(b => b.label))
+  const hit: unknown[] = []
+  specs.forEach((b, i) => {
+    const part = art.parts[i]!
+    if (i > 0) hit.push(el(c.Box, { key: `gap-${i}`, width: 0, flexGrow: PILL_GAP, flexShrink: 0 }))
+    hit.push(
+      el(
+        c.Box,
+        { key: `hit-${b.key}`, width: 0, flexGrow: part.w, flexShrink: 0, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center' },
+        el(c.Button, { key: b.key, plain: true, onPress: b.press }, NBSP.repeat(Math.ceil(part.w / 3))),
+      ),
+    )
+  })
+  return [
+    el(
+      c.Box,
+      { key: `${key}-wrap`, position: 'relative', overflow: 'hidden', flexShrink: 0 },
+      el(c.Svg as never, { key: 'art', source: art.source, alt: specs.map(b => b.label).join(', '), width: art.width, height: art.height }),
+      el(c.Box, { key: 'hit', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, flexDirection: 'row', overflow: 'hidden' }, ...hit),
+    ),
+  ]
 }
 
-/** One button of a bubble or its menu: pressing it answers the bubble and closes the menu. */
-function actButton(a: ActRef, c: Comps, fx: Fx, surface: string, prefix = '') {
-  const key = prefix + (a.id === 'saverOn' ? 'saver' : a.arg !== undefined && typeof a.arg === 'string' ? `${a.id}-${a.arg}` : a.id)
-  const go = () => {
-    dismissBubble()
-    fx.menu(false)
-    runAct(a, fx, surface)
+/** What one action's button does: pressing it answers the bubble and closes the menu. */
+function actSpec(a: ActRef, fx: Fx, surface: string): BtnSpec {
+  const key = a.id === 'saverOn' ? 'saver' : a.arg !== undefined && typeof a.arg === 'string' ? `${a.id}-${a.arg}` : a.id
+  return {
+    key,
+    label: a.label,
+    press: () => {
+      dismissBubble()
+      fx.menu(false)
+      runAct(a, fx, surface)
+    },
   }
-  return c.Svg ? artButton(c, a.label, key, go) : pill(c, a.label, { key, onPress: go })
 }
 
-/** The "…" that opens the menu of the bubble's other buttons. */
-function moreButton(s: Snap, c: Comps, fx: Fx) {
-  const go = () => fx.menu(!s.menuOpen)
-  return c.Svg ? artButton(c, '…', 'more', go) : pill(c, '…', { key: 'more', onPress: go })
+/** The buttons of a bubble: its own action, then the "…" that opens the others. */
+function bubbleSpecs(s: Snap, fx: Fx, surface: string): BtnSpec[] {
+  const acts = s.speech?.acts ?? []
+  const first = acts[0]
+  return [...(first ? [actSpec(first, fx, surface)] : []), ...(acts.length > 1 ? [{ key: 'more', label: '…', press: () => fx.menu(!s.menuOpen) }] : [])]
 }
 
 /** The bubble's other buttons, in a row under it, while the menu is open. */
 function menuRow(s: Snap, c: Comps, fx: Fx, surface: string, indent: number) {
   if (!s.menuOpen || !s.speech) return []
-  return [el(c.Box, { key: 'menu', flexDirection: 'row', alignItems: 'center', gap: 1, flexWrap: 'wrap', paddingLeft: indent }, ...s.speech.acts.slice(1).map(a => actButton(a, c, fx, surface)))]
+  return [el(c.Box, { key: 'menu', flexDirection: 'row', alignItems: 'center', paddingLeft: indent }, ...buttonGroup(c, s.speech.acts.slice(1).map(a => actSpec(a, fx, surface)), 'menu-btns'))]
 }
 
 /** On the terminal and in the side panel the bubble is a line of text with its buttons (the desktop band draws pixels). */
 function speechText(s: Snap, c: Comps, fx: Fx, surface: string) {
   if (!s.speech) return []
-  const first = s.speech.acts[0]
-  const items: unknown[] = [el(c.Text, { key: 't' }, s.speech.text)]
-  if (first) items.push(actButton(first, c, fx, surface))
-  if (s.speech.acts.length > 1) items.push(moreButton(s, c, fx))
+  const items: unknown[] = [el(c.Text, { key: 't' }, s.speech.text), ...buttonGroup(c, bubbleSpecs(s, fx, surface))]
   return [el(c.Box, { key: 'bubble', flexDirection: 'row', alignItems: 'center', gap: 1, flexWrap: 'wrap', paddingLeft: 3 }, ...items), ...menuRow(s, c, fx, surface, 3)]
 }
 
@@ -1254,35 +1275,30 @@ function controls(s: Snap, c: Comps, fx: Fx, Svg: unknown = null) {
  * under it), then the old one is dropped; a closed bubble leaves no drawing behind.
  */
 function bubbleLane($: EngineInterface, s: Snap, c: Comps, Svg: unknown, fx: Fx, metersPx: number, surface: string): unknown[] {
-  const first = s.speech?.acts[0]
-  const hasMore = (s.speech?.acts.length ?? 0) > 1
+  const specs = s.speech ? bubbleSpecs(s, fx, surface) : []
   // The bubble gets all the row up to its buttons (and no more than its words need); with no buttons, all of it.
   const gap = CELL.w
-  const buttonsPx = (first ? pillSvg(first.label).width : 0) + (hasMore ? pillSvg('…').width : 0) + (first && hasMore ? gap : 0)
+  const buttonsPx = specs.length > 0 ? pillGroupSvg(specs.map(b => b.label)).width : 0
   const room = Math.max(120, metersPx - (buttonsPx > 0 ? buttonsPx + gap : 0))
   const text = s.speech?.text ?? ''
+  // ONE drawing at a time, never two bubbles: when the words change, the drawing that replaces it starts as the old bubble,
+  // deletes its words (the bubble shortens with them), then types the new ones (it lengthens with them). A closed bubble
+  // leaves nothing drawn.
   let bub = mood.bub
   if (!bub || bub.room !== room) {
     // A new width (a resized window, other buttons) redraws what is there, still, laid out afresh for the room it has.
-    const key = `b${(bub?.seq ?? 0) + 1}`
-    bub = mood.bub = { text, room, seq: (bub?.seq ?? 0) + 1, layers: text === '' ? [] : [{ key, art: bubbleArt(text, text, room), until: 0, dropAt: Infinity, to: text }] }
+    bub = mood.bub = { text, room, seq: (bub?.seq ?? 0) + 1, art: text === '' ? null : bubbleArt(text, text, room), until: 0 }
   } else if (text !== bub.text) {
     const art = bubbleArt(bub.text, text, room)
     const ms = Math.ceil(art.seconds * 1000)
-    const newest = bub.layers[bub.layers.length - 1]
-    // The old drawing stays under the new one for a moment, until the new one is up, so nothing blinks. But a drawing that is still
-    // moving, or one that is closing, is not a picture to hold under another: it would show through. That one goes at once.
-    for (const l of bub.layers) l.dropAt = l === newest && s.now >= l.until && l.to !== '' ? s.now + 120 : Math.min(l.dropAt, s.now)
     bub.seq++
-    bub.layers.push({ key: `b${bub.seq}`, art, until: s.now + ms + 100, dropAt: Infinity, to: text })
+    bub.art = art
+    bub.until = s.now + ms + 100
     bub.text = text
-    $.clock.after(200, () => $.ui.invalidate('ui.render'))
     $.clock.after(ms + 150, () => $.ui.invalidate('ui.render'))
   }
-  bub.layers = bub.layers.filter(l => l.dropAt > s.now)
-  const last = bub.layers[bub.layers.length - 1]
-  if (last && bub.text === '' && last.until <= s.now) bub.layers = [] // closed: nothing is left drawn
-  const buttons = s.speech ? [...(first ? [actButton(first, c, fx, surface)] : []), ...(hasMore ? [moreButton(s, c, fx)] : [])] : []
+  if (bub.art && bub.text === '' && bub.until <= s.now) bub.art = null
+  const buttons = buttonGroup(c, specs)
   // The lane is made of drawings in px and the buttons sit at the right edge of the meters' width through a growing spacer:
   // nothing is counted in the host's character cells, so nothing drifts.
   const zone = el(
@@ -1290,10 +1306,10 @@ function bubbleLane($: EngineInterface, s: Snap, c: Comps, Svg: unknown, fx: Fx,
     { key: 'zone', position: 'relative', flexShrink: 0 },
     // A blank drawing that holds the lane's height and the bubble's width (the bubble drawings are laid over it).
     el(Svg, { key: 'space', source: `<svg xmlns="http://www.w3.org/2000/svg" width="${room}" height="${LANE_H}"/>`, alt: 'bubble space', width: room, height: LANE_H }),
-    ...bub.layers.map(l => el(c.Box, { key: l.key, position: 'absolute', top: 0, left: 0 }, el(Svg, { key: 'art', source: l.art.source, alt: text, isInteractive: true, width: l.art.width, height: l.art.height }))),
+    ...(bub.art ? [el(c.Box, { key: `b${bub.seq}`, position: 'absolute', top: 0, left: 0 }, el(Svg, { key: 'art', source: bub.art.source, alt: text, isInteractive: true, width: bub.art.width, height: bub.art.height }))] : []),
   )
   return [
-    el(c.Box, { key: 'lane', flexDirection: 'row', alignItems: 'center' }, zone, el(c.Box, { key: 'grow', flexGrow: 1 }), el(c.Box, { key: 'buttons', flexDirection: 'row', alignItems: 'center', gap: 1, flexShrink: 0 }, ...buttons)),
+    el(c.Box, { key: 'lane', flexDirection: 'row', alignItems: 'center' }, zone, el(c.Box, { key: 'grow', flexGrow: 1 }), ...buttons),
     ...menuRow(s, c, fx, surface, 0),
   ]
 }

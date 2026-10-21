@@ -537,22 +537,34 @@ export function bubbleArt(from: string, to: string, room: number): { source: str
   return { source: wrapSvg(width, LANE_H, out), width, height: LANE_H, seconds }
 }
 
+/** The gap between buttons of a group, in px. */
+export const PILL_GAP = 8
+
 /**
- * A button drawn as pixels: the cockpit gray of the bubble, dark text, the same stepped border. It is one row (18 px) tall,
- * exactly as tall as the Button laid over it, and as wide as its label needs, in px (nothing here depends on the host's
- * character cells), so the Button's whole box is the drawing.
+ * A group of buttons drawn as ONE picture: pills in the cockpit gray of the bubble, as tall as the bubble, dark text, the
+ * same stepped border, a gap between. One picture means the buttons can never be drawn over one another, whatever the host
+ * does with its layout. `parts` gives each pill's x and width in px: the Buttons laid over it share the picture's width by
+ * these same numbers (as flex ratios, so no unit of the host's counts), see buttonGroup in register.tsx.
  */
-export function pillSvg(label: string): { source: string; width: number; height: number; cols: number } {
+export function pillGroupSvg(labels: string[]): { source: string; width: number; height: number; parts: { x: number; w: number }[] } {
   const size = 12
-  const w = Math.max(32, textPx(label, size) + 2 * 10 + 2)
-  const h = CELL.h
+  const h = BUBBLE_H
   const r = (x: number, y: number, rw: number, rh: number, c: string) => `<rect x="${x}" y="${y}" width="${rw}" height="${rh}" fill="${c}"/>`
-  const body = [
-    r(2, 0, w - 4, h, '#0b0705'), r(0, 2, w, h - 4, '#0b0705'),
-    r(4, 2, w - 8, h - 4, C.gray), r(2, 4, w - 4, h - 8, C.gray),
-    `<text x="${w / 2}" y="${h / 2 + 4}" text-anchor="middle" font-size="${size}" font-weight="500" fill="#1b1a19">${esc(label)}</text>`,
-  ].join('')
-  return { source: wrapSvg(w, h, body), width: w, height: h, cols: Math.ceil(w / CELL.w) }
+  let x = 0
+  const parts: { x: number; w: number }[] = []
+  let out = ''
+  for (const label of labels) {
+    const w = Math.max(34, textPx(label, size) + 2 * 12 + 2)
+    out += [
+      r(x + 2, 0, w - 4, h, '#0b0705'), r(x, 2, w, h - 4, '#0b0705'),
+      r(x + 4, 2, w - 8, h - 4, C.gray), r(x + 2, 4, w - 4, h - 8, C.gray),
+      `<text x="${x + w / 2}" y="${h / 2 + 4.5}" text-anchor="middle" font-size="${size}" font-weight="500" fill="#1b1a19">${esc(label)}</text>`,
+    ].join('')
+    parts.push({ x, w })
+    x += w + PILL_GAP
+  }
+  const width = Math.max(0, x - PILL_GAP)
+  return { source: wrapSvg(width, h, out), width, height: h, parts }
 }
 
 /** The mascot, the meters and the gap between them as separate drawings: a new pose replaces only Clawd, so the meters are never reloaded (a replaced drawing blinks). */
@@ -813,8 +825,8 @@ export type Alert = { id: string; tone: Level; text: string; actions: ActionId[]
  */
 export function alertsOf(m: Model, o: { saverOn: boolean; now: number }): Alert[] {
   const out: Alert[] = []
-  if (m.ctx.level === 'alert') out.push({ id: 'ctx', tone: 'alert', text: m.ctx.legend.text, actions: ['handoff', 'compact', 'copy', 'fresh'] })
-  else if (m.ctx.level === 'warn') out.push({ id: 'ctx', tone: 'warn', text: m.ctx.legend.text, actions: ['handoff', 'compact', 'copy', 'fresh'] })
+  if (m.ctx.level === 'alert') out.push({ id: 'ctx', tone: 'alert', text: m.ctx.legend.text, actions: ['copy', 'handoff', 'compact', 'fresh'] })
+  else if (m.ctx.level === 'warn') out.push({ id: 'ctx', tone: 'warn', text: m.ctx.legend.text, actions: ['copy', 'handoff', 'compact', 'fresh'] })
   const c = m.cache?.view
   if (c?.state === 'soon') out.push({ id: 'cache', tone: 'warn', text: `Prompt cache goes cold in ${c.label}. ${m.cache?.sub ?? ''}`.trim(), actions: ['handoff'] })
   if (c?.state === 'cold') out.push({ id: 'cache', tone: 'warn', text: `Prompt cache is cold: the next message pays full price. ${m.cache?.sub ?? ''}`.trim(), actions: ['handoff'] })
