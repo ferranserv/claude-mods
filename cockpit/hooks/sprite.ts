@@ -172,6 +172,15 @@ function clawd(o) {
     stamp(['......ww', '.....www', '....wwwK', '...wwwK.', '..wwKK..', '.wKK....', 'XX......'], qx, qy, 'w')
   }
   if (o.scroll) { fill(X + 3, Y + 8, 18, 9, 'o'); fill(X + 3, Y + 16, 18, 1, 'O'); for (const [yy, ww] of [[10, 12], [12, 14], [14, 9]]) fill(X + 5, Y + yy, ww, 1, 'O'); fill(X + 2, Y + 7, 20, 1, 'O'); }
+  if (o.book) {   // an open book held in front of him: brown cover, two pages, a spine, lines of text
+    const bx = X + 2, by = Y + 8;
+    fill(bx, by, 20, 10, 'X'); fill(bx + 1, by + 1, 9, 8, 'o'); fill(bx + 11, by + 1, 9, 8, 'o');
+    for (const yy of [2, 4, 6]) { fill(bx + 2, by + yy, 6, 1, 'O'); fill(bx + 13, by + yy, 6, 1, 'O'); }
+    fill(bx, by + 9, 20, 1, 'x');
+  }
+  if (o.stack) {   // a short stack of books on the ground beside him (right side, fixed: does not move with the body)
+    for (const [bxx, byy, bw, c] of [[OX + 24, F - 3, 5, 'h'], [OX + 25, F - 6, 4, 'l'], [OX + 24, F - 9, 5, 'u']]) { fill(bxx, byy, bw, 3, c); fill(bxx, byy + 2, bw, 1, 'o'); }
+  }
   if (o.browser) { if (o.glass) { const gx = X + 21, gy = Y - 1; fill(gx + 1, gy, 5, 1, 'g'); fill(gx + 1, gy + 6, 5, 1, 'g'); fill(gx, gy + 1, 1, 5, 'g'); fill(gx + 6, gy + 1, 1, 5, 'g'); fill(gx + 1, gy + 1, 5, 5, 'i'); set(gx + 2, gy + 2, 'w'); set(gx + 3, gy + 2, 'w'); for (let i = 0; i < 3; i++) fill(gx - i, gy + 7 + i, 2, 1, 'X'); }  const bx = X + 16, byy = Y + 3; fill(bx, byy, 13, 11, 'y'); fill(bx, byy, 13, 3, 'G'); for (let i = 0; i < 3; i++) set(bx + 1 + i * 2, byy + 1, 'w'); fill(bx + 1, byy + 4, 4, 5, 'n'); for (const yy of [4, 6, 8]) fill(bx + 6, byy + yy, 6, 1, o.browser === 2 && yy === 6 ? 'h' : 'b'); }
   if (o.wrench) { const t = o.wrench, hx = X + 21; if (t > 1) { fill(hx + 2, Y - 3, 2, 8, 'x'); fill(hx - 1, Y - 5, 8, 3, 'g'); fill(hx - 1, Y - 5, 8, 1, 'v'); set(hx - 3, Y - 6, 's'); set(hx - 3, Y - 4, 's'); } else { fill(hx + 2, Y - 1, 2, 8, 'x'); fill(hx - 1, Y - 3, 8, 3, 'g'); fill(hx - 1, Y - 3, 8, 1, 'v'); } }
   if (o.plug !== undefined) {
