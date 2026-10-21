@@ -18,26 +18,29 @@ Cloud sessions on this repo load the mod from `.claude/settings.json`. For cloud
 
 ## The band
 
-Collapsed (default): Clawd, then Context, 5-hour, Weekly and Cache as one row of bars. Nothing is hidden, the small print is. On the right: ✦ Enhance (and ↩ to restore your draft) and the arrow ▾ / ▴.
+One row, always: Clawd, then Context, 5-hour, Weekly and Cache as bars. Every number is always visible; nothing expands or collapses. On the right: ✦ Enhance (and ↩ to restore your draft).
 
-Expanded: the full meters (warning text, the five weekday slots, what the next message costs warm vs cold), then every warning with its buttons, preflight findings, the saver line.
+Everything the cockpit has to tell you is Clawd's **bubble**, in a row under the meters (it never covers a number). It has one gray button of its own and, when there are more answers, a **…** that opens them in a row below.
 
-| Opens by itself when | Buttons offered |
-| --- | --- |
-| Context passes 50% (or 150k tokens), and again past 80% | New session with handoff (H), Copy handoff keep session (C), Fresh session (N) |
-| Cache goes cold in under 5 minutes, or is cold | New session with handoff |
-| 5-hour limit at 80% (saver off) | Turn saver on |
-| 5-hour limit reached | Copy handoff (resume after the reset) |
-| Weekly use ahead of pace (saver off) | Turn saver on |
-| Preflight: on main, uncommitted changes, another session in the folder | New worktree, Commit checkpoint, Commit its files (see below) |
+| Clawd says | Button on the bubble | Behind the … |
+| --- | --- | --- |
+| Context past 50% (or 150k tokens), past 80% | Handoff | Compact, Copy brief, Fresh |
+| Cache about to go cold, or cold | Handoff | |
+| 5-hour limit at 80% (saver off) | Saver on | |
+| 5-hour limit reached | Copy brief | |
+| Weekly use ahead of pace (saver off) | Saver on | |
+| Preflight: on main, uncommitted changes, another session in the folder | New worktree / Commit checkpoint / Commit its files | the other findings, Hide all |
+| A notice (worktree ready, committed) | Switch / OK | Copy path, OK, Copy undo command |
+| Saver routed a step to Haiku | | |
+| Messages (busy, failed, done) | | |
 
-A warning that has no button to offer is not shown as text; the bar colors still say it. The arrow collapses an open band until the alert level climbs; `/cockpit open` pins it open, `/cockpit close` keeps it collapsed, `/cockpit auto` goes back to the default. Handoff buttons wait while Claude is working.
+Handoff buttons wait while Claude is working. `/cockpit log` lists the last ten things the bubble said.
 
 ## Commands, hotkeys, options
 
 | | |
 | --- | --- |
-| `/cockpit open\|close\|auto` | Pin the band open, keep it collapsed, or let it open when something needs you. |
+| `/cockpit log` | The last ten things the bubble said, and the last handoff brief's path. |
 | `/cockpit demo [state]` | Show every Clawd state (or one) for 4 seconds each; `/cockpit demo off` stops. |
 | `/cockpit mascot on\|small\|off` | Clawd at full size (68 x 56 px), half size, or hidden (the bubble and meters stay). Remembered across sessions. |
 | `/meters side` / `/meters top` | The same content in a side panel, or back in the band. The app decides where a docked pane goes. |
@@ -46,7 +49,7 @@ A warning that has no button to offer is not shown as text; the bar colors still
 | `/cache`, `/cache 30`, `/cache auto` | Show the window and exact time left, set it in minutes, or go back to learning it. |
 | `/meters warn 5`, `/meters red 70`, `/meters tokens 50k`, `/meters limits [reset]` | Change the context warning levels from the prompt; saved across sessions. |
 | `/meters status` | Which commands the app accepted. `/meters cache\|handoff\|fresh` do the same actions if a name is refused. |
-| `/saver on\|off\|why`, `/saver strip active\|on\|always` | Saver on or off, why the last prompt was or was not routed, when its line shows in the collapsed band. |
+| `/saver on\|off\|why` | Saver on or off, and why the last prompt was or was not routed. When it routes a step, Clawd says so in the bubble. |
 | `/preflight`, `/preflight off\|on` | Check now, or turn the preflight warnings off or on. |
 | `/enhance <draft>` | Rewrite a draft with fitting skills and project details. |
 | Hotkeys | `meta+h` handoff, `meta+n` fresh, `meta+e` enhance, from the prompt box. Change or clear them in the options. |

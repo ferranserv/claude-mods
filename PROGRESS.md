@@ -157,3 +157,8 @@ Not done (by design): preflight rows and command-carrying notices stay rows (a b
 ## Hotfix 0.14.1 (2026-10-21): cockpit did not show in new sessions after 0.14.0
 Owner: after merging and updating, new sessions showed no cockpit (a running session kept the old one). Likely cause (not confirmed, no error text): 0.13.0 added engine surface the desktop build may not have, and one unknown name stops the whole module loading: `classic.PostModelSwitch`, `$.session.compact`, `$.tool.call`. Removed all three: the cache reset on a model switch moved into the existing `classic.PreModelSwitch` hook; Compact runs `$.command.run({command:'compact'})`; the worktree switch is the old one-turn prompt again (the saving T2 is gone until the app's version is known).
 Rule: no new engine event or `$` method in a mod without a spike on the owner's app first. If 0.14.1 loads, add them back one per release to find the culprit.
+
+## Session (2026-10-21): cockpit 0.15.0 (one row, one bubble) on top of the 0.14.1 hotfix
+Owner asked: saver line gone, band never expands, U5 into the bubble, meters always visible, buttons solid and same gray as the bubble, text always fits, no blinking, typewriter between bubbles. Owner chose in the questions: remove the arrow completely; a bubble button plus a "…" menu; most important finding first, the others in the menu.
+Done: see docs/COCKPIT.md "0.15.0". 225 tests, tsc clean, validate ok.
+Not verifiable from the cloud: the Button-over-drawing alignment (cells: 8 x 18 px) and Box overflow clipping on the desktop app; SMIL typewriter; whether the 0.14.1 hotfix loads (still waiting on the owner's report).

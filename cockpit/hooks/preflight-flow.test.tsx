@@ -47,6 +47,10 @@ function setup(on: Parameters<typeof mock.clock>[0], w: World) {
 const peer = (o: Record<string, unknown>) => ({ id: 'p1abcdef', cwd: '/r/.claude/worktrees/a', branch: 'claude/a', phase: 'idle', at: NOW - 60_000, files: [], ...o })
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+/** What the bubble says (its drawing's alt text) on a mounted band. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const says = async (ui: any): Promise<string> => (await ui.findAll({ type: 'Svg' })).map((v: { props?: { alt?: string } }) => String(v.props?.alt ?? '')).join(' | ')
+
 async function band($: { ui: { mount: (i: never) => Promise<any> } }) {
   return $.ui.mount({ plugin: 'cockpit', surface: 'desktop', component: 'AbovePrompt', props } as never)
 }
@@ -55,11 +59,16 @@ test('on main with changes the band warns and the checkpoint goes to a new branc
   const { clock, log } = setup(on, { branch: 'main', mine: 'me000000', peers: {}, dirty: { '/r': ['a.ts', '.env'] } })
   on('ui.render', () => ({ type: 'engine', ref: 0 }) as never)
   await started($)
-  await clock.advance(2000)
-  const ui = await band($)
-  expect(await ui.find({ type: 'Text', text: /You are on main/ })).toBeDefined()
-  expect(await ui.find({ type: 'Text', text: /2 files changed/ })).toBeDefined()
-  await ui.press({ key: 'cp' } as never)
+  await clock.advance(6000)
+  let ui = await band($)
+  expect(await says(ui)).toMatch(/You are on main.*\(\+1\)/) // the first finding in the bubble, the count of the others
+  await ui.press({ key: 'more' } as never)
+  await ui.unmount()
+  ui = await band($)
+  expect(await ui.find({ key: 'worktree' } as never)).toBeDefined() // the first finding's button stays on the bubble
+  expect(await ui.find({ key: 'menu' } as never)).toBeDefined()
+  expect(await ui.find({ key: 'checkpoint' } as never)).toBeDefined() // the other finding is in the menu
+  await ui.press({ key: 'checkpoint' } as never)
   const cmds = log.git.map(a => a.slice(3).join(' '))
   expect(cmds.some(c => c.startsWith('switch -c checkpoint/'))).toBe(true)
   expect(cmds.some(c => c.startsWith('add -A -- a.ts') && !c.includes('.env'))).toBe(true)
@@ -73,12 +82,15 @@ test('a finished session: first click only asks, the second commits only its fil
   const { clock, log } = setup(on, w)
   on('ui.render', () => ({ type: 'engine', ref: 0 }) as never)
   await started($)
-  await clock.advance(2000)
-  const ui = await band($)
-  expect(await ui.find({ type: 'Text', text: /Session p1abcd finished: 1 file \(\+5 −2\)/ })).toBeDefined()
-  await ui.press({ key: 'ask' } as never)
+  await clock.advance(6000)
+  let ui = await band($)
+  expect(await says(ui)).toMatch(/Session p1abcd finished: 1 file \(\+5 −2\)/)
+  await ui.press({ key: 'askCommit-p1abcdef' } as never)
   expect(log.git.some(a => a.includes('commit'))).toBe(false)
-  await ui.press({ key: 'yes' } as never)
+  await ui.unmount()
+  ui = await band($)
+  expect(await says(ui)).toContain('Commit 1 file on claude/a? Not pushed.')
+  await ui.press({ key: 'commitPeer-p1abcdef' } as never)
   const commit = log.git.find(a => a.includes('commit'))
   expect(commit?.[2]).toBe('/r/.claude/worktrees/a')
   expect(commit?.at(-1)).toBe('a.ts')
@@ -92,10 +104,10 @@ test('a session still working offers no commit button', async ($, on) => {
   const { clock } = setup(on, w)
   on('ui.render', () => ({ type: 'engine', ref: 0 }) as never)
   await started($)
-  await clock.advance(2000)
+  await clock.advance(6000)
   const ui = await band($)
-  expect(await ui.find({ type: 'Text', text: /Session p1abcd is working/ })).toBeDefined()
-  expect(await ui.find({ key: 'ask' } as never)).toBeUndefined()
+  expect(await says(ui)).toMatch(/Session p1abcd is working/)
+  expect(await ui.find({ key: 'askCommit-p1abcdef' } as never)).toBeUndefined()
   await ui.unmount()
 })
 
@@ -104,10 +116,10 @@ test('another session in the same folder: New worktree is offered and creates a 
   const { clock, log } = setup(on, w)
   on('ui.render', () => ({ type: 'engine', ref: 0 }) as never)
   await started($)
-  await clock.advance(2000)
+  await clock.advance(6000)
   const ui = await band($)
-  expect(await ui.find({ type: 'Text', text: /Another session is in this folder/ })).toBeDefined()
-  await ui.press({ key: 'wt-shared-folder' } as never)
+  expect(await says(ui)).toMatch(/Another session is in this folder/)
+  await ui.press({ key: 'worktree' } as never)
   const add = log.git.find(a => a.includes('worktree'))
   expect(add?.join(' ')).toMatch(/worktree add -b claude\/s-me0000-\d{4}-\d{4} \/r\/\.claude\/worktrees\/s-me0000-/)
   await ui.unmount()
@@ -135,7 +147,8 @@ test('/preflight off silences it', async ($, on) => {
   await clock.advance(2000)
   const r = (await $.command.run({ command: 'preflight', args: 'off' } as never)) as { text: string }
   expect(r.text).toContain('off')
+  await clock.advance(6000)
   const ui = await band($)
-  expect(await ui.find({ type: 'Text', text: /You are on main/ })).toBeUndefined()
+  expect(await says(ui)).not.toMatch(/You are on main/)
   await ui.unmount()
 })

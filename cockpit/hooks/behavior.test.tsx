@@ -228,9 +228,10 @@ test('hotkeys: meta+h hands off, meta+n starts fresh, both leave the draft alone
 const band = (surface: 'desktop' | 'terminal', isWorking = false) =>
   ({ plugin: 'cockpit', surface, component: 'AbovePrompt', props: { hasSurvey: false, isWorking, maxRows: 12, bodyColumns: 100, scroll: { bodyRows: 10 }, view: {} } }) as never
 
-test('buttons: shown from the first warning, hidden when calm or while working; pressing one runs it', async ($, on) => {
+test('buttons: shown from the first warning, hidden when calm or while working; the others are behind the …', async ($, on) => {
   const w = world(on)
   await started($)
+  await w.clock.advance(6000)
   const at = (percent: number) => $.session.measure({ context: { tokens: percent * 1000, window: 100_000, percent }, rateLimits: [], changed: ['context'] } as never)
 
   for (const surface of ['desktop', 'terminal'] as const) {
@@ -242,7 +243,8 @@ test('buttons: shown from the first warning, hidden when calm or while working; 
     await at(55)
     ui = await $.ui.mount(band(surface))
     expect(await ui.find({ key: 'handoff' })).toBeDefined()
-    expect(await ui.find({ key: 'fresh' })).toBeDefined()
+    expect(await ui.find({ key: 'more' })).toBeDefined()
+    expect(await ui.find({ key: 'fresh' })).toBeUndefined() // in the menu, not on the bubble
     await ui.unmount()
 
     ui = await $.ui.mount(band(surface, true))
@@ -251,13 +253,16 @@ test('buttons: shown from the first warning, hidden when calm or while working; 
   }
 
   await at(55)
-  const ui = await $.ui.mount(band('desktop'))
+  let ui = await $.ui.mount(band('desktop'))
+  await ui.press({ key: 'more' })
+  await ui.unmount()
+  ui = await $.ui.mount(band('desktop'))
+  for (const key of ['compact', 'copy', 'fresh']) expect(await ui.find({ key })).toBeDefined()
   await ui.press({ key: 'fresh' })
   await w.clock.advance(100)
   expect(w.commands).toEqual(['clear'])
   await ui.unmount()
 })
-
 test('the cache meter counts down in the band, and shows cold after the window', async ($, on) => {
   const w = world(on)
   await started($)
@@ -320,6 +325,7 @@ test('/meters warn, red, tokens: change the context warning levels without the o
   const w = world(on)
   await started($)
   const at = (percent: number) => $.session.measure({ context: { tokens: percent * 100, window: 10_000, percent }, rateLimits: [], changed: ['context'] } as never)
+  await w.clock.advance(6000)
 
   await at(10)
   let ui = await $.ui.mount(band('desktop'))
@@ -425,106 +431,87 @@ test('copy mode appends to a draft instead of replacing it', async ($, on) => {
   expect(w.fills.at(-1)).toContain('THE BRIEF')
 })
 
-test('buttons hide while a turn runs even when the app does not set isWorking; three buttons show when idle', async ($, on) => {
+test('buttons hide while a turn runs even when the app does not set isWorking; the bubble has Handoff and a … when idle', async ($, on) => {
   const w = world(on)
   await started($)
+  await w.clock.advance(6000)
   await $.session.measure({ context: { tokens: 600, window: 1000, percent: 60 }, rateLimits: [], changed: ['context'] } as never)
   let ui = await $.ui.mount(band('desktop'))
-  for (const key of ['handoff', 'compact', 'copy', 'fresh']) expect(await ui.find({ key })).toBeDefined()
+  for (const key of ['handoff', 'more']) expect(await ui.find({ key })).toBeDefined()
   await ui.unmount()
 
   await ($ as unknown as { turn: { start: (i: unknown) => Promise<unknown> } }).turn.start({ text: 'go', turnId: 't1' })
   ui = await $.ui.mount(band('desktop', false))
   expect(await ui.find({ key: 'handoff' })).toBeUndefined()
-  expect(await ui.find({ key: 'copy' })).toBeUndefined()
+  expect(await ui.find({ key: 'more' })).toBeUndefined()
   await ui.unmount()
   expect(w.commands).toEqual([])
 })
-
 test('the copy button keeps the session', async ($, on) => {
   const w = world(on, { brief: 'B' })
   await started($)
+  await w.clock.advance(6000)
   await $.session.measure({ context: { tokens: 600, window: 1000, percent: 60 }, rateLimits: [], changed: ['context'] } as never)
-  const ui = await $.ui.mount(band('terminal'))
+  let ui = await $.ui.mount(band('terminal'))
+  await ui.press({ key: 'more' })
+  await ui.unmount()
+  ui = await $.ui.mount(band('terminal'))
   await ui.press({ key: 'copy' })
   await w.clock.advance(5000)
   expect(w.commands).toEqual([])
   expect(w.fills.at(-1)).toBe('B')
   await ui.unmount()
 })
-
 // ---- the cockpit band: collapsed row, arrow, auto-open, a button for every warning
 
 const measureCtx = ($: unknown, percent: number) =>
   ($ as { session: { measure: (i: unknown) => Promise<unknown> } }).session.measure({ context: { tokens: percent * 10, window: 1000, percent }, rateLimits: [], changed: ['context'] })
 
-test('calm: collapsed, no alert row; the arrow opens it and the saver line shows', async ($, on) => {
-  world(on)
+test('calm: the band is the meters and the wand only; no arrow, no bubble, no saver line', async ($, on) => {
+  const w = world(on)
   await started($)
   await measureCtx($, 10)
-  let ui = await $.ui.mount(band('desktop'))
-  expect(await ui.find({ key: 'toggle' })).toBeDefined()
-  expect(await ui.find({ key: 'alert-ctx' })).toBeUndefined()
-  expect(await ui.find({ key: 'saver' })).toBeUndefined()
-  await ui.press({ key: 'toggle' })
-  await ui.unmount()
-  ui = await $.ui.mount(band('desktop'))
-  expect(await ui.find({ key: 'saver' })).toBeDefined()
+  await w.clock.advance(6000)
+  const ui = await $.ui.mount(band('desktop'))
+  for (const key of ['toggle', 'bubble', 'more', 'saver', 'alert-ctx']) expect(await ui.find({ key })).toBeUndefined()
+  expect(await ui.find({ key: 'enhance' })).toBeDefined()
   await ui.unmount()
 })
-
-test('a warning opens the band by itself with its buttons; the arrow collapses it until the level climbs', async ($, on) => {
-  world(on)
+test('a warning speaks in one bubble: Handoff on it, Compact, Copy brief and Fresh behind the …; the meters row is not touched', async ($, on) => {
+  const w = world(on)
   await started($)
   await measureCtx($, 60)
+  await w.clock.advance(6000)
   let ui = await $.ui.mount(band('desktop'))
-  expect(await ui.find({ key: 'alert-ctx' })).toBeDefined()
-  for (const key of ['handoff', 'compact', 'copy', 'fresh']) expect(await ui.find({ key })).toBeDefined()
-  await ui.press({ key: 'toggle' })
+  expect(await ui.find({ key: 'bubble' })).toBeDefined()
+  expect(await ui.find({ key: 'handoff' })).toBeDefined()
+  expect(await ui.find({ key: 'row' })).toBeDefined() // the band's own row is always there, with the meters
+  expect(await ui.find({ key: 'menu' })).toBeUndefined()
+  await ui.press({ key: 'more' })
   await ui.unmount()
-
   ui = await $.ui.mount(band('desktop'))
-  expect(await ui.find({ key: 'alert-ctx' })).toBeUndefined() // collapsed, still at warning level
-  await ui.unmount()
-
-  await measureCtx($, 90) // alert level: past what was collapsed
-  ui = await $.ui.mount(band('desktop'))
-  expect(await ui.find({ key: 'alert-ctx' })).toBeDefined()
+  expect(await ui.find({ key: 'menu' })).toBeDefined()
+  for (const key of ['compact', 'copy', 'fresh']) expect(await ui.find({ key })).toBeDefined()
   await ui.unmount()
 })
-
-test('/cockpit close keeps it collapsed even at the alert level; /cockpit auto lets it open again', async ($, on) => {
+test('the expand arrow and /cockpit open|close|auto are gone: the band is one row', async ($, on) => {
   world(on)
   await started($)
   await measureCtx($, 90)
-  expect(text(await $.command.run({ command: 'cockpit', args: 'close' } as never))).toContain('collapsed')
-  let ui = await $.ui.mount(band('desktop'))
-  expect(await ui.find({ key: 'alert-ctx' })).toBeUndefined()
-  await ui.unmount()
-  await $.command.run({ command: 'cockpit', args: 'auto' } as never)
-  ui = await $.ui.mount(band('desktop'))
-  expect(await ui.find({ key: 'alert-ctx' })).toBeDefined()
-  await ui.unmount()
+  expect(text(await $.command.run({ command: 'cockpit', args: 'close' } as never))).toContain('one row')
+  expect(text(await $.command.run({ command: 'cockpit', args: '' } as never))).toContain('always visible')
 })
-
-test('a pinned-open band is remembered across sessions', async ($, on) => {
-  const w = world(on)
-  await started($)
-  await $.command.run({ command: 'cockpit', args: 'open' } as never)
-  expect(w.writes.pinnedOpen).toBe(true)
-})
-
-test('5-hour limit at 80%: the warning offers Turn saver on, and pressing it turns saver on', async ($, on) => {
+test('5-hour limit at 80%: the bubble offers Turn saver on, and pressing it turns saver on', async ($, on) => {
   const w = world(on, { stored: { saverOn: false } })
   await started($)
+  await w.clock.advance(6000)
   await ($ as unknown as { session: { measure: (i: unknown) => Promise<unknown> } }).session.measure({ context: { tokens: 100, window: 1000, percent: 10 }, rateLimits: [{ kind: 'five_hour', percentUsed: 85 }], changed: ['context', 'rateLimits'] })
   const ui = await $.ui.mount(band('desktop'))
-  expect(await ui.find({ key: 'alert-five' })).toBeDefined()
+  expect(await ui.find({ key: 'saver' })).toBeDefined()
   await ui.press({ key: 'saver' })
   expect(w.writes.saverOn).toBe(true)
   await ui.unmount()
 })
-
 test('a warning with no action to offer is dropped: saver already on, 5-hour at 85%', async ($, on) => {
   world(on)
   await started($)
@@ -542,6 +529,13 @@ const altOf = async ($: unknown, isWorking = false): Promise<string> => {
   // The bubble and the wand are Svgs too: Clawd's own drawing is the one described as Clawd.
   const svgs = await ui.findAll({ type: 'Svg' })
   const alt = String(svgs.find(v => String(v.props?.alt ?? '').startsWith('Clawd'))?.props?.alt ?? '')
+  await ui.unmount()
+  return alt
+}
+/** The meters' own alt text: they are a drawing apart from Clawd's. */
+const metersAltOf = async ($: unknown): Promise<string> => {
+  const ui = await ($ as { ui: { mount: (i: unknown) => Promise<{ findAll: (q: unknown) => Promise<{ props?: { alt?: string } }[]>; unmount: () => Promise<void> }> } }).ui.mount(band('desktop'))
+  const alt = String((await ui.findAll({ type: 'Svg' })).find(v => String(v.props?.alt ?? '').includes('Context'))?.props?.alt ?? '')
   await ui.unmount()
   return alt
 }
@@ -666,8 +660,7 @@ test('"Done." speaks over a pending decision while the bell rings, then the deci
   expect(await altOf($)).toContain('tipsy')
   await ($ as unknown as Do).turn.start({ text: 'go', turnId: 't1' })
   await ($ as unknown as Do).turn.complete({ reason: 'answer', answer: 'x', durationMs: 5, isAborted: false, turnId: 't1' })
-  const during = await svgOf($)
-  expect(during).toContain('from="0" to="1"') // the bell outranks the warning: it speaks, with no button
+  expect(await altOf($)).toContain('Done.') // the bell outranks the warning: it speaks, with no button
   expect(await hasButton($, 'handoff')).toBe(false)
   await w.clock.advance(5100)
   expect(await hasButton($, 'handoff')).toBe(true) // the bell is over: the open question is back, with its real button beside it
@@ -675,7 +668,7 @@ test('"Done." speaks over a pending decision while the bell rings, then the deci
   await measureCtx($, 10) // the context is cleared: the warning is over, so the bubble and the pose are too
   await w.clock.advance(6000)
   expect(await altOf($)).not.toContain('tipsy')
-  expect(await svgOf($)).not.toContain('from="0" to="1"')
+  expect(await altOf($)).not.toContain('Done.')
 })
 
 test('asleep ends when the 5-hour limit resets, without waiting for the next reply', async ($, on) => {
@@ -685,9 +678,8 @@ test('asleep ends when the 5-hour limit resets, without waiting for the next rep
   await ($ as unknown as { session: { measure: (i: unknown) => Promise<unknown> } }).session.measure({ context: { tokens: 100, window: 1000, percent: 10 }, rateLimits: [{ kind: 'five_hour', percentUsed: 100, resetsAt: new Date(WED + 30 * MIN).toISOString() }], changed: ['context', 'rateLimits'] })
   expect(await altOf($)).toContain('asleep')
   await w.clock.advance(31 * MIN)
-  const alt = await altOf($)
-  expect(alt).not.toContain('asleep')
-  expect(alt).toContain('5-hour limit 0% used')
+  expect(await altOf($)).not.toContain('asleep')
+  expect(await metersAltOf($)).toContain('5-hour limit 0% used')
 })
 
 test('a cold cache clears, the pose and its bubble, when a new message is sent', async ($, on) => {
@@ -706,7 +698,7 @@ test('a cold cache clears, the pose and its bubble, when a new message is sent',
   expect(await hasButton($, 'handoff')).toBe(false)
 })
 
-test('a bubble with nothing to decide lingers after its state ends, then fades out', async ($, on) => {
+test('a bubble with nothing to decide lingers after its state ends, then goes', async ($, on) => {
   const w = world(on)
   on('turn.complete', (_, e) => ({ text: e.answer }) as never)
   await started($)
@@ -714,16 +706,12 @@ test('a bubble with nothing to decide lingers after its state ends, then fades o
   await w.clock.advance(6000)
   await ($ as unknown as Do).turn.start({ text: 'go', turnId: 't1' })
   await ($ as unknown as Do).turn.complete({ reason: 'answer', answer: 'x', durationMs: 5, isAborted: false, turnId: 't1' })
-  const speaking = 'from="0" to="1"'
-  expect(await svgOf($)).toContain(speaking) // "Done." while the bell rings
+  expect(await altOf($)).toContain('Done.') // while the bell rings
   await w.clock.advance(8000) // the bell is over after 5 s, the words stay a little longer
-  expect(await svgOf($)).toContain(speaking)
+  expect(await altOf($)).toContain('Done.')
   await w.clock.advance(12_000)
-  const later = await svgOf($)
-  expect(later).not.toContain(speaking)
-  expect(later).toContain('opacity="0"><animate attributeName="opacity" from="1" to="0"')
+  expect(await altOf($)).not.toContain('Done.')
 })
-
 test('a finished turn rings the bell over a warning, then the warning returns', async ($, on) => {
   const w = world(on)
   on('turn.complete', (_, e) => ({ text: e.answer }) as never)
@@ -751,24 +739,6 @@ test('thinking before any tool, typing after, coffee when the turn drags on', as
   expect(await altOf($, true)).toContain('typing')
   await w.clock.advance(125_000)
   expect(await altOf($, true)).toContain('coffee')
-})
-
-test('a collapsed band speaks through the bubble, with the button; an open band shows the alert once', async ($, on) => {
-  const w = world(on)
-  await started($)
-  await measureCtx($, 60)
-  await w.clock.advance(6000)
-  await $.command.run({ command: 'cockpit', args: 'close' } as never)
-  let ui = await $.ui.mount(band('desktop'))
-  expect(await ui.find({ key: 'bubble' })).toBeDefined()
-  expect(await ui.find({ key: 'handoff' })).toBeDefined()
-  expect(await ui.find({ key: 'alert-ctx' })).toBeUndefined()
-  await ui.unmount()
-  await $.command.run({ command: 'cockpit', args: 'auto' } as never)
-  ui = await $.ui.mount(band('desktop'))
-  expect(await ui.find({ key: 'alert-ctx' })).toBeDefined()
-  expect(await ui.find({ key: 'bubble' })).toBeUndefined()
-  await ui.unmount()
 })
 
 test('/cockpit demo shows a state you ask for, and says when it does not know one', async ($, on) => {
@@ -840,16 +810,20 @@ test('a timed demo takes its bubble away with its state, and leaves nothing pend
   expect(await altOf($)).not.toContain('frozen')
 })
 
-test('a warning button draws its label as real text on the desktop, not as a drawing with a click area over it', async ($, on) => {
+test('a button is drawn as a gray pill with the real Button laid over it, blank, in the same cells', async ($, on) => {
   const w = world(on)
   await started($)
   await measureCtx($, 60)
   await w.clock.advance(6000)
-  await $.command.run({ command: 'cockpit', args: 'open' } as never)
-  const ui = await ($ as { ui: { mount: (i: unknown) => Promise<{ find: (q: unknown) => Promise<unknown>; findAll: (q: unknown) => Promise<{ props?: { key?: string; children?: unknown } }[]>; unmount: () => Promise<void> }> } }).ui.mount(band('desktop'))
-  expect(await ui.find({ type: 'Text', text: /Handoff/ })).toBeDefined()
+  const ui = await ($ as { ui: { mount: (i: unknown) => Promise<{ find: (q: unknown) => Promise<{ props?: Record<string, unknown> } | undefined>; findAll: (q: unknown) => Promise<{ props?: { alt?: string; source?: string } }[]>; unmount: () => Promise<void> }> } }).ui.mount(band('desktop'))
+  const pill = (await ui.findAll({ type: 'Svg' })).find(v => v.props?.alt === 'Handoff')
+  expect(pill?.props?.source).toContain('#8E8E93') // the bubble's own gray, opaque
+  expect(pill?.props?.source).not.toContain('fill-opacity')
+  expect(await ui.find({ key: 'handoff' })).toBeDefined()
+  expect((await ui.find({ key: 'handoff-wrap' }))?.props?.overflow).toBe('hidden') // the click area cannot reach past the drawing
   await ui.unmount()
 })
+
 const heightOf = (source: string) => Number(/ height="(\d+)"/.exec(source)?.[1])
 
 test('/cockpit mascot small and off shrink or remove Clawd, remember the choice, and keep the meters', async ($, on) => {
@@ -959,16 +933,28 @@ test('a message to you is a bubble, not a toast, and goes in the log; it fades b
   expect(await altOf($, true)).not.toContain('Claude is working')
 })
 
-test('the collapsed band never carries the saver line; the open band does', async ($, on) => {
+
+test('a new pose never changes the meters drawing, and the bubble drawing is kept while its words stand', async ($, on) => {
   const w = world(on)
+  on('tool.call', ok)
   await started($)
-  await measureCtx($, 10)
+  await measureCtx($, 60)
   await w.clock.advance(6000)
-  let ui = await $.ui.mount(band('desktop'))
-  expect(await ui.find({ key: 'saver' })).toBeUndefined()
-  await ui.unmount()
-  await $.command.run({ command: 'cockpit', args: 'open' } as never)
-  ui = await $.ui.mount(band('desktop'))
-  expect(await ui.find({ key: 'saver' })).toBeDefined()
-  await ui.unmount()
+  const sources = async () => {
+    const ui = await ($ as { ui: { mount: (i: unknown) => Promise<{ findAll: (q: unknown) => Promise<{ props?: { source?: string; alt?: string } }[]>; unmount: () => Promise<void> }> } }).ui.mount(band('desktop'))
+    const all = await ui.findAll({ type: 'Svg' })
+    await ui.unmount()
+    return {
+      meters: all.find(v => String(v.props?.source ?? '').includes('Context'))?.props?.source,
+      bubble: all.find(v => String(v.props?.alt ?? '').includes('Context'))?.props?.source,
+      clawd: all.find(v => String(v.props?.alt ?? '').startsWith('Clawd'))?.props?.source,
+    }
+  }
+  const a = await sources()
+  expect(await sources()).toEqual(a) // redrawn with nothing new: the same drawings, so nothing reloads
+  await ($ as unknown as Do).turn.start({ text: 'go', turnId: 't1' })
+  await ($ as unknown as Do).tool.call({ tool: 'Edit', file_path: '/x/a.ts' })
+  const b = await sources()
+  expect(b.clawd).not.toBe(a.clawd) // he changed pose...
+  expect(b.meters).toBe(a.meters) // ...and the meters were not touched
 })

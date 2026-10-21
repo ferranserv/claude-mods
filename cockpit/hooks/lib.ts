@@ -426,25 +426,53 @@ export function wandSvg(dim: boolean): { source: string; width: number; height: 
 }
 
 const BUBBLE_H = 26
+/** Height of a further line of text in the bubble. */
+const BUBBLE_LINE = 14
+const BUBBLE_SIZE = 12
+/** Where the text starts inside the bubble, so it does not move while the bubble is resized. */
+const TEXT_X = 12
 /** Room around a bubble drawn on its own: the tail on the left, the shadow all round. */
 const BUBBLE_PAD = { x: 8, y: 6 }
+/** One character cell of the host, in px: boxes are laid out in whole cells. */
+export const CELL = { w: 8, h: 18 }
 
-/** How wide the speech bubble is for this text, in px. */
-const bubbleWidth = (text: string, room: number): number => Math.min(Math.max(60, room), Math.max(60, Math.round(text.length * 7 + 24)))
+/** The text as at most two lines that fit `inner` px (the second ends in an ellipsis if it must be cut), and the width the longest takes. */
+export function fitLines(text: string, inner: number, size = BUBBLE_SIZE): { lines: string[]; width: number } {
+  if (estimate(text, size) <= inner) return { lines: [text], width: Math.ceil(estimate(text, size)) }
+  const lines: string[] = []
+  let cur = ''
+  for (const word of text.split(' ')) {
+    const next = cur === '' ? word : `${cur} ${word}`
+    if (estimate(next, size) <= inner || cur === '') cur = next
+    else {
+      lines.push(cur)
+      cur = word
+    }
+  }
+  if (cur !== '') lines.push(cur)
+  let out = lines.slice(0, 2)
+  if (lines.length > 2) {
+    let last = `${out[1] ?? ''} ${lines.slice(2).join(' ')}`.trim()
+    while (last.length > 1 && estimate(`${last}…`, size) > inner) last = last.slice(0, -1)
+    out = [out[0] ?? '', `${last.trimEnd()}…`]
+  }
+  out = out.map(l => (estimate(l, size) <= inner ? l : `${l.slice(0, Math.max(1, Math.floor(inner / (size * EST)) - 1))}…`))
+  return { lines: out, width: Math.ceil(Math.max(...out.map(l => estimate(l, size)))) }
+}
 
 /**
  * Clawd's speech bubble in pixels: the cockpit gray inside, a dark stepped border, a tail pointing left to Clawd and
- * regular text. What is behind it is dimmed by a shadow in the bubble's own shape. It materializes (grows with a
- * small overshoot and fades in) or, leaving, shrinks and fades; leaving stays in the drawing, invisible, so it takes
- * no second redraw. (bx, by) is its top left.
+ * regular text of one or two lines. What is behind it is dimmed by a shadow in the bubble's own shape. It materializes
+ * (grows with a small overshoot and fades in). (bx, by) is its top left.
  */
-function bubbleOut(text: string, bx: number, by: number, w: number, phase: 'in' | 'out'): string {
-  const h = BUBBLE_H
+function bubbleOut(lines: string[], bx: number, by: number, w: number): string {
+  const h = BUBBLE_H + (lines.length - 1) * BUBBLE_LINE
   const cx = bx + Math.round(w / 2)
   const cy = by + h / 2
   const r = (x: number, y: number, rw: number, rh: number, c: string) => `<rect x="${x}" y="${y}" width="${rw}" height="${rh}" fill="${c}"/>`
   const D = '#0b0705'
   const G = C.gray
+  const top = by + Math.round((h - lines.length * BUBBLE_LINE) / 2) + 11
   const art = [
     r(bx + 2, by, w - 4, h, D), r(bx, by + 2, w, h - 4, D), // the border: a block with its corners stepped
     r(bx + 4, by + 2, w - 8, h - 4, G), r(bx + 2, by + 4, w - 4, h - 8, G), // the inside, stepped the same way
@@ -452,34 +480,124 @@ function bubbleOut(text: string, bx: number, by: number, w: number, phase: 'in' 
     r(bx - 2, by + 8, 2, 10, D), r(bx - 2, by + 10, 2, 6, G),
     r(bx - 4, by + 10, 2, 6, D), r(bx - 4, by + 12, 2, 2, G),
     r(bx - 6, by + 12, 2, 2, D),
-    `<text x="${bx + Math.round(w / 2)}" y="${by + h / 2 + 4}" text-anchor="middle" font-size="12" font-weight="400" fill="#1b1a19">${esc(text)}</text>`,
+    ...lines.map((l, i) => `<text x="${bx + TEXT_X}" y="${top + i * BUBBLE_LINE}" font-size="${BUBBLE_SIZE}" font-weight="400" fill="#1b1a19">${esc(l)}</text>`),
   ].join('')
   // The shadow has the bubble's own stepped shape: a few copies, each a pixel wider and fainter, so it fades out
-  // over 4 px all round and never reaches the edge of the band (the bubble keeps 6 px clear below it).
+  // over 4 px all round.
   const silhouette = (g: number) => `<rect x="${bx + 2 - g}" y="${by - g}" width="${w - 4 + 2 * g}" height="${h + 2 * g}" fill="#000" fill-opacity="0.07"/><rect x="${bx - g}" y="${by + 2 - g}" width="${w + 2 * g}" height="${h - 4 + 2 * g}" fill="#000" fill-opacity="0.07"/>`
   const dim = [4, 3, 2, 1].map(silhouette).join('')
-  const dur = phase === 'in' ? '0.26' : '0.3'
-  const scale = phase === 'in' ? 'values="0.55;1.06;1" keyTimes="0;0.65;1"' : 'values="1;0.82" keyTimes="0;1"'
-  const fade = phase === 'in' ? ['0', '1'] : ['1', '0']
-  const anim = `<animate attributeName="opacity" from="${fade[0]}" to="${fade[1]}" dur="${dur}s" fill="freeze"/>`
-  const grow = `<animateTransform attributeName="transform" type="scale" ${scale} dur="${dur}s" fill="freeze"/>`
-  return `<g transform="translate(${cx} ${cy})"${phase === 'out' ? ' opacity="0"' : ''}>${anim}<g>${grow}<g transform="translate(${-cx} ${-cy})">${dim}${art}</g></g></g>`
+  const anim = '<animate attributeName="opacity" from="0" to="1" dur="0.26s" fill="freeze"/>'
+  const grow = '<animateTransform attributeName="transform" type="scale" values="0.55;1.06;1" keyTimes="0;0.65;1" dur="0.26s" fill="freeze"/>'
+  return `<g transform="translate(${cx} ${cy})">${anim}<g>${grow}<g transform="translate(${-cx} ${-cy})">${dim}${art}</g></g></g>`
 }
 
 /**
- * A bubble drawn on its own, `w` wide (the width cockpitSvg gave it), for one with a real button beside it: the
- * button is laid out next to this drawing and not over a guessed spot in the band, so the click area is the
- * button itself and cannot drift from what is drawn.
+ * A button drawn as pixels: the cockpit gray of the bubble, dark text, the same stepped border. It is a whole number of
+ * character cells wide and one row tall, so the real Button laid over it (blank text, clipped to the same cells) covers
+ * exactly what is drawn and nothing else.
  */
-export function bubbleSvg(text: string, w: number): { source: string; width: number; height: number } {
-  const width = w + BUBBLE_PAD.x + 6
-  const height = BUBBLE_H + 2 * BUBBLE_PAD.y
-  return { source: wrapSvg(width, height, bubbleOut(text, BUBBLE_PAD.x, BUBBLE_PAD.y, w, 'in')), width, height }
+export function pillSvg(label: string): { source: string; width: number; height: number; cols: number } {
+  const size = 11
+  const cols = Math.max(3, Math.ceil((estimate(label, size) + 18) / CELL.w))
+  const w = cols * CELL.w
+  const h = CELL.h
+  const r = (x: number, y: number, rw: number, rh: number, c: string) => `<rect x="${x}" y="${y}" width="${rw}" height="${rh}" fill="${c}"/>`
+  const body = [
+    r(2, 0, w - 4, h, '#0b0705'), r(0, 2, w, h - 4, '#0b0705'),
+    r(4, 2, w - 8, h - 4, C.gray), r(2, 4, w - 4, h - 8, C.gray),
+    `<text x="${w / 2}" y="${h / 2 + 4}" text-anchor="middle" font-size="${size}" font-weight="500" fill="#1b1a19">${esc(label)}</text>`,
+  ].join('')
+  return { source: wrapSvg(w, h, body), width: w, height: h, cols }
+}
+
+const bubbleLayout = (text: string, room: number) => {
+  const { lines, width } = fitLines(text, Math.max(60, room - 24))
+  return { lines, w: Math.max(60, width + 2 * TEXT_X), h: BUBBLE_H + (lines.length - 1) * BUBBLE_LINE }
+}
+
+/**
+ * The speech bubble as its own drawing: one or two lines that fit `room` px, in a row under the band, with its buttons
+ * beside it. Fresh, it materializes. When it gives way to another (`prev` is what it said), the drawing starts as the old
+ * bubble and then the old words are deleted letter by letter, the bubble is resized, and the new words are typed: one
+ * continuous motion, no pop.
+ */
+export function speechSvg(text: string, room: number, prev?: string): { source: string; width: number; height: number; lines: number } {
+  const to = bubbleLayout(text, room)
+  if (prev === undefined || prev === text) {
+    const width = to.w + BUBBLE_PAD.x + 6
+    const height = to.h + 2 * BUBBLE_PAD.y
+    return { source: wrapSvg(width, height, bubbleOut(to.lines, BUBBLE_PAD.x, BUBBLE_PAD.y, to.w)), width, height, lines: to.lines.length }
+  }
+  const from = bubbleLayout(prev, room)
+  const width = Math.max(from.w, to.w) + BUBBLE_PAD.x + 6
+  const height = Math.max(from.h, to.h) + 2 * BUBBLE_PAD.y
+  const bx = BUBBLE_PAD.x
+  const by = BUBBLE_PAD.y
+  const D = '#0b0705'
+  const G = C.gray
+  const chars = (lines: string[]) => Math.max(1, ...lines.map(l => l.length))
+  const eraseS = Math.min(0.4, chars(from.lines) * 0.02)
+  const resizeS = 0.2
+  const typeS = Math.min(0.7, chars(to.lines) * 0.025)
+  const t1 = eraseS
+  const t2 = eraseS + resizeS
+  // A shape of the bubble: its width and height are the bubble's plus a constant, so one animation per attribute resizes it.
+  const shape = (x: number, y: number, dw: number, dh: number, fill: string, extra = '') => {
+    const w0 = from.w + dw
+    const w1 = to.w + dw
+    const h0 = from.h + dh
+    const h1 = to.h + dh
+    const grow = (attr: string, a: number, z: number) => (a === z ? '' : `<animate attributeName="${attr}" from="${a}" to="${z}" begin="${t1}s" dur="${resizeS}s" fill="freeze"/>`)
+    return `<rect x="${x}" y="${y}" width="${w0}" height="${h0}" fill="${fill}"${extra}>${grow('width', w0, w1)}${grow('height', h0, h1)}</rect>`
+  }
+  const shadow = [4, 3, 2, 1].map(g => shape(bx + 2 - g, by - g, -4 + 2 * g, 2 * g, '#000', ' fill-opacity="0.07"') + shape(bx - g, by + 2 - g, 2 * g, -4 + 2 * g, '#000', ' fill-opacity="0.07"')).join('')
+  const body = [
+    shape(bx + 2, by, -4, 0, D), shape(bx, by + 2, 0, -4, D),
+    shape(bx + 4, by + 2, -8, -4, G), shape(bx + 2, by + 4, -4, -8, G),
+  ].join('')
+  const r = (x: number, y: number, rw: number, rh: number, c: string) => `<rect x="${x}" y="${y}" width="${rw}" height="${rh}" fill="${c}"/>`
+  const tail = [
+    r(bx, by + 10, 2, 6, G),
+    r(bx - 2, by + 8, 2, 10, D), r(bx - 2, by + 10, 2, 6, G),
+    r(bx - 4, by + 10, 2, 6, D), r(bx - 4, by + 12, 2, 2, G),
+    r(bx - 6, by + 12, 2, 2, D),
+  ].join('')
+  const textLines = (lines: string[], h: number) => {
+    const top = by + Math.round((h - lines.length * BUBBLE_LINE) / 2) + 11
+    return lines.map((l, i) => `<text x="${bx + TEXT_X}" y="${top + i * BUBBLE_LINE}" font-size="${BUBBLE_SIZE}" font-weight="400" fill="#1b1a19">${esc(l)}</text>`).join('')
+  }
+  // A clip that opens (or closes) in whole letters: the words appear (or go) as typed.
+  const steps = (lines: string[], widthPx: number, opening: boolean, begin: number, dur: number) => {
+    const n = Math.min(40, chars(lines))
+    const ws = Array.from({ length: n + 1 }, (_, i) => Math.round((widthPx * (opening ? i : n - i)) / n))
+    const times = Array.from({ length: n + 1 }, (_, i) => (i / n).toFixed(3))
+    return `<animate attributeName="width" values="${ws.join(';')}" keyTimes="${times.join(';')}" calcMode="discrete" begin="${begin}s" dur="${dur}s" fill="freeze"/>`
+  }
+  const fromPx = Math.ceil(Math.max(...from.lines.map(l => estimate(l, BUBBLE_SIZE)))) + 4
+  const toPx = Math.ceil(Math.max(...to.lines.map(l => estimate(l, BUBBLE_SIZE)))) + 4
+  const defs = `<defs><clipPath id="cko"><rect x="${bx + TEXT_X - 1}" y="0" width="${fromPx}" height="${height}">${steps(from.lines, fromPx, false, 0, eraseS)}</rect></clipPath><clipPath id="ckn"><rect x="${bx + TEXT_X - 1}" y="0" width="0" height="${height}">${steps(to.lines, toPx, true, t2, typeS)}</rect></clipPath></defs>`
+  const out = `${defs}${shadow}${body}${tail}<g clip-path="url(#cko)">${textLines(from.lines, from.h)}</g><g clip-path="url(#ckn)">${textLines(to.lines, to.h)}</g>`
+  return { source: wrapSvg(width, height, out), width, height, lines: to.lines.length }
+}
+
+/** The mascot, the meters and the gap between them as separate drawings: a new pose replaces only Clawd, so the meters are never reloaded (a replaced drawing blinks). */
+export function bandParts(width: number, m: Model, mascot: { markup: string; width: number; height: number }): {
+  mascot: { source: string; width: number; height: number } | null
+  meters: { source: string; width: number; height: number }
+} {
+  const gap = mascot.width > 0 ? 12 : 0
+  const bodyW = Math.max(200, width - mascot.width - gap)
+  const body = bandBody(bodyW, m)
+  const height = Math.max(MIN_ROW, body.height + 2)
+  const top = Math.max(0, Math.round((height - body.height) / 2) - 3)
+  return {
+    mascot: mascot.width > 0 ? { source: wrapSvg(mascot.width, mascot.height, mascot.markup), width: mascot.width, height: mascot.height } : null,
+    meters: { source: wrapSvg(bodyW, height, `<g transform="translate(0 ${top})">${body.out}</g>`), width: bodyW, height },
+  }
 }
 
 /** One slim band: the meters side by side, a few lines tall. */
-/** `quiet`: a speech bubble is saying it, so the context warning's own lines under the bar are left out and the row keeps its height. */
-export function bandBody(width: number, m: Model, quiet = false): { out: string; height: number } {
+export function bandBody(width: number, m: Model): { out: string; height: number } {
   // Narrow windows get short labels and a smaller size; the numbers are the same.
   const narrow = width < 480
   const size = narrow ? 10 : 11
@@ -496,16 +614,12 @@ export function bandBody(width: number, m: Model, quiet = false): { out: string;
   const [w0 = 0, w1 = 0, w2 = 0, w3 = 0] = widths
   let out = ''
 
-  // Context: the warning text appears under the bar only near the warning, up to two lines.
-  const legend = m.ctx.near && !quiet ? legendLines(m.ctx.legend, w0, LEGEND_SIZE, 2) : []
+  // Context: label, percent and bar. The warning is the bubble's to say, so the row never grows for it.
   out += text(x0, 11, labels[0] ?? '', { size })
   out += parts(x0 + w0, 11, fit(m.ctx.value, room(0, w0), size), { anchor: 'end' })
   out += rect(x0, 17, w0, 7, C.gray, TRACK)
   if (m.ctx.percent > 0) out += rect(x0, 17, Math.max(7, (w0 * clamp(m.ctx.percent, 0, 100)) / 100), 7, m.ctx.color)
-  legend.forEach((l, i) => {
-    out += text(x0, 38 + i * LINE, l, { size: LEGEND_SIZE, fill: toneColor(m.ctx.legend.tone) })
-  })
-  const height = legend.length > 0 ? 38 + (legend.length - 1) * LINE + 7 : 45
+  const height = 45
 
   // 5-hour: always says when it resets
   out += text(x1, 11, labels[1] ?? '', { size })
@@ -559,30 +673,16 @@ export function bandSvg(width: number, m: Model): { source: string; width: numbe
 /** The shortest the row gets, so the small mascot or none still leaves room for a label, a bar and a value. */
 export const MIN_ROW = 46
 
-/** The whole cockpit drawing: the mascot on the left (if any), the meters beside it. */
-/** `apart`: the bubble is not drawn here (it is drawn on its own, bubbleSvg, with a button beside it); only its place is worked out. */
-export type SpeechBubble = { text: string; phase: 'in' | 'out'; apart?: boolean }
-export type Rect = { x: number; y: number; w: number; h: number }
-
-export function cockpitSvg(width: number, m: Model, mascot: { markup: string; width: number; height: number }, bubble: SpeechBubble | null = null): { source: string; width: number; height: number; bubbleBox: Rect | null } {
+/** The whole cockpit drawing: the mascot on the left (if any), the meters beside it, always the same height. */
+export function cockpitSvg(width: number, m: Model, mascot: { markup: string; width: number; height: number }): { source: string; width: number; height: number } {
   const gap = mascot.width > 0 ? 12 : 0
   const bodyW = Math.max(200, width - mascot.width - gap)
-  const body = bandBody(bodyW, m, bubble !== null)
-  // The same drawing open or collapsed (the arrow adds rows under it), and a fixed height unless a warning needs two lines.
+  const body = bandBody(bodyW, m)
   const height = Math.max(mascot.height, MIN_ROW, body.height + 2)
   const top = Math.max(0, Math.round((height - body.height) / 2) - 3)
   const mascotY = Math.round((height - mascot.height) / 2)
-  let out = `<g transform="translate(0 ${mascotY})">${mascot.markup}</g><g transform="translate(${mascot.width + gap} ${top})">${body.out}</g>`
-  let bubbleBox: Rect | null = null
-  if (bubble) {
-    const bx = mascot.width + gap + 6
-    const w = bubbleWidth(bubble.text, bodyW - 40 - (bubble.apart ? 90 : 0))
-    // Below the bars (a meter row is label at 11, bar to 24), so only the small print is covered, and clear of the bottom edge.
-    const by = Math.max(0, Math.min(height - BUBBLE_H - 6, Math.max(top + 28, height - BUBBLE_H - 10)))
-    if (!bubble.apart) out += bubbleOut(bubble.text, bx, by, w, bubble.phase)
-    bubbleBox = { x: bx, y: by, w, h: BUBBLE_H }
-  }
-  return { source: wrapSvg(mascot.width + gap + bodyW, height, out), width: mascot.width + gap + bodyW, height, bubbleBox }
+  const out = `<g transform="translate(0 ${mascotY})">${mascot.markup}</g><g transform="translate(${mascot.width + gap} ${top})">${body.out}</g>`
+  return { source: wrapSvg(mascot.width + gap + bodyW, height, out), width: mascot.width + gap + bodyW, height }
 }
 
 /** A hairline with room above and below it, to set one band apart from the next. */

@@ -6,7 +6,7 @@
 //   2. fleeting events        oops, bell, lab, love, idea, wand, coins, plug
 //   3. while it happens       dizzy (compacting), then building, reading, browse (the tool that is running)
 //   4. session start          walk, hello
-//   5. lasting warnings       asleep, mad, fire, detective, cold, hourglass, gauge, drunk, sleepy
+//   5. lasting warnings       asleep, mad, fire, talk (a notice waits for OK), detective, cold, hourglass, gauge, drunk, sleepy
 //   6. background             coffee, typing, thinking, talk (a notice is up), idle
 import type { StateId } from './states'
 import type { ActionId } from './lib'
@@ -56,6 +56,7 @@ export function pickState(i: MoodInput): StateId {
   if (i.fiveUsed >= 100) return 'asleep'
   if (i.weekRoom < 0) return 'mad'
   if (i.ctx === 'alert') return 'fire'
+  if (i.hasNote) return 'talk'
   if (i.hasAdvice) return 'detective'
   if (!i.busy && i.cache === 'cold') return 'cold'
   if (!i.busy && i.cache === 'soon') return 'hourglass'
@@ -63,7 +64,6 @@ export function pickState(i: MoodInput): StateId {
   if (i.ctx === 'warn') return 'drunk'
   if (i.fiveUsed >= 80) return 'sleepy'
   if (i.busy) return i.busyMs > COFFEE_AFTER_MS ? 'coffee' : i.hasTool ? 'typing' : 'thinking'
-  if (i.hasNote) return 'talk'
   return 'idle'
 }
 
@@ -123,7 +123,7 @@ export function bubbleFor(id: StateId, b: BubbleInput): Bubble | null {
 /** Every state, most important first: a shown state is only interrupted by one earlier in this list. */
 export const ORDER: readonly StateId[] = [
   'hand', 'writing', ...FLEET_ORDER, 'dizzy', 'building', 'reading', 'browse', 'walk', 'hello',
-  'asleep', 'mad', 'fire', 'detective', 'cold', 'hourglass', 'gauge', 'drunk', 'sleepy', 'coffee', 'typing', 'thinking', 'talk', 'idle',
+  'asleep', 'mad', 'fire', 'talk', 'detective', 'cold', 'hourglass', 'gauge', 'drunk', 'sleepy', 'coffee', 'typing', 'thinking', 'idle',
 ]
 export const rank = (id: StateId): number => ORDER.indexOf(id)
 

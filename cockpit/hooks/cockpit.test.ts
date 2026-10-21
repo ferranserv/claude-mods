@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'claude-code/testing'
 
-import { alertsOf, attentionOf, bubbleSvg, cockpitSvg, model, wandSvg } from './lib'
+import { CELL, alertsOf, bandParts, attentionOf, cockpitSvg, fitLines, model, pillSvg, speechSvg, wandSvg } from './lib'
 import { stateMarkup } from './states'
 
 const NOW = new Date(2026, 9, 21, 12).getTime() // a Wednesday: 60% of the week is allotted
@@ -45,14 +45,10 @@ describe('alertsOf: every warning has an action', () => {
 describe('cockpitSvg', () => {
   const mascot = stateMarkup('idle')
   const draw = (w: number, model_: ReturnType<typeof m>) => cockpitSvg(w, model_, mascot)
-  test('open or collapsed it is one drawing; the row is as tall as the mascot when nothing is near a warning', () => {
+  test('it is one drawing, as tall as the mascot, whatever the context says', () => {
     const calmDraw = draw(800, m(10, 41, 35))
     expect(calmDraw.height).toBe(mascot.height)
     expect(calmDraw.source).not.toContain('NaN')
-  })
-  test('context text under the bar appears only near its warning', () => {
-    expect(draw(900, m(10)).source).not.toContain('quality may start to slip')
-    expect(draw(900, m(60)).source).toContain('quality may start to slip')
   })
   test('the 5-hour bar says when it resets, the weekly bar its usage and its difference', () => {
     const src = draw(900, m(10, 41, 35)).source
@@ -85,55 +81,81 @@ describe('wandSvg', () => {
   })
 })
 
-describe('the speech bubble in the band', () => {
-  const mascot = { markup: '<g/>', width: 68, height: 56 }
-  const said = (t: string, phase: 'in' | 'out' = 'in', apart = false) => cockpitSvg(600, m(10), mascot, { text: t, phase, apart })
-  test('it sits at the foot of the band over the small print, so the band keeps its size', () => {
-    const plain = cockpitSvg(600, m(10), mascot)
-    const b = said('Needs your OK')
-    expect(b.height).toBe(plain.height)
-    expect(b.width).toBe(plain.width)
+describe('the speech bubble', () => {
+  test('it is its own drawing: cockpit gray, a stepped shadow, it materializes, and it fits the room it is given', () => {
+    const b = speechSvg('Needs your OK', 400)
     expect(b.source).toContain('Needs your OK')
     expect(b.source).toContain('font-weight="400"')
-    expect(b.source).toContain('#8E8E93') // the cockpit gray inside
+    expect(b.source).toContain('#8E8E93')
     expect(b.source).not.toContain('#ffffff')
-    expect(b.bubbleBox!.x).toBeGreaterThan(68)
-    expect(b.bubbleBox!.y).toBeGreaterThanOrEqual(22) // low: below the meters' labels (and the bars in any band with room)
-    expect(b.bubbleBox!.y + b.bubbleBox!.h).toBeLessThan(b.height) // and clear of the bottom edge
-    expect(plain.bubbleBox).toBeNull()
-  })
-  test('what is behind it is shadowed in the bubble\'s own shape, a few pixels wide, and it materializes', () => {
-    const b = said('Needs your OK')
-    expect((b.source.match(/fill-opacity="0.07"/g) ?? []).length).toBe(8) // four stepped copies, two rects each
-    expect(b.source).not.toContain('<radialGradient') // not a blob behind it
+    expect((b.source.match(/fill-opacity="0.07"/g) ?? []).length).toBe(8)
     expect(b.source).not.toContain('<filter')
-    const box = b.bubbleBox!
-    expect(box.y + box.h + 4).toBeLessThan(b.height) // the 4 px shadow stays inside the band: nothing to cut off
-    expect(box.y - 4).toBeGreaterThanOrEqual(0)
     expect(b.source).toContain('attributeName="opacity" from="0" to="1"')
-    expect(b.source).toContain('type="scale" values="0.55;1.06;1"') // grows with a small overshoot
-    expect(b.source).not.toContain('type="translate"') // it does not pan in from the side
+    expect(b.source).toContain('type="scale" values="0.55;1.06;1"')
   })
-  test('leaving: the same drawing, invisible, shrinking and fading out', () => {
-    const b = said('Done.', 'out').source
-    expect(b).toContain('opacity="0"><animate attributeName="opacity" from="1" to="0"')
-    expect(b).toContain('type="scale" values="1;0.82"')
+  test('text is escaped', () => {
+    expect(speechSvg('a < b & c', 400).source).toContain('a &lt; b &amp; c')
   })
-  test('a bubble with a button is not drawn in the band: only its place is worked out, and it is drawn on its own', () => {
-    const b = said('Cache is cold', 'in', true)
-    expect(b.source).not.toContain('Cache is cold')
-    expect(b.bubbleBox).not.toBeNull()
-    expect(b.height).toBe(said('Done.').height)
-    const own = bubbleSvg('Cache is cold', b.bubbleBox!.w)
-    expect(own.source).toContain('Cache is cold')
-    expect(own.source).toContain('attributeName="opacity" from="0" to="1"')
-    expect(own.width).toBeGreaterThan(b.bubbleBox!.w) // room for the tail and the shadow around it
-    expect(own.height).toBeGreaterThan(b.bubbleBox!.h)
-    expect(b.bubbleBox!.w).toBeLessThan(said('Cache is cold').bubbleBox!.w + 1) // and it leaves room beside it for the button
+  test('the band keeps one height whatever the context says: a warning never adds lines', () => {
+    const mascot = { markup: '<g/>', width: 68, height: 56 }
+    expect(cockpitSvg(600, m(10), mascot).height).toBe(cockpitSvg(600, m(90), mascot).height)
   })
-  test('text is escaped and the bubble stays inside the band', () => {
-    expect(said('a < b & c').source).toContain('a &lt; b &amp; c')
-    const wide = said('x'.repeat(200), 'in', true)
-    expect(wide.bubbleBox!.x + wide.bubbleBox!.w).toBeLessThan(wide.width)
+})
+
+describe('text always fits', () => {
+  test('a short text is one line; a long one wraps to two that fit; a very long one ends in an ellipsis', () => {
+    expect(fitLines('Done.', 300).lines).toEqual(['Done.'])
+    const two = fitLines('Cache is cold: the next message pays full price', 220)
+    expect(two.lines.length).toBe(2)
+    expect(two.width).toBeLessThanOrEqual(220)
+    const cut = fitLines('word '.repeat(80).trim(), 200)
+    expect(cut.lines.length).toBe(2)
+    expect(cut.lines[1]?.endsWith('…')).toBe(true)
+    expect(cut.width).toBeLessThanOrEqual(200)
+  })
+  test('one unbroken word longer than the room is cut, not run past the edge', () => {
+    const r = fitLines('x'.repeat(200), 150)
+    expect(r.width).toBeLessThanOrEqual(150)
+  })
+  test('the bubble drawing never exceeds the room it was given, and grows taller for a second line', () => {
+    const one = speechSvg('Needs your OK', 400)
+    const two = speechSvg('Cache is cold: the next message pays full price', 250)
+    expect(two.width).toBeLessThanOrEqual(250 + 14)
+    expect(two.height).toBeGreaterThan(one.height)
+    expect(two.source).toContain('Cache is cold: the next')
+  })
+  test('a button is gray with dark text, whole cells wide and one row tall, so the Button over it covers exactly it', () => {
+    const p = pillSvg('Handoff')
+    expect(p.width).toBe(p.cols * CELL.w)
+    expect(p.height).toBe(CELL.h)
+    expect(p.source).toContain('#8E8E93')
+    expect(p.source).toContain('>Handoff<')
+    expect(p.source).not.toContain('fill-opacity')
+    expect(pillSvg('a < b').source).toContain('a &lt; b')
+  })
+})
+
+describe('no blinking', () => {
+  test('Clawd and the meters are separate drawings, and the meters do not depend on the pose', () => {
+    const a = bandParts(800, m(10, 41, 35), stateMarkup('idle'))
+    const b = bandParts(800, m(10, 41, 35), stateMarkup('typing'))
+    expect(a.mascot?.source).not.toBe(b.mascot?.source)
+    expect(a.meters.source).toBe(b.meters.source)
+    expect(a.mascot?.source).not.toContain('Context')
+    expect(bandParts(800, m(10, 41, 35), { markup: '', width: 0, height: 0 }).mascot).toBeNull()
+  })
+  test('one bubble giving way to another is one drawing that starts as the old one: delete, resize, type', () => {
+    const fresh = speechSvg('Done.', 400)
+    expect(fresh.source).toContain('from="0" to="1"') // materializes only when nothing was there
+    const t = speechSvg('Cache is cold', 400, 'Done.')
+    expect(t.source).toContain('>Done.<') // the first frame is the old bubble...
+    expect(t.source).toContain('>Cache is cold<') // ...the new words wait behind a clip that opens letter by letter
+    expect(t.source).toContain('calcMode="discrete"')
+    expect(t.source).toContain('clip-path="url(#cko)"')
+    expect(t.source).toContain('clip-path="url(#ckn)"')
+    expect(t.source).not.toContain('NaN')
+    const wide = speechSvg('A much longer sentence than the first', 400, 'Done.')
+    expect(wide.source).toMatch(/<animate attributeName="width" from="\d+" to="\d+"/) // the bubble is resized, not replaced
+    expect(wide.width).toBeGreaterThan(speechSvg('Done.', 400).width) // and the drawing is as wide as the wider of the two
   })
 })

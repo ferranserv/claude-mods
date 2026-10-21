@@ -110,3 +110,13 @@ The bubble is the one place the cockpit talks to you. What each thing used to do
 Kept as rows on purpose: preflight findings and the notices that carry a command to copy or several buttons (worktree ready, committed + undo hint). A bubble has one button and one line. With the side panel open the band is hidden, so a message also goes to a toast there.
 
 `/cockpit log` lists the last ten things the bubble said (with the longer form of each message and the last handoff brief's path), since a bubble fades. Legend text is 10 px (was 9).
+
+## 0.15.0: one row, one bubble
+
+Supersedes "Band" above (collapsed/expanded, arrow, auto-open, saver line, in-band bubble): all gone.
+
+- The band is one row and always shows every meter. `pinnedOpen`, `snooze`, the arrow, `/cockpit open|close|auto`, `/cockpit bubble`, the saver line and `/saver strip` are removed.
+- The bubble is a row under the meters, never over them. Its text wraps to two lines and ends in an ellipsis if it must be cut (`fitLines`). Its first button is drawn as a gray pill (`pillSvg`, the bubble's own fill, opaque) with the real Button laid over it, blank, in a box of the same whole cells with `overflow: hidden`; a "…" opens the other buttons in a row below. Desktop-native Buttons ignore the style of their children, which is why the pill is a drawing.
+- Preflight findings and notices are bubbles too (`adviceSpeech`, `noticeSpeech`). The notice state now outranks the preflight one so a "worktree ready" is not hidden behind a finding.
+- No blinking: Clawd and the meters are two drawings (`bandParts`). A new pose replaces only Clawd's; the meters' drawing is the same string, so it is not reloaded. A bubble is kept as long as its words stand; when new words replace old ones the drawing starts as the old bubble, deletes the old letters, resizes, and types the new (`speechSvg(text, room, prev)`, SMIL).
+- A bubble that stands for a warning is only said while the warning stands.
