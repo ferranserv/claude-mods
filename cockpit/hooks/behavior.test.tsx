@@ -644,7 +644,7 @@ test('a /handoff turn shows Clawd writing with the quill, and the writing ends w
   expect(await altOf($)).not.toContain('quill')
 })
 
-test('a bubble that asks for a decision stays until you answer it, and hovering over Clawd brings it back', async ($, on) => {
+test('a bubble that asks for a decision stays until you answer it, and clicking Clawd brings it back', async ($, on) => {
   const w = world(on)
   on('prompt.submit', (_, e) => e as never)
   await started($)
@@ -656,11 +656,12 @@ test('a bubble that asks for a decision stays until you answer it, and hovering 
   await ($ as unknown as { prompt: { submit: (i: unknown) => Promise<unknown> } }).prompt.submit({ text: 'something else', origin: { kind: 'composer' } })
   await w.clock.advance(10_000)
   expect(await hasButton($, 'handoff')).toBe(false) // sending something else answers it: the bubble is gone...
-  const ui = await $.ui.mount(band('desktop'))
-  const card = await ui.find({ key: 'hover-card' })
-  expect((card?.props as { display?: string } | undefined)?.display).toBe('none') // ...but a hover over him brings it back (drawn hidden, revealed by the app only while the pointer is on him)
-  expect(await ui.find({ key: 'clawd' })).toBeDefined()
+  let ui = await $.ui.mount(band('desktop'))
+  expect(await ui.find({ key: 'recall' })).toBeDefined() // ...but Clawd is a button: one click on him says it again (the app has no hover to count on)
+  await ui.press({ key: 'recall' })
   await ui.unmount()
+  await settle($, w, 4000)
+  expect(await hasButton($, 'handoff')).toBe(true) // the warning is back, with its button, until it is answered again
 })
 
 test('"Done." speaks over a pending decision while the bell rings, then the decision returns; it ends by itself when its warning does', async ($, on) => {
@@ -826,7 +827,7 @@ test('a timed demo takes its bubble away with its state, and leaves nothing pend
   expect(await altOf($)).not.toContain('frozen')
 })
 
-test('a button is drawn as a gray pill with the real Button laid over it, blank, in the same cells', async ($, on) => {
+test('a button is a gray pill drawing with ONE real Button laid over it, blank, cut to the drawing', async ($, on) => {
   const w = world(on)
   await started($)
   await measureCtx($, 60)
@@ -837,8 +838,9 @@ test('a button is drawn as a gray pill with the real Button laid over it, blank,
   expect(pill?.props?.source).not.toContain('fill-opacity')
   expect(await ui.find({ key: 'handoff' })).toBeDefined()
   expect((await ui.find({ key: 'handoff-wrap' }))?.props?.overflow).toBe('hidden') // the click area cannot reach past the drawing
-  expect((await ui.find({ key: 'hit' }))?.props).toMatchObject({ top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden' }) // and the Button layer spans the drawing's box on all four edges, whatever the host's cells are
-  expect(await ui.find({ key: 'handoff-2' })).toBeDefined() // two rows of Button cover its height
+  expect((await ui.find({ key: 'hit' }))?.props).toMatchObject({ top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden' }) // the Button layer is the drawing's own box, whatever the host's cells are
+  expect(await ui.find({ key: 'handoff-2' })).toBeUndefined() // one Button only: a second would be drawn as a second native button
+  expect((await ui.find({ key: 'handoff-wrap' }))?.props?.width).toBeUndefined() // and nothing is counted in cells
   await ui.unmount()
 })
 
@@ -1033,7 +1035,7 @@ test('the bubble is laid out afresh for the room it has (a wider or narrower win
   expect(narrow).toBeLessThan(wide) // the drawing was made for the room, so the words keep their size
 })
 
-test('while Claude works the detective waits: he thinks (findings are only offered when it is idle), and hovering over him still says something', async ($, on) => {
+test('while Claude works the detective waits: he thinks (findings are only offered when it is idle), and a click on him still says something', async ($, on) => {
   const w = world(on)
   await started($)
   await measureCtx($, 10)
@@ -1042,6 +1044,6 @@ test('while Claude works the detective waits: he thinks (findings are only offer
   await settle($, w, 1000)
   expect(await altOf($, true)).toContain('thinking')
   const ui = await $.ui.mount(band('desktop', true))
-  expect(await ui.find({ key: 'hover-card' })).toBeDefined() // "Thinking…" under his hover
+  expect(await ui.find({ key: 'recall' })).toBeDefined() // a click on him says "Thinking…"
   await ui.unmount()
 })

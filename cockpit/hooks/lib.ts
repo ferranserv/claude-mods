@@ -427,7 +427,7 @@ export function wandSvg(dim: boolean): { source: string; width: number; height: 
 
 /** One character cell of the host, in px: boxes are laid out in whole cells. */
 export const CELL = { w: 8, h: 18 }
-/** The bubble's lane: the bubble and the buttons are drawn in it, 2 px of margin above and below, and the cockpit's height never depends on them. */
+/** The bubble's lane in px: the bubble is 26 px tall with 2 px above and below; the buttons beside it are one row (18 px) tall, centered, because a Button is one row and the drawing under it must be exactly as tall as it is. */
 export const LANE_H = 30
 /** The bubble and the buttons beside it, one height. */
 const BUBBLE_H = 26
@@ -485,15 +485,17 @@ export function bubbleArt(from: string, to: string, room: number): { source: str
   const typeS = !same && b !== '' ? Math.min(0.7, b.length * 0.025) : 0
   const opening = !same && a === ''
   const closing = !same && b === ''
-  const resizeS = !same && a !== '' && b !== '' ? 0.18 : 0
   const scaleS = 0.2
-  // When each part of the motion begins.
-  const resizeAt = opening || closing ? 0 : eraseS
-  const resizeFor = opening ? typeS : closing ? eraseS : resizeS
-  const typeAt = opening ? 0 : eraseS + resizeS
-  const seconds = same ? 0 : closing ? eraseS + scaleS : opening ? Math.max(typeS, scaleS) : eraseS + resizeS + typeS
-  const grow = (x: number, y: number) => (x === y || resizeFor === 0 ? '' : `<animate attributeName="width" from="${x}" to="${y}" begin="${resizeAt}s" dur="${resizeFor}s" fill="freeze"/>`)
-  const shape = (x: number, y: number, dw: number, h: number, fill: string) => `<rect x="${x}" y="${y}" width="${wA + dw}" height="${h}" fill="${fill}">${grow(wA + dw, wB + dw)}</rect>`
+  const typeAt = opening ? 0 : eraseS
+  const seconds = same ? 0 : closing ? eraseS + scaleS : opening ? Math.max(typeS, scaleS) : eraseS + typeS
+  // The bubble is one drawing that is written over, not another laid on it: as the old words are deleted letter by letter it
+  // shortens with them, down to nothing but its ends; as the new words are typed it lengthens with them, to the width they need.
+  const stepsFor = (t: string) => Math.min(40, Math.max(1, t.length))
+  const times = (n: number) => Array.from({ length: n + 1 }, (_, i) => (i / n).toFixed(3)).join(';')
+  const widthAnim = (dw: number, from: number, to: number, n: number, begin: number, dur: number) =>
+    `<animate attributeName="width" values="${Array.from({ length: n + 1 }, (_, i) => Math.round(from + ((to - from) * i) / n) + dw).join(';')}" keyTimes="${times(n)}" calcMode="discrete" begin="${begin}s" dur="${dur}s" fill="freeze"/>`
+  const shape = (x: number, y: number, dw: number, h: number, fill: string) =>
+    `<rect x="${x}" y="${y}" width="${(a === '' ? MIN : wA) + dw}" height="${h}" fill="${fill}">${!same && a !== '' ? widthAnim(dw, wA, MIN, stepsFor(a), 0, eraseS) : ''}${!same && b !== '' ? widthAnim(dw, MIN, wB, stepsFor(b), typeAt, typeS) : ''}</rect>`
   const r = (x: number, y: number, rw: number, rh: number, c: string) => `<rect x="${x}" y="${y}" width="${rw}" height="${rh}" fill="${c}"/>`
   const body = [
     shape(bx + 2, y0, -4, BUBBLE_H, D), shape(bx, y0 + 2, 0, BUBBLE_H - 4, D), // the border: a block with its corners stepped
@@ -536,21 +538,21 @@ export function bubbleArt(from: string, to: string, room: number): { source: str
 }
 
 /**
- * A button drawn as pixels, the bubble's height: the cockpit gray of the bubble, dark text, the same stepped border. It
- * is as wide as its label needs, in px, and a lane tall; the real Button is laid over it (see artButton), clipped to this box.
+ * A button drawn as pixels: the cockpit gray of the bubble, dark text, the same stepped border. It is one row (18 px) tall,
+ * exactly as tall as the Button laid over it, and as wide as its label needs, in px (nothing here depends on the host's
+ * character cells), so the Button's whole box is the drawing.
  */
 export function pillSvg(label: string): { source: string; width: number; height: number; cols: number } {
   const size = 12
-  // Its width is the label's and its padding's, in px: nothing about the host's character cells decides where it ends.
-  const w = Math.max(32, textPx(label, size) + 2 * BUBBLE_PAD + 2)
-  const y0 = BUBBLE_Y
+  const w = Math.max(32, textPx(label, size) + 2 * 10 + 2)
+  const h = CELL.h
   const r = (x: number, y: number, rw: number, rh: number, c: string) => `<rect x="${x}" y="${y}" width="${rw}" height="${rh}" fill="${c}"/>`
   const body = [
-    r(2, y0, w - 4, BUBBLE_H, '#0b0705'), r(0, y0 + 2, w, BUBBLE_H - 4, '#0b0705'),
-    r(4, y0 + 2, w - 8, BUBBLE_H - 4, C.gray), r(2, y0 + 4, w - 4, BUBBLE_H - 8, C.gray),
-    `<text x="${w / 2}" y="${y0 + BUBBLE_H / 2 + 4.5}" text-anchor="middle" font-size="${size}" font-weight="500" fill="#1b1a19">${esc(label)}</text>`,
+    r(2, 0, w - 4, h, '#0b0705'), r(0, 2, w, h - 4, '#0b0705'),
+    r(4, 2, w - 8, h - 4, C.gray), r(2, 4, w - 4, h - 8, C.gray),
+    `<text x="${w / 2}" y="${h / 2 + 4}" text-anchor="middle" font-size="${size}" font-weight="500" fill="#1b1a19">${esc(label)}</text>`,
   ].join('')
-  return { source: wrapSvg(w, LANE_H, body), width: w, height: LANE_H, cols: Math.ceil(w / CELL.w) }
+  return { source: wrapSvg(w, h, body), width: w, height: h, cols: Math.ceil(w / CELL.w) }
 }
 
 /** The mascot, the meters and the gap between them as separate drawings: a new pose replaces only Clawd, so the meters are never reloaded (a replaced drawing blinks). */
