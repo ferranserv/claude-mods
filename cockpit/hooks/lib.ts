@@ -272,19 +272,22 @@ export function model(d: Data): Model {
     near: level !== 'calm' || percent >= t.warnPercent * 0.8 || tokens >= t.warnTokens * 0.8,
   }
 
+  // A limit past its reset time has reset, whatever was last measured: the next reply brings the new number,
+  // but until then it counts as unused (the alarm clock must not outlast the limit).
+  const isLive = (l: Limit | undefined): l is Limit => l !== undefined && !(l.resetsAt !== undefined && Date.parse(l.resetsAt) <= d.now)
   const f = d.limits.find(l => l.kind === 'five_hour')
-  const fiveUsed = f?.percentUsed ?? 0
+  const fiveUsed = isLive(f) ? f.percentUsed : 0
   const reset = f ? resetShort(f.resetsAt, d.now) : ''
   const five = {
     used: fiveUsed,
     color: usageColor(fiveUsed),
     value: f ? [g(`${pct(fiveUsed)} used`), g(pct(fiveUsed))] : [g('-')],
-    sub: f ? (reset ? `Resets at ${clockAt(f.resetsAt)} (in ${reset})` : '') : 'Shows after the first reply',
+    sub: f ? (reset ? `Resets at ${clockAt(f.resetsAt)} (in ${reset})` : isLive(f) ? '' : 'Window reset') : 'Shows after the first reply',
     subShort: f ? (reset ? `Resets ${clockAt(f.resetsAt)}` : '') : 'After the first reply',
   }
 
   const w = d.limits.find(l => l.kind === 'seven_day')
-  const used = w?.percentUsed ?? 0
+  const used = isLive(w) ? w.percentUsed : 0
   const today = workday(d.now)
   const over = used > allottedThrough(d.now)
   const paceColor = over ? C.orange : C.green
@@ -444,7 +447,7 @@ const bubbleWidth = (text: string, button: string | null, room: number): number 
 /**
  * Clawd's speech bubble in pixels, drawn inside the band at its foot, over the small print and not the meters, so the
  * band never grows: the cockpit gray inside, a dark stepped border, a tail pointing left to Clawd, regular text, and
- * its button drawn inside it at the right. What is behind it is dimmed by a radial fade (no edges to cut off). It
+ * its button drawn inside it at the right. What is behind it is dimmed by a shadow in the bubble's own shape. It
  * materializes (grows with a small overshoot and fades in) or, leaving, shrinks and fades; leaving stays in the
  * drawing, invisible, so it takes no second redraw. (bx, by) is its top left.
  */
@@ -467,8 +470,10 @@ function bubbleOut(text: string, bx: number, by: number, w: number, phase: 'in' 
     `<text x="${textMid}" y="${by + h / 2 + 4}" text-anchor="middle" font-size="12" font-weight="400" fill="#1b1a19">${esc(text)}</text>`,
     button ? `${r(bx + w - bw - 6 + 2, by + 4, bw - 4, BTN_H, '#2b2a28')}${r(bx + w - bw - 6, by + 6, bw, BTN_H - 4, '#2b2a28')}<text x="${bx + w - bw / 2 - 6}" y="${by + 4 + BTN_H / 2 + 4}" text-anchor="middle" font-size="11" font-weight="400" fill="#ece8e1">${esc(button)}</text>` : '',
   ].join('')
-  const id = 'bdim'
-  const dim = `<defs><radialGradient id="${id}"><stop offset="0" stop-color="#000" stop-opacity="0.6"/><stop offset="0.55" stop-color="#000" stop-opacity="0.35"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient></defs><ellipse cx="${cx - 4}" cy="${cy}" rx="${w / 2 + 34}" ry="${h / 2 + 14}" fill="url(#${id})"/>`
+  // The shadow has the bubble's own stepped shape: a few copies, each a pixel wider and fainter, so it fades out
+  // over 4 px all round and never reaches the edge of the band (the bubble keeps 6 px clear below it).
+  const silhouette = (g: number) => `<rect x="${bx + 2 - g}" y="${by - g}" width="${w - 4 + 2 * g}" height="${h + 2 * g}" fill="#000" fill-opacity="0.07"/><rect x="${bx - g}" y="${by + 2 - g}" width="${w + 2 * g}" height="${h - 4 + 2 * g}" fill="#000" fill-opacity="0.07"/>`
+  const dim = [4, 3, 2, 1].map(silhouette).join('')
   const dur = phase === 'in' ? '0.26' : '0.3'
   const scale = phase === 'in' ? 'values="0.55;1.06;1" keyTimes="0;0.65;1"' : 'values="1;0.82" keyTimes="0;1"'
   const fade = phase === 'in' ? ['0', '1'] : ['1', '0']
@@ -578,7 +583,7 @@ export function cockpitSvg(width: number, m: Model, mascot: { markup: string; wi
     const bx = mascot.width + gap + 6
     const w = bubbleWidth(bubble.text, button, bodyW - 40)
     // Below the bars (a meter row is label at 11, bar to 24), so only the small print is covered, and clear of the bottom edge.
-    const by = Math.min(height - BUBBLE_H - 6, Math.max(top + 28, height - BUBBLE_H - 8))
+    const by = Math.min(height - BUBBLE_H - 6, Math.max(top + 28, height - BUBBLE_H - 10))
     out += bubbleOut(bubble.text, bx, Math.max(0, by), w, bubble.phase, button)
     bubbleBox = { x: bx, y: Math.max(0, by), w, h: BUBBLE_H }
     if (button) {

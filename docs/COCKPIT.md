@@ -53,3 +53,30 @@ Estimates are ~60% confident.
 3. Mascot sets a minimum band height of about 48px (Clawd at 2x). The collapsed row replaces three or four strips, so net height should fall; verify on screen.
 4. SMIL animation unproven on the desktop app: Batch 0 shows it with one idle Clawd. If it fails, PR 2 falls back to timer redraws.
 5. Open PR #12 must merge first (it holds the chime that this plan moves).
+
+## When each state and bubble ends
+
+Checked against the code (0.11.0). "Resets by itself" means no new measurement or reply is needed.
+
+| State | Ends when |
+| --- | --- |
+| hand (clipboard, "!") | the tool starts (approved), the turn starts or ends. The bubble goes with it at once |
+| writing | the handoff or enhance finishes, or the `/handoff` turn ends |
+| oops, bell, lab, love, idea, wand, coins, plug | after 5 s (plug 6 s) |
+| dizzy | the compaction ends |
+| building, reading, browse | the tool ends (plus 1.2 s), or the turn ends |
+| walk, hello | after 5 s |
+| asleep, sleepy | the 5-hour limit passes its reset time (resets by itself, and a redraw is booked for that moment), or a new measurement is lower |
+| mad, gauge | the weekly limit resets (by itself) or the week's pace catches up |
+| fire, drunk | the context drops (new session, `/clear`, compaction) |
+| cold, hourglass | a new message is sent (the cache restarts), or a reply arrives. Only while idle |
+| detective | the advice is dismissed or fixed |
+| coffee, typing, thinking | the turn ends |
+| talk | the notice is dismissed |
+
+| Bubble | Ends when |
+| --- | --- |
+| "Needs your OK" | immediately when you answer |
+| One with a button (warnings) | you click its button or send a message; or its warning ends by itself. After you answer it stays quiet until the warning ends and comes back |
+| Any other | about 9 s after its state ends |
+

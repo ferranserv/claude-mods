@@ -635,10 +635,9 @@ test('a bubble that asks for a decision stays until you answer it', async ($, on
   await measureCtx($, 60) // a warning with a button, spoken by the bubble while the band is collapsed
   await w.clock.advance(6000)
   await $.command.run({ command: 'cockpit', args: 'close' } as never)
-  const speaking = 'from="0" to="1"' // the bubble sliding and fading in
+  const speaking = 'from="0" to="1"' // the bubble materializing
   expect(await svgOf($)).toContain(speaking)
-  await measureCtx($, 10) // the warning is gone, but the bubble asked for a decision
-  await w.clock.advance(30_000)
+  await w.clock.advance(60_000) // the warning still holds: so does the bubble, however long it takes
   expect(await svgOf($)).toContain(speaking)
   await ($ as unknown as { prompt: { submit: (i: unknown) => Promise<unknown> } }).prompt.submit({ text: 'something else', origin: { kind: 'composer' } })
   await w.clock.advance(10_000)
@@ -647,7 +646,7 @@ test('a bubble that asks for a decision stays until you answer it', async ($, on
   expect(after).toContain('opacity="0"><animate attributeName="opacity" from="1" to="0"')
 })
 
-test('a pending decision keeps its pose, and "Done." does not push it aside', async ($, on) => {
+test('a pending decision is not pushed aside by "Done."; it ends by itself when its warning does', async ($, on) => {
   const w = world(on)
   on('prompt.submit', (_, e) => e as never)
   on('turn.complete', (_, e) => ({ text: e.answer }) as never)
@@ -656,14 +655,44 @@ test('a pending decision keeps its pose, and "Done." does not push it aside', as
   await w.clock.advance(6000)
   await $.command.run({ command: 'cockpit', args: 'close' } as never)
   expect(await altOf($)).toContain('tipsy')
-  await measureCtx($, 10) // the warning is gone; the decision is still open
-  await w.clock.advance(30_000)
-  expect(await altOf($)).toContain('tipsy') // he does not go back to idle
   await ($ as unknown as Do).turn.start({ text: 'go', turnId: 't1' })
   await ($ as unknown as Do).turn.complete({ reason: 'answer', answer: 'x', durationMs: 5, isAborted: false, turnId: 't1' })
   const during = await svgOf($)
   expect(during).not.toContain('>Done.<') // the bell rings, but the open question keeps the bubble
   expect(during).toContain('>Handoff<') // with its button inside it
+  await w.clock.advance(10_000)
+  await measureCtx($, 10) // the context is cleared: the warning is over, so the bubble and the pose are too
+  await w.clock.advance(6000)
+  expect(await altOf($)).not.toContain('tipsy')
+  expect(await svgOf($)).not.toContain('from="0" to="1"')
+})
+
+test('asleep ends when the 5-hour limit resets, without waiting for the next reply', async ($, on) => {
+  const w = world(on)
+  await started($)
+  await w.clock.advance(6000)
+  await ($ as unknown as { session: { measure: (i: unknown) => Promise<unknown> } }).session.measure({ context: { tokens: 100, window: 1000, percent: 10 }, rateLimits: [{ kind: 'five_hour', percentUsed: 100, resetsAt: new Date(WED + 30 * MIN).toISOString() }], changed: ['context', 'rateLimits'] })
+  expect(await altOf($)).toContain('asleep')
+  await w.clock.advance(31 * MIN)
+  const alt = await altOf($)
+  expect(alt).not.toContain('asleep')
+  expect(alt).toContain('5-hour limit 0% used')
+})
+
+test('a cold cache clears, the pose and its bubble, when a new message is sent', async ($, on) => {
+  const w = world(on)
+  on('prompt.submit', (_, e) => e as never)
+  await started($)
+  await step($, w, usage(100, 0, 20_000))
+  await w.clock.advance(70 * MIN) // past the 60-minute window
+  await measureCtx($, 10) // calm, so only the cache has anything to say
+  await $.command.run({ command: 'cockpit', args: 'close' } as never)
+  expect(await altOf($)).toContain('frozen')
+  expect(await svgOf($)).toContain('>Handoff<')
+  await send($, 'hello again')
+  await w.clock.advance(6000)
+  expect(await altOf($)).not.toContain('frozen')
+  expect(await svgOf($)).not.toContain('>Handoff<')
 })
 
 test('a bubble with nothing to decide lingers after its state ends, then fades out', async ($, on) => {

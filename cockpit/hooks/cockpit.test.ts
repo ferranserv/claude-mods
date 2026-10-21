@@ -102,13 +102,17 @@ describe('the speech bubble in the band', () => {
     expect(b.bubbleBox!.y + b.bubbleBox!.h).toBeLessThan(b.height) // and clear of the bottom edge
     expect(plain.bubbleBox).toBeNull()
   })
-  test('what is behind it fades out softly (a radial fade, no edges), and it materializes', () => {
-    const b = said('Needs your OK').source
-    expect(b).toContain('<radialGradient')
-    expect(b).toContain('stop-opacity="0"') // it ends at nothing, so there is no cut-off line
-    expect(b).toContain('attributeName="opacity" from="0" to="1"')
-    expect(b).toContain('type="scale" values="0.55;1.06;1"') // grows with a small overshoot
-    expect(b).not.toContain('type="translate"') // it does not pan in from the side
+  test('what is behind it is shadowed in the bubble\'s own shape, a few pixels wide, and it materializes', () => {
+    const b = said('Needs your OK')
+    expect((b.source.match(/fill-opacity="0.07"/g) ?? []).length).toBe(8) // four stepped copies, two rects each
+    expect(b.source).not.toContain('<radialGradient') // not a blob behind it
+    expect(b.source).not.toContain('<filter')
+    const box = b.bubbleBox!
+    expect(box.y + box.h + 4).toBeLessThan(b.height) // the 4 px shadow stays inside the band: nothing to cut off
+    expect(box.y - 4).toBeGreaterThanOrEqual(0)
+    expect(b.source).toContain('attributeName="opacity" from="0" to="1"')
+    expect(b.source).toContain('type="scale" values="0.55;1.06;1"') // grows with a small overshoot
+    expect(b.source).not.toContain('type="translate"') // it does not pan in from the side
   })
   test('leaving: the same drawing, invisible, shrinking and fading out', () => {
     const b = said('Done.', 'out').source

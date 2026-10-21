@@ -100,3 +100,14 @@ Report anything off in plain words ("the palm tree overlaps", "no animation", "a
 | 62 | `/cockpit demo detective` | He has a mouth | |
 | 63 | Click the wand slightly off its centre | Still clicks (the area is 3 columns now) | |
 
+## 0.11.0 additions
+
+| # | Do | Expect | OK? |
+|---|---|---|---|
+| 64 | Raise a permission prompt | The red "!" is centered above his head, two pixels wide | |
+| 65 | Any bubble | The shadow follows the bubble's own stepped shape, a few pixels wide, and is not cut off at the bottom or sides | |
+| 66 | Cold cache bubble: hover and click the `Handoff` drawn in the bubble | The highlight is over the drawn button (it covers it, about two rows tall), and clicking works | |
+| 67 | Cold cache, then send any message | The frozen pose and its bubble go as soon as the message is sent | |
+| 68 | Reach the 5-hour limit (asleep), then wait for its reset time | He wakes by himself at the reset time, without a reply, and the bubble goes | |
+| 69 | A context warning bubble: send a message; the warning still holds | The bubble does not come back until the warning ends and returns | |
+

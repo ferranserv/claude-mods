@@ -136,6 +136,9 @@ const mood = {
   writing: false, // a handoff brief or an enhanced draft is being written
   sticky: null as { bubble: Bubble; state: StateId } | null, // a bubble that asks for a decision stays until you click its button or send something else
   linger: null as { bubble: Bubble; until: number } | null, // any other bubble stays a while after its state ends
+  dismissed: [] as string[], // warnings whose bubble you answered; quiet until the warning ends and comes back
+  shownAlert: null as string | null, // the warning the bubble on screen stands for
+  resetAt: 0, // the next limit reset a redraw is already booked for
   lastSaid: null as string | null, // what the bubble said last, so it can fade out in the same drawing
   draftTurn: false, // the turn is a /handoff: Claude writes the brief as text, with no tool to show it
   askAt: 0, // when a permission ask was seen; it only counts if the call has not started a moment later
@@ -855,6 +858,16 @@ async function snapshot($: EngineInterface, propsWorking: boolean): Promise<Snap
   const routed = await read($, lastRouted)
   const clock = clockOf((await read($, limits)).find(l => l.kind === 'five_hour')?.resetsAt)
   const weekRoom = allottedThrough(now) - m.week.used
+  const alerts = alertsOf(m, { saverOn: isOn, now })
+  // Redraw when the next limit resets, so a state that depends on it (asleep) ends on time without waiting for a reply.
+  const nextReset = Math.min(...(await read($, limits)).map(l => Date.parse(l.resetsAt ?? '')).filter(t => t > now))
+  if (Number.isFinite(nextReset) && nextReset !== mood.resetAt) {
+    mood.resetAt = nextReset
+    $.clock.after(nextReset - now + 1000, () => $.ui.invalidate('ui.render'))
+  }
+  // A bubble waiting for a decision ends by itself when its warning does (the limit reset, the context was cleared).
+  mood.dismissed = mood.dismissed.filter(id => alerts.some(a => a.id === id)) // a warning that ended may speak again when it returns
+  if (mood.sticky?.bubble.alertId !== undefined && !alerts.some(a => a.id === mood.sticky?.bubble.alertId)) mood.sticky = null
   const isDemo = mood.demo !== null && mood.demo.until > now
   const picked: StateId =
     mood.demo && mood.demo.until > now
@@ -889,7 +902,7 @@ async function snapshot($: EngineInterface, propsWorking: boolean): Promise<Snap
     $.clock.after(HOLD_MS + 80, () => $.ui.invalidate('ui.render'))
   }
   const usd = saved.day === day ? saved.usd : 0
-  const bubble = bubbleFor(state, {
+  const said = bubbleFor(state, {
     ctxPercent: m.ctx.percent,
     ctxText: m.ctx.legend.text,
     cacheLabel: m.cache?.view.label ?? '',
@@ -902,6 +915,8 @@ async function snapshot($: EngineInterface, propsWorking: boolean): Promise<Snap
     savedUsd: usd > 0 ? money(usd) : '',
     hasAdvice: rows.length > 0,
   })
+  const bubble = said && said.alertId !== undefined && mood.dismissed.includes(said.alertId) ? null : said
+
   // A bubble that asks for a decision stays until you click its button or send something else; any other lingers a while
   // after its state ends. The raised hand never lingers: it goes the moment you answer.
   let speech: Bubble | null = bubble
@@ -914,13 +929,14 @@ async function snapshot($: EngineInterface, propsWorking: boolean): Promise<Snap
     if (bubble && !bubble.action && mood.sticky) speech = mood.sticky.bubble // a pending decision is not pushed aside by a passing message
     else if (!bubble) speech = mood.sticky ? mood.sticky.bubble : mood.linger && mood.linger.until > now ? mood.linger.bubble : null
   }
+  mood.shownAlert = speech?.alertId ?? null
   return {
     m,
     now,
     attention,
     isOpen: pinned || attention > snoozed,
     isWorking,
-    alerts: alertsOf(m, { saverOn: isOn, now }),
+    alerts,
     saver: { isOn, last: await read($, saverLast), usd: saved.day === day ? saved.usd : 0, isStripShown: isStripShown(await read($, stripMode), isOn, routed), lastRouted: routed },
     advice: rows,
     note,
@@ -959,6 +975,16 @@ const el = (type: unknown, props: Record<string, unknown>, ...children: unknown[
 const NBSP = '\u00A0'
 
 /**
+ * The click area laid over a drawing: plain buttons of non-breaking spaces. A space is about half a column wide in the
+ * app's font, so there are two per column; `rows` buttons are stacked, so a drawing that does not sit exactly on the
+ * row grid is still covered.
+ */
+function hit(c: Comps, key: string, cols: number, rows: number, onPress: () => void) {
+  const blank = NBSP.repeat(cols * 2)
+  return el(c.Box, { key: `${key}-hit`, flexDirection: 'column' }, ...Array.from({ length: rows }, (_, i) => el(c.Button, { key: i === 0 ? key : `${key}-${i}`, plain: true, onPress }, blank)))
+}
+
+/**
  * A button in the cockpit gray with dark text, the same as the speech bubble, whatever the app's own button style is.
  * On the desktop it is a drawing (pillSvg) with the real, plain button laid over it, one non-breaking space per column
  * so it has the size of the drawing; on the terminal it is text. A leading symbol of the label is dropped: it says what it does.
@@ -968,7 +994,7 @@ function pill(c: Comps, label: string, props: Record<string, unknown>) {
   if (c.Svg) {
     const { key, ...rest } = props
     const art = pillSvg(text)
-    return el(c.Box, { key: `${String(key)}-pill`, position: 'relative' }, el(c.Svg, { key: 'art', source: art.source, alt: text, width: art.width, height: art.height }), el(c.Box, { key: 'hit', position: 'absolute', top: 0, left: 0 }, el(c.Button, { key, plain: true, ...rest }, NBSP.repeat(art.cols))))
+    return el(c.Box, { key: `${String(key)}-pill`, position: 'relative' }, el(c.Svg, { key: 'art', source: art.source, alt: text, width: art.width, height: art.height }), el(c.Box, { key: 'hit', position: 'absolute', top: 0, left: 0 }, hit(c, String(key), art.cols, 1, rest.onPress as () => void)))
   }
   return el(c.Button, { plain: true, ...props }, el(c.Text, { color: '#1b1a19', backgroundColor: C.gray }, ` ${text} `))
 }
@@ -984,6 +1010,7 @@ function runAction(id: ActionId, fx: Fx): void {
 
 /** Pressing a button, or sending something else, is the decision a bubble was waiting for. */
 function dismissBubble(): void {
+  if (mood.shownAlert && !mood.dismissed.includes(mood.shownAlert)) mood.dismissed.push(mood.shownAlert)
   mood.sticky = null
   mood.linger = null
 }
@@ -1686,7 +1713,7 @@ export const register: Register = (on, options) => {
       const svg = cockpitSvg(Math.max(300, bandWidth(e.props.bodyColumns) - 90), s.m, s.mascot, speech)
       // The button is drawn inside the bubble; the real one is laid over it (a column is about 8 px, a row about 18).
       const bb = svg.buttonBox
-      const beside = act && bb ? [el(c.Box, { key: 'bubble', position: 'absolute', top: Math.max(0, Math.round((bb.y + 9) / 18 - 0.5)), left: Math.round(bb.x / 8) }, el(c.Button, { key: act === 'saverOn' ? 'saver' : act, plain: true, onPress: () => { dismissBubble(); runAction(act, fx) } }, NBSP.repeat(pillCols(ACTION_LABELS[act] ?? act))))] : []
+      const beside = act && bb ? [el(c.Box, { key: 'bubble', position: 'absolute', top: Math.max(0, Math.floor(bb.y / 18)), left: Math.round(bb.x / 8) }, hit(c, act === 'saverOn' ? 'saver' : act, pillCols(ACTION_LABELS[act] ?? act), 2, () => { dismissBubble(); runAction(act, fx) }))] : []
       // An interactive Svg is drawn in a frame of its own: give it its real size, or the frame is far taller than the drawing.
       row = el(c.Box, { key: 'row', position: 'relative', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, el(Svg, { key: 'svg', source: svg.source, alt: `${STATES[s.state].label}. ${said ? `${said}. ` : ''}${altText(s.m)}`, isInteractive: true, width: svg.width, height: svg.height }), controls(s, c, fx, onToggle, Svg), ...beside)
     }
