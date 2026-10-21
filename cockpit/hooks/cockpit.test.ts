@@ -26,7 +26,7 @@ describe('alertsOf: every warning has an action', () => {
   test('context warns with handoff, copy and fresh', () => {
     const a = alertsOf(m(60), { saverOn: true, now: NOW })
     expect(ids(a)).toEqual(['ctx'])
-    expect(a[0]?.actions).toEqual(['handoff', 'copy', 'fresh'])
+    expect(a[0]?.actions).toEqual(['handoff', 'compact', 'copy', 'fresh'])
   })
   test('five-hour and week offer the saver, and are dropped when it is already on', () => {
     expect(alertsOf(m(10, 85), { saverOn: false, now: NOW }).map(x => x.actions)).toEqual([['saverOn']])

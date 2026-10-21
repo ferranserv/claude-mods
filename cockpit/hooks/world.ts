@@ -30,6 +30,7 @@ export type WorldOptions = {
   clock?: ReturnType<typeof mock.clock>
   env?: Record<string, string> // environment variables the "host" has (default: HOME only)
   refuse?: string[] // command names the "app" refuses to register
+  contextTokens?: number // what $.session.usage reports (default 200k, above the saver's limit)
   bare?: boolean // leave the git, file, skill and sound calls to the test
 }
 
@@ -98,7 +99,7 @@ export function world(on: On, o: WorldOptions = {}): Log & { clock: ReturnType<t
     return { isFilled: true }
   })
   on('prompt.read', () => ({ value: { text: log.box.text, cursor: log.box.text.length } }) as never)
-  on('session.usage', () => ({ value: { startedAt: 0, context: { tokens: 200_000, window: 1_000_000, percent: 20 }, rateLimits: [] } }) as never)
+  on('session.usage', () => ({ value: { startedAt: 0, context: { tokens: o.contextTokens ?? 200_000, window: 1_000_000, percent: 20 }, rateLimits: [] } }) as never)
   on('command.register', (_, e) => {
     const name = String((e as { name?: string }).name)
     if (o.refuse?.includes(name)) return { deny: `/${name} is already a command` } as never

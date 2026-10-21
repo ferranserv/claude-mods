@@ -14,7 +14,7 @@ Side-panel mode (`/meters side`) is kept as the same content in a pane.
 ## Every warning has its action (and no action without a warning)
 | Warning | Action |
 |---|---|
-| Context >= 50% | Handoff (new session with handoff), Fresh |
+| Context >= 50% | Handoff (new session with handoff), Compact (the lighter one: `$.session.compact()`), Fresh |
 | Context >= 80% | Handoff now (primary) |
 | Cache about to expire / cold | Handoff, Dismiss; cold shows next-message cost warm vs cold |
 | 5h >= 80% | Turn saver on |
@@ -60,7 +60,7 @@ Checked against the code (0.11.0). "Resets by itself" means no new measurement o
 
 | State | Ends when |
 | --- | --- |
-| hand (clipboard, "!") | the tool starts (approved), the turn starts or ends. The bubble goes with it at once |
+| hand (clipboard, "!") | the asked call ends, the next model request starts, or the turn ends. Only a real call counts (a `$.tool.check` query has no `tool_use_id`). The engine gives no "approved" signal, so a call you approved that keeps running keeps the hand until it ends. The bubble goes with it at once |
 | writing | the handoff or enhance finishes, or the `/handoff` turn ends |
 | oops, bell, lab, love, idea, wand, coins, plug | after 5 s (plug 6 s) |
 | dizzy | the compaction ends |
@@ -81,3 +81,13 @@ Checked against the code (0.11.0). "Resets by itself" means no new measurement o
 | `/cockpit demo <state>` (one state, with a button) | you click the button, send a message or `/cockpit demo off`. A tour of every state shows each bubble with its state for 4 s and leaves nothing pending |
 | Any other | about 9 s after its state ends |
 
+
+## 0.13.0: tokens and accounting
+
+- **Prompt cache belongs to a model.** A step the saver routes to Haiku no longer restarts the main model's countdown, nor feeds the window learner; a model switch (`classic.PostModelSwitch`) resets it. "Saved today" now prices what the main model would really have paid (warm cache = cached-read price) and what Haiku really billed (no cache of its own), and can come out lower than the old figure; it is floored at 0 on screen.
+- **Switch into worktree** calls `EnterWorktree` through `$.tool.call` (no model turn). Falls back to asking Claude if the call is refused.
+- **Preflight** memoises the repository root, so a refresh spends fewer git calls; the timer is 60 s.
+- **Enhance style** option: `lean` (about 120 words, 2 questions, done criteria) or `full`.
+- **Compact** button on the context warning.
+- **Turn log**: one JSON line per finished turn in `~/.claude/cockpit-log/<session>.jsonl` (option `turnLog`); `python3 tools/cockpit-log.py` summarises it.
+- While a bubble speaks, the context warning's own lines under the bar are left out, so the band keeps its height.

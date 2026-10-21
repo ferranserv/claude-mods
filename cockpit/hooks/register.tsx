@@ -3,7 +3,7 @@ import type { EngineInterface, Register } from 'claude-code'
 
 import type { Advice, Cache, EnhancerState, Fill, Limit, Notice, Saved, StripMode } from '../types'
 import { bandKey, stack } from './bands'
-import { SYSTEM, buildPrompt, cleanOutput, clip, matchesChord as matchesEnhancerChord, parseChord as parseEnhancerChord, pickSkills } from './enhancer-logic'
+import { SYSTEM, SYSTEM_LEAN, buildPrompt, cleanOutput, clip, matchesChord as matchesEnhancerChord, parseChord as parseEnhancerChord, pickSkills } from './enhancer-logic'
 import type { SkillInfo } from './enhancer-logic'
 import { BRIEF_PROMPT, briefPath, coldPrompt, transcriptTail } from './handoff'
 import { matchesChord, parseChord } from './keys'
@@ -51,8 +51,9 @@ import {
   worktreePath,
 } from './preflight-logic'
 import type { Change, Facts, Peer, Phase, Stat } from './preflight-logic'
-import { COLOR, CONTEXT_LIMIT, HAIKU_ID, dayKey, isStripShown, labelLocally, parseMode, savingOf, shortName } from './saver-logic'
+import { COLOR, CONTEXT_LIMIT, HAIKU_ID, dayKey, isStripShown, labelLocally, parseMode, realSaving, shortName } from './saver-logic'
 import type { Level } from './saver-logic'
+import { logPath, turnRow, withRow } from './turnlog'
 import { STATES, STATE_IDS, enterMarkup, stateMarkup } from './states'
 import type { StateId } from './states'
 
@@ -106,7 +107,7 @@ let enhanceLabel = 'meta+e'
 let hasSound = true
 // How Clawd is drawn: normal (2x), small (1x) or off. The option sets the start; /cockpit mascot changes and remembers it.
 let mascotMode: 'normal' | 'small' | 'off' = 'normal'
-let enhancerCfg: Cfg = { model: 'haiku', maxSkills: 12 }
+let enhancerCfg: Cfg = { model: 'haiku', maxSkills: 12, lean: false }
 let enhancerChord: ReturnType<typeof parseEnhancerChord>
 
 const safe = async (fn: () => Promise<unknown>): Promise<void> => {
@@ -134,13 +135,14 @@ const mood = {
   demoRun: 0,
   writing: false, // a handoff brief or an enhanced draft is being written
   sticky: null as { bubble: Bubble; state: StateId } | null, // a bubble that asks for a decision stays until you click its button or send something else
-  linger: null as { bubble: Bubble; until: number } | null, // any other bubble stays a while after its state ends
+  linger: null as { bubble: Bubble; until: number; state: StateId } | null, // any other bubble stays a while after its state ends
   dismissed: [] as string[], // warnings whose bubble you answered; quiet until the warning ends and comes back
   shownAlert: null as string | null, // the warning the bubble on screen stands for
   resetAt: 0, // the next limit reset a redraw is already booked for
   lastSaid: null as string | null, // what the bubble said last, so it can fade out in the same drawing
   draftTurn: false, // the turn is a /handoff: Claude writes the brief as text, with no tool to show it
-  askAt: 0, // when a permission ask was seen; it only counts if the call has not started a moment later
+  askAt: 0, // when a permission ask was seen; it only counts if nothing has moved on a moment later
+  askId: '', // the call that ask is for: only that call starting running again, or ending, settles it
   drawn: null as { id: StateId; since: number } | null, // what is on screen, and since when
   move: null as { from: StateId; to: StateId } | null, // the state he left, so the drawing can play the move into the one he is in
 }
@@ -174,7 +176,7 @@ async function flash($: EngineInterface, id: Fleet): Promise<void> {
   poke($, FLEET_MS[id])
 }
 
-type ToolInput = { tool?: string; file_path?: string; notebook_path?: string; pattern?: string; command?: string }
+type ToolInput = { tool?: string; tool_use_id?: string; file_path?: string; notebook_path?: string; pattern?: string; command?: string }
 const TEST_COMMAND = /\b(pytest|vitest|jest|mocha|rspec|phpunit|ctest|go test|cargo test|npm (run )?test|pnpm (run )?test|yarn test|bun test|deno test|dotnet test|make (test|check)|mvn( \S+)* test|gradlew? (\S+ )*test|node --test|unittest|tox|nox|plugin test)\b/i
 const baseName = (p: string) => p.replace(/\\/g, '/').split('/').filter(Boolean).pop() ?? ''
 
@@ -189,8 +191,6 @@ function toolKind(tool: string): ToolKind | null {
 function toolStarts($: EngineInterface, input: ToolInput): void {
   const tool = String(input.tool ?? '')
   mood.hasTool = true
-  mood.waiting = false
-  mood.askAt = 0
   const kind = toolKind(tool)
   if (kind) {
     mood.tool = { kind, until: Number.MAX_SAFE_INTEGER }
@@ -203,6 +203,13 @@ function toolStarts($: EngineInterface, input: ToolInput): void {
 async function toolEnds($: EngineInterface, input: ToolInput, r: { isError?: boolean } | undefined): Promise<void> {
   const tool = String(input.tool ?? '')
   const now = await $.clock.now()
+  // tool.call wraps the permission prompt, so a call is "starting" before it is asked and running only after: the end of
+  // the asked call is the first moment it is certainly settled. Another call ending (parallel calls) settles nothing.
+  if (mood.askId !== '' && (input.tool_use_id === undefined || input.tool_use_id === mood.askId)) {
+    mood.waiting = false
+    mood.askAt = 0
+    mood.askId = ''
+  }
   if (mood.tool) {
     mood.tool = { kind: mood.tool.kind, until: now + TOOL_LINGER_MS }
     poke($, TOOL_LINGER_MS)
@@ -269,7 +276,7 @@ async function pulse($: EngineInterface, notifyMin: number, stepMin: number) {
     const text = `Prompt cache goes cold in ~${mins} min.${cost}`
     $.ui.toast(text)
     try {
-      await $.ui.notify(text, { title: 'Meters' })
+      await $.ui.notify(text, { title: 'Cockpit' })
     } catch {
       // No terminal to notify (desktop host): the toast above is all there is.
     }
@@ -279,11 +286,15 @@ async function pulse($: EngineInterface, notifyMin: number, stepMin: number) {
 /** Writes a handoff brief, clears the session, pastes the brief into the fresh one. */
 type HandoffMode = 'full' | 'paste' | 'brief'
 
-/** Writes the brief under the home folder (Windows has USERPROFILE, not HOME). Returns the path, or '' if it could not. */
+/** The person's home folder (Windows has USERPROFILE, not HOME); '' if none is known. */
+async function homeOf($: EngineInterface): Promise<string> {
+  return (await $.env.get('HOME')) || (await $.env.get('USERPROFILE')) || `${(await $.env.get('HOMEDRIVE')) ?? ''}${(await $.env.get('HOMEPATH')) ?? ''}`
+}
+
+/** Writes the brief under the home folder. Returns the path, or '' if it could not. */
 async function saveCopy($: EngineInterface, brief: string, now: number): Promise<string> {
   try {
-    const home =
-      (await $.env.get('HOME')) || (await $.env.get('USERPROFILE')) || `${(await $.env.get('HOMEDRIVE')) ?? ''}${(await $.env.get('HOMEPATH')) ?? ''}`
+    const home = await homeOf($)
     if (!home) return ''
     const path = briefPath(home, now)
     await $.fs.write(path, brief + '\n')
@@ -291,6 +302,28 @@ async function saveCopy($: EngineInterface, brief: string, now: number): Promise
   } catch {
     return ''
   }
+}
+
+// The turn log of this session: rows already written (read once, so a reload or a resumed session adds to its file).
+let turnLines: string | null = null
+let hasLog = true
+
+async function logTurn($: EngineInterface, e: { reason: string; durationMs: number; usage?: Parameters<typeof turnRow>[0]['usage'] }): Promise<void> {
+  const home = await homeOf($)
+  if (!home) return
+  const session = await $.session.id()
+  const path = logPath(home, session)
+  if (turnLines === null) {
+    try {
+      const raw = (await $.fs.exists(path)) ? ((await $.fs.read(path)) as unknown) : ''
+      turnLines = typeof raw === 'string' ? raw : String((raw as { text?: string }).text ?? '')
+    } catch {
+      turnLines = ''
+    }
+  }
+  const fillNow = await read($, fill)
+  turnLines = withRow(turnLines, turnRow({ now: await $.clock.now(), session, reason: e.reason, ms: e.durationMs, usage: e.usage, routed: await read($, lastRouted), ctxPercent: fillNow ? fillNow.percent : null }))
+  await $.fs.write(path, turnLines)
 }
 
 /**
@@ -391,6 +424,20 @@ async function fresh($: EngineInterface) {
     return
   }
   await $.command.run({ command: 'clear' })
+}
+
+/** Compacts this session now, the lighter answer to a full context (the same as typing /compact). */
+async function compactNow($: EngineInterface) {
+  if (await read($, isBusy)) {
+    $.ui.toast('Claude is working. Compact waits for the turn to end.')
+    return
+  }
+  try {
+    const r = await $.session.compact()
+    if ('skip' in r && r.skip) $.ui.toast(`Not compacted: ${r.skip}`)
+  } catch {
+    $.ui.toast('Could not compact. Type /compact instead.')
+  }
 }
 
 /** `/cache`, `/cache 30`, `/cache auto`: sets the window if asked, then says what it is and how long is left. */
@@ -501,8 +548,17 @@ async function parsePeer($: EngineInterface, path: string): Promise<Peer | null>
 
 type Repo = { cwd: string; root: string; common: string; branch: string }
 
+// The repository's root and common git dir do not change while a session stays in one folder: only the branch does.
+// The four lookups happen once; a refresh then spends one call on this instead of four.
+let repoMemo: { cwd: string; root: string; common: string } | null = null
+
 async function repoOf($: EngineInterface): Promise<Repo | null> {
   const cwd = await $.session.cwd()
+  if (repoMemo && repoMemo.cwd === norm(cwd)) {
+    const b = await git($, cwd, ['rev-parse', '--abbrev-ref', 'HEAD'])
+    if (b.ok) return { ...repoMemo, branch: b.out.trim() }
+    repoMemo = null
+  }
   const root = await git($, cwd, ['rev-parse', '--show-toplevel'])
   if (!root.ok) return null
   let common = await git($, cwd, ['rev-parse', '--path-format=absolute', '--git-common-dir'])
@@ -511,7 +567,8 @@ async function repoOf($: EngineInterface): Promise<Repo | null> {
   if (!common.ok || !branch.ok) return null
   let dir = norm(common.out.trim())
   if (!/^([a-z]:)?\//i.test(dir)) dir = `${norm(root.out.trim())}/${dir}`
-  return { cwd: norm(cwd), root: norm(root.out.trim()), common: dir, branch: branch.out.trim() }
+  repoMemo = { cwd: norm(cwd), root: norm(root.out.trim()), common: dir }
+  return { ...repoMemo, branch: branch.out.trim() }
 }
 
 const registryDir = (repo: Repo) => `${repo.common}/preflight-guard`
@@ -597,6 +654,13 @@ async function newWorktree($: EngineInterface, selfId: string): Promise<void> {
 async function switchInto($: EngineInterface): Promise<void> {
   const path = String((await $.store.get('lastWorktree')) ?? '')
   if (path === '') return say($, 'No worktree made yet.', true)
+  // The tool is called directly: no model turn (which would re-read the whole context). The permission dialog still shows.
+  try {
+    await $.tool.call({ tool: 'EnterWorktree', path } as never)
+    return say($, 'Switched into the worktree.')
+  } catch {
+    // The tool is not there (or refused to be called from here): fall back to asking Claude, one short turn.
+  }
   await say($, 'Asking Claude to switch into the worktree (one short turn).')
   void $.prompt.submit({ text: `Call EnterWorktree with path "${path}" to switch this session into the existing worktree. Do nothing else.` })
 }
@@ -681,7 +745,7 @@ async function refresh($: EngineInterface): Promise<void> {
 
 // ======================= prompt enhancer =======================
 
-type Cfg = { model: string; maxSkills: number }
+type Cfg = { model: string; maxSkills: number; lean: boolean }
 
 // Guards against a second Enhance while one runs; the visible flags live in $.state.
 let isRunning = false
@@ -775,9 +839,9 @@ async function enhance($: EngineInterface, cfg: Cfg, given?: string): Promise<st
     const [skills, project] = await Promise.all([collectSkills($, draft, cfg.maxSkills), collectProject($)])
     const r = await $.model.complete({
       model: cfg.model,
-      system: SYSTEM,
+      system: cfg.lean ? SYSTEM_LEAN : SYSTEM,
       prompt: buildPrompt(draft, skills, project),
-      maxTokens: 1600,
+      maxTokens: cfg.lean ? 700 : 1600,
       effort: 'low',
       timeoutMs: 60000,
     })
@@ -904,7 +968,7 @@ async function snapshot($: EngineInterface, propsWorking: boolean): Promise<Snap
     mood.drawn = { id: state, since: now }
     $.clock.after(HOLD_MS + 80, () => $.ui.invalidate('ui.render'))
   }
-  const usd = saved.day === day ? saved.usd : 0
+  const usd = saved.day === day ? Math.max(0, saved.usd) : 0
   const said = bubbleFor(state, {
     ctxPercent: m.ctx.percent,
     ctxText: m.ctx.legend.text,
@@ -932,9 +996,15 @@ async function snapshot($: EngineInterface, propsWorking: boolean): Promise<Snap
   } else {
     if (bubble?.action) mood.sticky = { bubble, state }
     if (bubble && (!mood.linger || mood.linger.bubble.text !== bubble.text)) $.clock.after(BUBBLE_LINGER_MS + 80, () => $.ui.invalidate('ui.render'))
-    if (bubble) mood.linger = { bubble, until: now + BUBBLE_LINGER_MS }
-    if (bubble && !bubble.action && mood.sticky) speech = mood.sticky.bubble // a pending decision is not pushed aside by a passing message
-    else if (!bubble) speech = mood.sticky ? mood.sticky.bubble : mood.linger && mood.linger.until > now ? mood.linger.bubble : null
+    if (bubble) mood.linger = { bubble, until: now + BUBBLE_LINGER_MS, state }
+    // A bubble belongs to the state it was said for and follows that state's priority (mood.ts ORDER): the one on screen
+    // speaks first; a pending decision or a lingering bubble only speaks when its state outranks the one shown.
+    const outranks = (from: StateId) => rank(from) < rank(state)
+    if (!bubble) {
+      if (mood.sticky && outranks(mood.sticky.state)) speech = mood.sticky.bubble
+      else if (mood.linger && mood.linger.until > now && outranks(mood.linger.state)) speech = mood.linger.bubble
+      else speech = null
+    }
   }
   mood.shownAlert = isDemo ? null : (speech?.alertId ?? null)
   return {
@@ -944,7 +1014,7 @@ async function snapshot($: EngineInterface, propsWorking: boolean): Promise<Snap
     isOpen: pinned || attention > snoozed,
     isWorking,
     alerts,
-    saver: { isOn, last: await read($, saverLast), usd: saved.day === day ? saved.usd : 0, isStripShown: isStripShown(await read($, stripMode), isOn, routed), lastRouted: routed },
+    saver: { isOn, last: await read($, saverLast), usd: saved.day === day ? Math.max(0, saved.usd) : 0, isStripShown: isStripShown(await read($, stripMode), isOn, routed), lastRouted: routed },
     advice: rows,
     note,
     ask: await read($, pending),
@@ -992,11 +1062,12 @@ function pill(c: Comps, label: string, props: Record<string, unknown>, fill: { c
 }
 
 /** What each answer to a warning is called, and what pressing it does. */
-const ACTION_LABELS: Record<string, string> = { handoff: 'Handoff', copy: 'Copy brief', fresh: 'Fresh', saverOn: 'Saver on' }
+const ACTION_LABELS: Record<string, string> = { handoff: 'Handoff', copy: 'Copy brief', fresh: 'Fresh', saverOn: 'Saver on', compact: 'Compact' }
 function runAction(id: ActionId, fx: Fx): void {
   if (id === 'handoff') fx.handoff('full')
   else if (id === 'copy') fx.handoff('brief')
   else if (id === 'fresh') fx.fresh()
+  else if (id === 'compact') fx.compact()
   else fx.saver(true)
 }
 
@@ -1133,6 +1204,7 @@ function details(s: Snap, c: Comps, fx: Fx, surface: string) {
 type Fx = {
   handoff: (mode: HandoffMode) => void
   fresh: () => void
+  compact: () => void
   saver: (on: boolean) => void
   enhance: () => void
   undoEnhance: () => void
@@ -1156,6 +1228,7 @@ function makeFx($: EngineInterface): Fx {
   return {
     handoff: mode => void handoff($, mode),
     fresh: () => void fresh($),
+    compact: () => void compactNow($),
     saver: on => void setSaver($, on),
     enhance: () => void enhance($, enhancerCfg),
     undoEnhance: () => void undo($),
@@ -1233,7 +1306,7 @@ async function startPreflight($: EngineInterface): Promise<void> {
   if (typeof stored === 'boolean') await update($, preflightOn, () => stored)
   // After the session is up, so git never delays the start.
   $.clock.after(1500, () => void beat($, 'idle').then(() => refresh($)))
-  $.clock.every(30_000, () => void refresh($))
+  $.clock.every(60_000, () => void refresh($))
 }
 
 async function startEnhancer($: EngineInterface): Promise<void> {
@@ -1263,12 +1336,14 @@ export const register: Register = (on, options) => {
   handoffChord = parseChord(handoffLabel)
   freshChord = parseChord(freshLabel)
   hasSound = options.sound !== false
+  hasLog = options.turnLog !== false
   mascotMode = options.mascot === 'small' || options.mascot === 'off' ? options.mascot : 'normal'
   enhanceLabel = typeof options.hotkey === 'string' ? options.hotkey : 'meta+e'
   enhancerChord = parseEnhancerChord(enhanceLabel)
   enhancerCfg = {
     model: typeof options.model === 'string' && options.model.trim() !== '' ? options.model.trim() : 'haiku',
     maxSkills: Math.max(1, Number(options.maxSkills ?? 12) || 12),
+    lean: options.enhanceStyle === 'lean',
   }
 
   on('session.start', async ($, e, next) => {
@@ -1318,8 +1393,10 @@ export const register: Register = (on, options) => {
       mood.draftTurn = false
       mood.waiting = false
       mood.askAt = 0
+      mood.askId = ''
       mood.tool = null
       mood.compacting = false
+      if (hasLog) await safe(() => logTurn($, e))
       if (hasSound && e.reason !== 'aborted') await chime($)
       if (e.reason !== 'aborted') await safe(() => flash($, 'bell'))
       else poke($)
@@ -1334,12 +1411,6 @@ export const register: Register = (on, options) => {
   on('prompt.submit', async ($, e, next) => {
     if (/^\s*\/(?:[\w.-]+:)?handoff\b/i.test(String(e.text ?? ''))) mood.draftTurn = true
     if (!e.command && !e.isMeta) dismissBubble()
-    await safe(async () => {
-      if (!e.command && !e.isMeta) {
-        const now = await $.clock.now()
-        await patchCache($, c => ({ ...c, lastAt: now }))
-      }
-    })
     await safe(async () => {
       // A command, a hidden prompt, or one folded into a running turn keeps the turn's label.
       if (e.command || e.isMeta || e.turnId !== undefined) return
@@ -1356,6 +1427,15 @@ export const register: Register = (on, options) => {
           }
         }
       }
+    })
+    await safe(async () => {
+      // The countdown restarts when a message goes to the main model. An easy one the saver will route to Haiku leaves the
+      // main model's cache alone (turn.step restarts it if the routing does not happen after all).
+      if (e.command || e.isMeta) return
+      const routed = turnLevel === 'easy' && (await read($, saverOn)) && !(await read($, modelId)).toLowerCase().includes('haiku')
+      if (routed) return
+      const now = await $.clock.now()
+      await patchCache($, c => ({ ...c, lastAt: now }))
     })
     await safe(async () => {
       lastHasDraft = false
@@ -1377,11 +1457,9 @@ export const register: Register = (on, options) => {
 
     mood.waiting = false
     mood.askAt = 0
+    mood.askId = ''
     const before = await read($, cache)
     const startedAt = await $.clock.now()
-    // The request is going out: whatever was cached is read now, which restarts the whole window.
-    await patchCache($, c => ({ ...c, lastAt: startedAt }))
-
     let isHaiku = false
     if (turnLevel !== 'easy') why = `Stayed on ${e.model}: the prompt was labelled ${turnLevel}.`
     else if (e.model.toLowerCase().includes('haiku')) why = `Nothing to route: the session model is already ${e.model}.`
@@ -1396,6 +1474,13 @@ export const register: Register = (on, options) => {
       why = isHaiku ? `Routed to ${HAIKU_ID}: labelled easy, context ${tokens} tokens (< ${CONTEXT_LIMIT}), your model ${e.model}.` : `Stayed on ${e.model}: labelled easy but context is ${tokens} tokens (>= ${CONTEXT_LIMIT}) or saver is off.`
     }
 
+    // The prompt cache belongs to a model: a step routed to Haiku neither reads nor refreshes the main model's cache, so
+    // only a main-model request restarts the window (and teaches it).
+    const mainWarm = (() => {
+      const state = cacheView(before, startedAt, 0, null).state
+      return before.lastAt > 0 && (state === 'warm' || state === 'soon')
+    })()
+    if (!isHaiku) await patchCache($, c => ({ ...c, lastAt: startedAt }))
     const response = yield* next(isHaiku ? { ...e, model: HAIKU_ID } : e)
     const endedAt = await $.clock.now()
 
@@ -1405,7 +1490,7 @@ export const register: Register = (on, options) => {
       await update($, saverLast, () => response.usage?.model ?? (isHaiku ? HAIKU_ID : e.model))
       const mainPrice = priceOf(e.model)
       if (isHaiku && response.usage && mainPrice) {
-        const gain = savingOf(mainPrice, response.usage)
+        const gain = realSaving(mainPrice, response.usage, mainWarm)
         const today = dayKey(await $.clock.now())
         const total = await update($, saverSaved, s => (s.day === today ? { day: today, usd: s.usd + gain } : { day: today, usd: gain }))
         await $.store.set('saved', total)
@@ -1414,7 +1499,7 @@ export const register: Register = (on, options) => {
     await safe(async () => {
       if (e.model !== (await read($, modelId))) await update($, modelId, () => e.model)
       const u = response.usage
-      if (u) {
+      if (u && !isHaiku) {
         // The idle gap is measured from the end of the previous request, not from its start.
         const gap = before.lastEndAt > 0 ? startedAt - before.lastEndAt : 0
         await patchCache($, c => ({
@@ -1437,6 +1522,12 @@ export const register: Register = (on, options) => {
       await patchCache($, c => ({ ...c, detected: ttl, misses: 0 }))
       await $.store.set('cacheDetected', ttl)
     }
+    return next(e)
+  }).catch(($, e, next) => next(e))
+
+  // The prompt cache belongs to a model: after a switch the new model starts with none, whatever the countdown said.
+  on('classic.PostModelSwitch', async ($, e, next) => {
+    await patchCache($, c => ({ ...c, lastAt: 0, lastEndAt: 0, notifiedAt: 0 }))
     return next(e)
   }).catch(($, e, next) => next(e))
 
@@ -1480,10 +1571,12 @@ export const register: Register = (on, options) => {
   // A permission prompt is about to be put to the person: Clawd raises a hand until the call runs or the turn moves on.
   on('tool.check', async ($, e, next) => {
     const r = await next(e)
-    if (r.decision === 'ask') {
+    // A query (another plugin's $.tool.check) has no tool_use_id: nothing will run and nobody is asked, so it never counts.
+    if (r.decision === 'ask' && e.tool_use_id !== undefined) {
       // An ask is often settled by a rule or the mode before anyone is shown a prompt: only one still open after a moment counts.
       const at = await $.clock.now()
       mood.askAt = at
+      mood.askId = e.tool_use_id
       $.clock.after(askMs, () => {
         if (mood.askAt === at) {
           mood.waiting = true
@@ -1689,7 +1782,8 @@ export const register: Register = (on, options) => {
     // A collapse only holds while the alert level stays where it was; once calm, forget it.
     if (s.attention === 0 && (await read($, snooze)) !== 0) $.clock.after(0, () => void update($, snooze, () => 0))
 
-    const { Box, Text, Button, Svg: Draw } = $.ui.resolve(e)
+    const { Box, Text, Button } = $.ui.resolve(e)
+    const Draw = ($.ui.resolve(e) as { Svg?: unknown }).Svg
     const c = { Box, Text, Button, Svg: e.surface === 'terminal' ? undefined : Draw } as unknown as Comps
     const fx = makeFx($)
     const onToggle = () => void toggle($, s.isOpen, s.attention)
@@ -1699,7 +1793,7 @@ export const register: Register = (on, options) => {
     if (e.surface === 'terminal') {
       row = el(c.Box, { key: 'row', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, el(c.Box, { key: 'meters' }, ...(mascotMode === 'off' ? [] : [el(c.Text, { key: 'face', dimColor: true }, `${STATES[s.state].face}  `)]), ...line(s.m).map((seg, i) => el(c.Text, { key: `s${i}`, color: seg.fill }, seg.t))), controls(s, c, fx, onToggle))
     } else {
-      const { Svg } = $.ui.resolve(e)
+      const Svg = ($.ui.resolve(e) as { Svg: unknown }).Svg
       // The bubble is drawn inside the band's own drawing, over the meters: the band never grows for it.
       const said = speaks && s.bubble ? s.bubble.text : null
       // A bubble with a button is drawn apart from the band's drawing and laid out in a row with its real button: the
@@ -1713,7 +1807,7 @@ export const register: Register = (on, options) => {
       const bb = svg.bubbleBox
       const label = act ? (ACTION_LABELS[act] ?? act) : ''
       const art = act && said && bb ? bubbleSvg(said, bb.w) : null
-      const apart = act && said && art ? [el(c.Box, { key: 'bubble', position: 'absolute', top: Math.max(0, Math.floor((bb.y - 6) / 18)), left: Math.max(0, Math.floor((bb.x - 8) / 8)), flexDirection: 'row', alignItems: 'center' }, el(Svg, { key: 'bubble-art', source: art.source, alt: said, isInteractive: true, width: art.width, height: art.height }), pill(c, label, { key: act === 'saverOn' ? 'saver' : act, onPress: () => { dismissBubble(); runAction(act, fx) } }, { color: '#ece8e1', backgroundColor: '#2b2a28' }))] : []
+      const apart = act && said && art && bb ? [el(c.Box, { key: 'bubble', position: 'absolute', top: Math.max(0, Math.floor((bb.y - 6) / 18)), left: Math.max(0, Math.floor((bb.x - 8) / 8)), flexDirection: 'row', alignItems: 'center' }, el(Svg, { key: 'bubble-art', source: art.source, alt: said, isInteractive: true, width: art.width, height: art.height }), pill(c, label, { key: act === 'saverOn' ? 'saver' : act, onPress: () => { dismissBubble(); runAction(act, fx) } }, { color: '#ece8e1', backgroundColor: '#2b2a28' }))] : []
       // An interactive Svg is drawn in a frame of its own: give it its real size, or the frame is far taller than the drawing.
       row = el(c.Box, { key: 'row', position: 'relative', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, el(Svg, { key: 'svg', source: svg.source, alt: `${STATES[s.state].label}. ${said ? `${said}. ` : ''}${altText(s.m)}`, isInteractive: true, width: svg.width, height: svg.height }), controls(s, c, fx, onToggle, Svg), ...apart)
     }
@@ -1724,7 +1818,8 @@ export const register: Register = (on, options) => {
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const s = await snapshot($, false)
-    const { Box, Text, Button, Svg: Draw } = $.ui.resolve(e)
+    const { Box, Text, Button } = $.ui.resolve(e)
+    const Draw = ($.ui.resolve(e) as { Svg?: unknown }).Svg
     const c = { Box, Text, Button, Svg: e.surface === 'terminal' ? undefined : Draw } as unknown as Comps
     const fx = makeFx($)
     const rows = details({ ...s, isOpen: true }, c, fx, e.surface)

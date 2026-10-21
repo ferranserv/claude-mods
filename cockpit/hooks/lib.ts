@@ -478,7 +478,8 @@ export function bubbleSvg(text: string, w: number): { source: string; width: num
 }
 
 /** One slim band: the meters side by side, a few lines tall. */
-export function bandBody(width: number, m: Model): { out: string; height: number } {
+/** `quiet`: a speech bubble is saying it, so the context warning's own lines under the bar are left out and the row keeps its height. */
+export function bandBody(width: number, m: Model, quiet = false): { out: string; height: number } {
   // Narrow windows get short labels and a smaller size; the numbers are the same.
   const narrow = width < 480
   const size = narrow ? 10 : 11
@@ -496,7 +497,7 @@ export function bandBody(width: number, m: Model): { out: string; height: number
   let out = ''
 
   // Context: the warning text appears under the bar only near the warning, up to two lines.
-  const legend = m.ctx.near ? legendLines(m.ctx.legend, w0, LEGEND_SIZE, 2) : []
+  const legend = m.ctx.near && !quiet ? legendLines(m.ctx.legend, w0, LEGEND_SIZE, 2) : []
   out += text(x0, 11, labels[0] ?? '', { size })
   out += parts(x0 + w0, 11, fit(m.ctx.value, room(0, w0), size), { anchor: 'end' })
   out += rect(x0, 17, w0, 7, C.gray, TRACK)
@@ -566,7 +567,7 @@ export type Rect = { x: number; y: number; w: number; h: number }
 export function cockpitSvg(width: number, m: Model, mascot: { markup: string; width: number; height: number }, bubble: SpeechBubble | null = null): { source: string; width: number; height: number; bubbleBox: Rect | null } {
   const gap = mascot.width > 0 ? 12 : 0
   const bodyW = Math.max(200, width - mascot.width - gap)
-  const body = bandBody(bodyW, m)
+  const body = bandBody(bodyW, m, bubble !== null)
   // The same drawing open or collapsed (the arrow adds rows under it), and a fixed height unless a warning needs two lines.
   const height = Math.max(mascot.height, MIN_ROW, body.height + 2)
   const top = Math.max(0, Math.round((height - body.height) / 2) - 3)
@@ -724,7 +725,7 @@ export function attentionOf(m: Model, hasAdvice: boolean, now: number): 0 | 1 | 
   return 0
 }
 
-export type ActionId = 'handoff' | 'copy' | 'fresh' | 'saverOn'
+export type ActionId = 'handoff' | 'copy' | 'fresh' | 'saverOn' | 'compact'
 export type Alert = { id: string; tone: Level; text: string; actions: ActionId[] }
 
 /**
@@ -733,8 +734,8 @@ export type Alert = { id: string; tone: Level; text: string; actions: ActionId[]
  */
 export function alertsOf(m: Model, o: { saverOn: boolean; now: number }): Alert[] {
   const out: Alert[] = []
-  if (m.ctx.level === 'alert') out.push({ id: 'ctx', tone: 'alert', text: m.ctx.legend.text, actions: ['handoff', 'copy', 'fresh'] })
-  else if (m.ctx.level === 'warn') out.push({ id: 'ctx', tone: 'warn', text: m.ctx.legend.text, actions: ['handoff', 'copy', 'fresh'] })
+  if (m.ctx.level === 'alert') out.push({ id: 'ctx', tone: 'alert', text: m.ctx.legend.text, actions: ['handoff', 'compact', 'copy', 'fresh'] })
+  else if (m.ctx.level === 'warn') out.push({ id: 'ctx', tone: 'warn', text: m.ctx.legend.text, actions: ['handoff', 'compact', 'copy', 'fresh'] })
   const c = m.cache?.view
   if (c?.state === 'soon') out.push({ id: 'cache', tone: 'warn', text: `Prompt cache goes cold in ${c.label}. ${m.cache?.sub ?? ''}`.trim(), actions: ['handoff'] })
   if (c?.state === 'cold') out.push({ id: 'cache', tone: 'warn', text: `Prompt cache is cold: the next message pays full price. ${m.cache?.sub ?? ''}`.trim(), actions: ['handoff'] })

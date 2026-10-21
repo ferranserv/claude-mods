@@ -427,7 +427,7 @@ test('buttons hide while a turn runs even when the app does not set isWorking; t
   await started($)
   await $.session.measure({ context: { tokens: 600, window: 1000, percent: 60 }, rateLimits: [], changed: ['context'] } as never)
   let ui = await $.ui.mount(band('desktop'))
-  for (const key of ['handoff', 'copy', 'fresh']) expect(await ui.find({ key })).toBeDefined()
+  for (const key of ['handoff', 'compact', 'copy', 'fresh']) expect(await ui.find({ key })).toBeDefined()
   await ui.unmount()
 
   await ($ as unknown as { turn: { start: (i: unknown) => Promise<unknown> } }).turn.start({ text: 'go', turnId: 't1' })
@@ -476,7 +476,7 @@ test('a warning opens the band by itself with its buttons; the arrow collapses i
   await measureCtx($, 60)
   let ui = await $.ui.mount(band('desktop'))
   expect(await ui.find({ key: 'alert-ctx' })).toBeDefined()
-  for (const key of ['handoff', 'copy', 'fresh']) expect(await ui.find({ key })).toBeDefined()
+  for (const key of ['handoff', 'compact', 'copy', 'fresh']) expect(await ui.find({ key })).toBeDefined()
   await ui.press({ key: 'toggle' })
   await ui.unmount()
 
@@ -598,19 +598,25 @@ test('a failed tool is an oops, a passing test run is the lab, an approved plan 
   expect(await altOf($)).toContain('idea')
 })
 
-test('a permission prompt raises a hand until the call runs', async ($, on) => {
+test('a permission prompt raises a hand until the asked call ends; other calls and queries do not move it', async ($, on) => {
   const w = world(on)
   on('tool.check', () => ({ decision: 'ask' }) as never)
   on('tool.call', ok)
   await started($)
   await w.clock.advance(6000)
-  await ($ as unknown as Do).tool.check({ tool: 'Bash', input: { command: 'rm -rf x' } })
+  const d = $ as unknown as Do
+  await d.tool.check({ tool: 'Bash', input: { command: 'ls' } }) // a query: nothing will run, nobody is asked
+  await w.clock.advance(6000)
+  expect(await altOf($)).not.toContain('clipboard')
+  await d.tool.check({ tool: 'Bash', input: { command: 'rm -rf x' }, tool_use_id: 'a' } as never)
   expect(await altOf($)).not.toContain('clipboard') // an ask settled at once by a rule shows nothing
   await w.clock.advance(4000)
   expect(await altOf($)).not.toContain('clipboard') // still inside the 5 s it takes to be sure
   await w.clock.advance(1100)
   expect(await altOf($)).toContain('clipboard')
-  await ($ as unknown as Do).tool.call({ tool: 'Bash', command: 'ls' })
+  await d.tool.call({ tool: 'Read', file_path: '/x/a.ts', tool_use_id: 'b' } as never) // a parallel call ends: the question is still open
+  expect(await altOf($)).toContain('clipboard')
+  await d.tool.call({ tool: 'Bash', command: 'ls', tool_use_id: 'a' } as never) // the asked call has run and ended
   expect(await altOf($)).not.toContain('clipboard')
 })
 
@@ -646,7 +652,7 @@ test('a bubble that asks for a decision stays until you answer it', async ($, on
   expect(await hasButton($, 'handoff')).toBe(false)
 })
 
-test('a pending decision is not pushed aside by "Done."; it ends by itself when its warning does', async ($, on) => {
+test('"Done." speaks over a pending decision while the bell rings, then the decision returns; it ends by itself when its warning does', async ($, on) => {
   const w = world(on)
   on('prompt.submit', (_, e) => e as never)
   on('turn.complete', (_, e) => ({ text: e.answer }) as never)
@@ -658,9 +664,11 @@ test('a pending decision is not pushed aside by "Done."; it ends by itself when 
   await ($ as unknown as Do).turn.start({ text: 'go', turnId: 't1' })
   await ($ as unknown as Do).turn.complete({ reason: 'answer', answer: 'x', durationMs: 5, isAborted: false, turnId: 't1' })
   const during = await svgOf($)
-  expect(during).not.toContain('>Done.<') // the bell rings, but the open question keeps the bubble
-  expect(await hasButton($, 'handoff')).toBe(true) // with its real button beside it
-  await w.clock.advance(10_000)
+  expect(during).toContain('from="0" to="1"') // the bell outranks the warning: it speaks, with no button
+  expect(await hasButton($, 'handoff')).toBe(false)
+  await w.clock.advance(5100)
+  expect(await hasButton($, 'handoff')).toBe(true) // the bell is over: the open question is back, with its real button beside it
+  await w.clock.advance(5000)
   await measureCtx($, 10) // the context is cleared: the warning is over, so the bubble and the pose are too
   await w.clock.advance(6000)
   expect(await altOf($)).not.toContain('tipsy')
@@ -885,4 +893,49 @@ test('with Clawd hidden the bubble still speaks and still carries its button', a
   expect(await ui.find({ key: 'bubble' })).toBeDefined()
   expect(await ui.find({ key: 'handoff' })).toBeDefined()
   await ui.unmount()
+})
+
+test('a pending warning bubble does not speak over a higher-priority state, and returns after it', async ($, on) => {
+  const w = world(on)
+  on('tool.call', ok)
+  await started($)
+  await w.clock.advance(6000)
+  await measureCtx($, 60)
+  await $.command.run({ command: 'cockpit', args: 'close' } as never) // collapsed: the warning speaks through the bubble
+  expect(await hasButton($, 'handoff')).toBe(true) // a decision bubble is pending for the context warning
+  await ($ as unknown as Do).turn.start({ text: 'go', turnId: 't1' })
+  const call = ($ as unknown as Do).tool.call({ tool: 'Edit', file_path: '/x/a.ts' })
+  await w.clock.advance(100)
+  expect(await altOf($, true)).toContain('hammer')
+  expect(await hasButton($, 'handoff')).toBe(false)
+  expect(await altOf($, true)).not.toContain('quality may slip')
+  await call
+  await w.clock.advance(8000)
+  expect(await altOf($, true)).not.toContain('hammer')
+})
+
+test('a step routed to Haiku leaves the main model cache countdown alone; a main-model step starts it', async ($, on) => {
+  const w = world(on, { contextTokens: 20_000 })
+  on('prompt.submit', (_, e) => e as never)
+  await started($)
+  await send($, 'fix the typo in the README')
+  await step($, w, usage(100, 0, 20_000)) // easy, saver on: answered by Haiku
+  expect(text(await $.command.run({ command: 'cache', args: '' } as never))).toContain('no reply yet')
+  await send($, 'plan and implement the new export feature across the modules')
+  await step($, w, usage(100, 0, 20_000)) // hard: the main model, and its cache starts
+  expect(text(await $.command.run({ command: 'cache', args: '' } as never))).toContain('left')
+})
+
+test('a finished turn adds one row to the session log under the home folder', async ($, on) => {
+  const w = world(on)
+  on('turn.complete', (_, e) => ({ text: e.answer }) as never)
+  await started($)
+  await ($ as unknown as Do).turn.start({ text: 'go', turnId: 't1' })
+  await ($ as unknown as Do).turn.complete({ reason: 'answer', answer: 'x', durationMs: 1500, isAborted: false, turnId: 't1', usage: { model: 'claude-sonnet-5-5', input_tokens: 5, output_tokens: 7, cache_read_input_tokens: 90, cache_creation_input_tokens: 1 } })
+  const log = w.files.find(f => f.path.includes('/.claude/cockpit-log/'))
+  expect(log).toBeDefined()
+  const row = JSON.parse(String(log?.text).trim().split('\n').at(-1) ?? '{}')
+  expect(row.out).toBe(7)
+  expect(row.cacheRead).toBe(90)
+  expect(row.reason).toBe('answer')
 })
