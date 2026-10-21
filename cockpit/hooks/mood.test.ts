@@ -269,6 +269,17 @@ describe('the moves between states', () => {
   })
 })
 
+describe('done and the detective', () => {
+  test('the bell is put away and the fedora and magnifier are fetched by hand, and back', () => {
+    for (const key of ['bell>detective', 'detective>bell']) {
+      expect(MOVES[key], key).toBeDefined()
+      const [from, to] = key.split('>') as [StateId, StateId]
+      expect(moveMs(from, to), key).toBeGreaterThan(0)
+      expect(moveMarkup(from, to)?.markup ?? '', key).not.toContain('NaN')
+    }
+  })
+})
+
 describe('the painter moves', () => {
   test('he puts the brush and the palette away on the way to the hammer or the laptop, and fetches them on the way back', () => {
     for (const key of ['creating>building', 'building>creating', 'creating>typing', 'typing>creating']) {

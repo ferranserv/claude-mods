@@ -1168,11 +1168,14 @@ function runAct(a: ActRef, fx: Fx, surface: string): void {
  */
 function artButton(c: Comps, label: string, key: string, onPress: () => void) {
   const art = pillSvg(label)
+  // Where the drawing is, the Button is: the box around both is as big as the drawing (px, whatever the host's cells are), the Button
+  // layer spans that box exactly (all four edges) and is cut at it, and two rows of Button cover the drawing's whole height.
+  const press = (k: string) => el(c.Button, { key: k, plain: true, onPress }, NBSP.repeat(Math.ceil(art.width / 3)))
   return el(
     c.Box,
-    { key: `${key}-wrap`, position: 'relative', width: art.cols, overflow: 'hidden', flexShrink: 0 },
+    { key: `${key}-wrap`, position: 'relative', overflow: 'hidden', flexShrink: 0 },
     el(c.Svg as never, { key: 'art', source: art.source, alt: label, width: art.width, height: art.height }),
-    el(c.Box, { key: 'hit', position: 'absolute', top: 0, left: 0, height: Math.ceil(LANE_H / CELL.h) }, el(c.Button, { key, plain: true, onPress }, NBSP.repeat(art.cols * 2))),
+    el(c.Box, { key: 'hit', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden', flexDirection: 'column' }, press(key), press(`${key}-2`)),
   )
 }
 
@@ -1265,7 +1268,7 @@ function bubbleLane($: EngineInterface, s: Snap, c: Comps, Svg: unknown, fx: Fx,
   // The bubble gets all the row up to its buttons (and no more than its words need); with no buttons, all of it.
   const gap = CELL.w
   const buttonsPx = (first ? pillSvg(first.label).width : 0) + (hasMore ? pillSvg('…').width : 0) + (first && hasMore ? gap : 0)
-  const room = Math.max(120, Math.floor((metersPx - (buttonsPx > 0 ? buttonsPx + gap : 0)) / CELL.w) * CELL.w)
+  const room = Math.max(120, metersPx - (buttonsPx > 0 ? buttonsPx + gap : 0))
   const text = s.speech?.text ?? ''
   let bub = mood.bub
   if (!bub || bub.room !== room) {
@@ -1289,17 +1292,18 @@ function bubbleLane($: EngineInterface, s: Snap, c: Comps, Svg: unknown, fx: Fx,
   const last = bub.layers[bub.layers.length - 1]
   if (last && bub.text === '' && last.until <= s.now) bub.layers = [] // closed: nothing is left drawn
   const buttons = s.speech ? [...(first ? [actButton(first, c, fx, surface)] : []), ...(hasMore ? [moreButton(s, c, fx)] : [])] : []
-  const cols = (px: number) => Math.floor(px / CELL.w)
+  // Everything here is sized in px by its drawing, never in the host's character cells: the zone is as wide as its blank drawing,
+  // the buttons sit at the right of the meters' width, and the Button layers are the buttons' own boxes.
   const zone = el(
     c.Box,
-    { key: 'zone', position: 'relative', width: cols(room), flexShrink: 0 },
-    // A blank drawing that holds the lane's height (the bubbles are laid over it), so the lane is its height in px, not in rows.
-    el(Svg, { key: 'space', source: `<svg xmlns="http://www.w3.org/2000/svg" width="${cols(room) * CELL.w}" height="${LANE_H}"/>`, alt: 'bubble space', width: cols(room) * CELL.w, height: LANE_H }),
+    { key: 'zone', position: 'relative', flexShrink: 0 },
+    // A blank drawing that holds the lane's height and width (the bubbles are laid over it).
+    el(Svg, { key: 'space', source: `<svg xmlns="http://www.w3.org/2000/svg" width="${room}" height="${LANE_H}"/>`, alt: 'bubble space', width: room, height: LANE_H }),
     ...bub.layers.map(l => el(c.Box, { key: l.key, position: 'absolute', top: 0, left: 0 }, el(Svg, { key: 'art', source: l.art.source, alt: text, isInteractive: true, width: l.art.width, height: l.art.height }))),
     ...hoverCard(s, c, Svg, fx, room, surface),
   )
   return [
-    el(c.Box, { key: 'lane', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: cols(metersPx) }, zone, el(c.Box, { key: 'buttons', flexDirection: 'row', alignItems: 'center', gap: 1, flexShrink: 0 }, ...buttons)),
+    el(c.Box, { key: 'lane', flexDirection: 'row', alignItems: 'center' }, zone, el(c.Box, { key: 'grow', flexGrow: 1 }), el(c.Box, { key: 'buttons', flexDirection: 'row', alignItems: 'center', gap: 1, flexShrink: 0 }, ...buttons)),
     ...menuRow(s, c, fx, surface, 0),
   ]
 }

@@ -184,3 +184,5 @@ Done: meters 42 px + lane 30 px, detective only when idle, hover hints. 230 test
 Not verifiable from the cloud: the lane's px height in the app (blank drawing in flow), the Button's clip.
 
 ## 0.18.2: painter <-> builder and painter <-> typing moves (hand-drawn), brush and palette carried. 231 tests.
+
+## 0.18.3: bell<->detective moves, smaller typing mouth, button hit areas sized by their drawings (px) instead of cells. 232 tests.

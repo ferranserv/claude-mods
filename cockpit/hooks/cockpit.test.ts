@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'claude-code/testing'
 
-import { CELL, LANE_H, alertsOf, attentionOf, bandParts, bubbleArt, bubbleTextWidth, bubbleWidth, cockpitSvg, fitText, model, pillSvg, wandSvg } from './lib'
+import { LANE_H, alertsOf, attentionOf, bandParts, bubbleArt, bubbleTextWidth, bubbleWidth, cockpitSvg, fitText, model, pillSvg, textPx, wandSvg } from './lib'
 import { stateMarkup } from './states'
 
 const NOW = new Date(2026, 9, 21, 12).getTime() // a Wednesday: 60% of the week is allotted
@@ -146,9 +146,10 @@ describe('the speech bubble', () => {
 })
 
 describe('a button is a drawing with the Button over it', () => {
-  test('gray with dark text, whole cells wide and a lane tall, so the Button over it covers exactly it', () => {
+  test('gray with dark text, as wide as its label needs in px (no host cells) and a lane tall, so the Button over it covers exactly it', () => {
     const p = pillSvg('Handoff')
-    expect(p.width).toBe(p.cols * CELL.w)
+    expect(p.width).toBeGreaterThan(pillSvg('OK').width)
+    expect(p.width).toBe(Math.max(32, textPx('Handoff', 12) + 26))
     expect(p.height).toBe(LANE_H)
     expect(p.source).toContain('#8E8E93')
     expect(p.source).toContain('>Handoff<')

@@ -155,3 +155,9 @@ From the owner's testing of 0.15.0.
 ## 0.18.2: the painter's moves
 
 Hand-drawn moves between the painter and the builder (`creating>building`, `building>creating`) and the painter and typing (`creating>typing`, `typing>creating`): the hand takes the brush, then the palette, and shows them small while they are put away (or fetched the other way); the moustache is the last thing to go and the first to come; the hard hat and the hammer, or the laptop, come on at the end. `brush` and `palette` are in `HELD` so any other pair of states carries them the same way.
+
+## 0.18.3: done <-> detective, a smaller typing mouth, buttons that are where they look
+
+- Hand-drawn moves `bell>detective` and `detective>bell`: the bell is put away, the fedora and then the magnifier are fetched by hand (and back). `magnifier` is a carried prop now.
+- Typing's concentration mouth is two pixels, low and to one side, well away from the eyes.
+- Click areas: nothing about a button's or the bubble's place depends on the host's character cells any more. A button is a drawing as wide as its label (px) in a box that is exactly that big; the Button layer inside spans that box on all four edges and is cut at it, with two rows of Button covering its height. The lane is made of drawings in px (a blank one holds the bubble zone), the buttons sit at the right edge of the meters' width through a growing spacer, instead of a width counted in cells.

@@ -38,7 +38,7 @@ const MINI = {
   'hat-hard': ['.EEE.', 'EEEEE'], 'hat-fedora': ['.XXX.', 'XXXXX'], 'hat-wizard': ['..n..', '.nnn.', 'NNNNN'],
   wrench: ['ggg', '.x.', '.x.'], wand: ['..s', '.w.', 'w..'], glass: ['ggg', 'gig', 'ggg', '..X'], browser: ['GGGG', 'ybbb', 'ybbb'],
   thing: ['ggg', 'ggg'],
-  palette: ['.KKK.', 'KKKKK', 'KhKqK', '.KKK.'], brush: ['..h', '.x.', 'x..'],
+  palette: ['.KKK.', 'KKKKK', 'KhKqK', '.KKK.'], brush: ['..h', '.x.', 'x..'], magnifier: ['ggg', 'gig', 'ggg', '..X'],
 };
 const SPIN = [[0, -3], [2, -2], [3, 0], [2, 2], [0, 3], [-2, 2], [-3, 0], [-2, -2]];
 
@@ -118,7 +118,7 @@ function clawd(o) {
   if (o.mouth === 'o') fill(mc + 1, my - 1, 2, 2, 'k');
   if (o.mouth === 'yawn') { fill(mc, my - 2, 4, 5, 'k'); fill(mc + 1, my + 1, 2, 1, 'h'); }
   if (o.mouth === 'flat') fill(mc + 1, my, 2, 1, 'w');
-  if (o.mouth === 'focus') { fill(mc + 3, my, 3, 1, 'w'); set(mc + 6, my - 1, 'w'); }   // concentrating: a short flat line to one side, the corner pulled up
+  if (o.mouth === 'focus') fill(mc + 4, my + 1, 2, 1, 'w');   // concentrating: a very small flat line, low and off to one side, well away from the eyes
 
   if (o.mouth === 'grim') { fill(mc, my, 4, 1, 'w'); set(mc - 1, my + 1, 'w'); set(mc + 4, my + 1, 'w'); }
   // a handlebar moustache under the eyes, ends curled up (the painter)

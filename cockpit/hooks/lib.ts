@@ -537,13 +537,12 @@ export function bubbleArt(from: string, to: string, room: number): { source: str
 
 /**
  * A button drawn as pixels, the bubble's height: the cockpit gray of the bubble, dark text, the same stepped border. It
- * is a whole number of character cells wide and a lane tall, so the real Button laid over it (blank, two rows tall, clipped
- * to the drawing's box) covers exactly it.
+ * is as wide as its label needs, in px, and a lane tall; the real Button is laid over it (see artButton), clipped to this box.
  */
 export function pillSvg(label: string): { source: string; width: number; height: number; cols: number } {
   const size = 12
-  const cols = Math.max(4, Math.ceil((textPx(label, size) + 2 * BUBBLE_PAD + 2) / CELL.w))
-  const w = cols * CELL.w
+  // Its width is the label's and its padding's, in px: nothing about the host's character cells decides where it ends.
+  const w = Math.max(32, textPx(label, size) + 2 * BUBBLE_PAD + 2)
   const y0 = BUBBLE_Y
   const r = (x: number, y: number, rw: number, rh: number, c: string) => `<rect x="${x}" y="${y}" width="${rw}" height="${rh}" fill="${c}"/>`
   const body = [
@@ -551,7 +550,7 @@ export function pillSvg(label: string): { source: string; width: number; height:
     r(4, y0 + 2, w - 8, BUBBLE_H - 4, C.gray), r(2, y0 + 4, w - 4, BUBBLE_H - 8, C.gray),
     `<text x="${w / 2}" y="${y0 + BUBBLE_H / 2 + 4.5}" text-anchor="middle" font-size="${size}" font-weight="500" fill="#1b1a19">${esc(label)}</text>`,
   ].join('')
-  return { source: wrapSvg(w, LANE_H, body), width: w, height: LANE_H, cols }
+  return { source: wrapSvg(w, LANE_H, body), width: w, height: LANE_H, cols: Math.ceil(w / CELL.w) }
 }
 
 /** The mascot, the meters and the gap between them as separate drawings: a new pose replaces only Clawd, so the meters are never reloaded (a replaced drawing blinks). */
