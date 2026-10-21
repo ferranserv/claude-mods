@@ -3,7 +3,7 @@ import { describe, expect, test } from 'claude-code/testing'
 import { COFFEE_AFTER_MS, bubbleFor, clockOf, pickState } from './mood'
 import type { BubbleInput, MoodInput } from './mood'
 import type { StateId } from './states'
-import { MOVES, STATES, STATE_IDS, moveMarkup, moveMs, stateMarkup } from './states'
+import { MOVES, STATES, STATE_IDS, moveFrames, moveMarkup, moveMs, stateMarkup } from './states'
 import { pixelsOutside } from './sprite'
 
 const NOW = 1_000_000
@@ -146,8 +146,22 @@ describe('the moves between states', () => {
       expect(made.markup).not.toContain('repeatCount="indefinite"')
     }
   })
-  test('a pair without a move has none', () => {
-    expect(moveMs('idle', 'asleep')).toBe(0)
-    expect(moveMarkup('idle', 'asleep')).toBeNull()
+  test('a pair without a hand-drawn move gets a morph; staying put gets nothing', () => {
+    expect(moveMs('idle', 'asleep')).toBeGreaterThan(0)
+    expect(moveMarkup('idle', 'asleep')).not.toBeNull()
+    expect(moveMs('idle', 'idle')).toBe(0)
+    expect(moveMarkup('idle', 'idle')).toBeNull()
+  })
+  test('every pair of states has a move that fits its canvas', () => {
+    for (const from of STATE_IDS) {
+      for (const to of STATE_IDS) {
+        if (from === to) continue
+        const m = moveFrames(from, to)!
+        expect(pixelsOutside(m.frames, m.w)).toBe(0)
+        const made = moveMarkup(from, to)!
+        expect(made.markup.length).toBeLessThan(60_000)
+        expect(made.markup).not.toContain('NaN')
+      }
+    }
   })
 })
