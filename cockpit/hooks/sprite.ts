@@ -118,6 +118,8 @@ function clawd(o) {
   if (o.mouth === 'yawn') { fill(mc, my - 2, 4, 5, 'k'); fill(mc + 1, my + 1, 2, 1, 'h'); }
   if (o.mouth === 'flat') fill(mc + 1, my, 2, 1, 'w');
   if (o.mouth === 'grim') { fill(mc, my, 4, 1, 'w'); set(mc - 1, my + 1, 'w'); set(mc + 4, my + 1, 'w'); }
+  // a curled moustache between the eyes and the mouth (the painter)
+  if (o.stache) { fill(X + 8, Y + 4, 8, 1, 'X'); fill(X + 9, Y + 3, 6, 1, 'X'); set(X + 7, Y + 5, 'X'); set(X + 6, Y + 4, 'X'); set(X + 6, Y + 3, 'X'); set(X + 16, Y + 5, 'X'); set(X + 17, Y + 4, 'X'); set(X + 17, Y + 3, 'X'); }
   // ---- face props
   if (o.shades) { fill(X + 5, Y + 2, 5, 3, 'd'); fill(X + 14, Y + 2, 5, 3, 'd'); fill(X + 10, Y + 2, 4, 1, 'd'); set(X + 6, Y + 2, 'w'); set(X + 15, Y + 2, 'w'); }
   if (o.glasses) { for (const gx of [X + 4, X + 14]) { fill(gx, Y + 1, 6, 1, 'n'); fill(gx, Y + 5, 6, 1, 'n'); fill(gx, Y + 1, 1, 5, 'n'); fill(gx + 5, Y + 1, 1, 5, 'n'); } fill(X + 10, Y + 3, 4, 1, 'n'); }
@@ -136,6 +138,18 @@ function clawd(o) {
   if (o.flask) { const t = o.flask, one = (fx, fy, liquid) => { fill(fx + 2, fy, 3, 3, 'i'); fill(fx + 1, fy + 3, 5, 1, 'i'); fill(fx, fy + 4, 7, 3, 'i'); fill(fx + 1, fy + 5, 5, 3, liquid); fill(fx + 2, fy + 8, 3, 1, liquid); fill(fx + 1, fy + 3, 1, 4, 'v'); set(fx + 3 - (t % 2), fy - 1 - t % 3, liquid); set(fx + 4, fy - 3 + (t % 2), liquid); set(fx + 2, fy + 5, 'w'); set(fx + 4, fy + 6, 'w'); }; one(X + 22, Y - 3, 'l'); one(X - 5, Y - 3, 'h'); }
   if (o.tubes) { const tx = X - 4; for (let i = 0; i < 3; i++) { fill(tx + i * 3, Y + 6, 2, 7, 'i'); fill(tx + i * 3, Y + 9 - (i % 2), 2, 4 + (i % 2), ['q', 'h', 'y'][i]); } fill(tx - 1, Y + 13, 9, 1, 'X'); }
   if (o.laptop) { fill(X + 3, OYv + 11, 18, 8, 'L'); fill(X + 3, OYv + 11, 18, 1, 'M'); fill(X + 11, OYv + 14, 2, 2, 'M'); }
+  if (o.palette) {   // a painter's palette in his left hand: a wooden kidney shape with a thumb hole and four blobs of paint
+    const px0 = X - 3, py0 = Y + 6;
+    stamp(['.KKKKK.', 'KKKKKKK', 'KKKKKKK', 'KKKKKK.', '.KKKKK.', '..TTT..'], px0, py0, 'K');
+    set(px0 + 1, py0 + 1, 'h'); set(px0 + 3, py0 + 1, 'q'); set(px0 + 5, py0 + 1, 'l'); set(px0 + 5, py0 + 3, 's'); set(px0 + 2, py0 + 3, 'P');
+    set(px0 + 2, py0 + 2, 'f'); set(px0 + 3, py0 + 2, 'f');   // the thumb through the hole
+    for (let i = 0; i < 7; i++) set(px0 + i, py0 + 5, i > 1 && i < 5 ? 'T' : null);
+  }
+  if (o.brush !== undefined) {   // the paintbrush in his right hand: it dips into the palette, then strokes the air
+    const tips = [[X + 14, Y + 10], [X + 8, Y + 8], [X + 4, Y + 9], [X + 12, Y + 8], [X + 18, Y + 6]], [tx, ty] = tips[o.brush % tips.length], hx = X + 22, hy = Y + 6;
+    const n = Math.max(Math.abs(tx - hx), Math.abs(ty - hy));
+    for (let i = 0; i <= n; i++) set(Math.round(hx + ((tx - hx) * i) / n), Math.round(hy + ((ty - hy) * i) / n), i >= n - 1 ? ['h', 'q', 'l', 's', 'P'][o.brush % 5] : i >= n - 3 ? 'g' : 'x');
+  }
   if (o.bell !== undefined) {
     const s2 = o.bell, bx = X + 23 + s2;
     set(bx, Y + 4, 'B'); fill(bx - 1, Y + 5, 3, 1, 'b'); fill(bx - 2, Y + 6, 5, 1, 'b'); fill(bx - 3, Y + 7, 7, 2, 'b'); fill(bx - 4, Y + 9, 9, 1, 'b'); fill(bx - 4, Y + 10, 9, 1, 'B'); fill(bx - 1, Y + 11, 3, 2, 'B');
@@ -219,7 +233,7 @@ function clawd(o) {
   if (o.z !== undefined) px(PAT.Z, X + 24, Y - 8 - o.z + 4, 'z');
   if (o.z2 !== undefined) px(PAT.Z, X + 20, Y - 10 + o.z2 * 0 - o.z2 + 4, 'z');
   if (o.bang) px(PAT.BANG, o.bangX ?? X + 2, Y - 8, 'r');
-  if (o.bangC) px(['##', '##', '##', '##', '..', '##'], X + 11, Y - 8, 'r');   // a two-wide exclamation mark, centered above his head (his body is 24 wide)
+  if (o.bangC) px(['##', '##', '##', '##', '..', '##'], X + 11, Y - 8 + (o.bangC - 1), 'r');   // 1, 2, 3: the mark sinks a pixel at a time, so it bobs   // a two-wide exclamation mark, centered above his head (his body is 24 wide)
   if (o.star) { px(PAT.STAR, X - 4, Y - 6, 's'); px(PAT.STAR, X + 23, Y - 4, 's'); }
   if (o.flame !== undefined) { const f = PAT.FLAME[o.flame], g2 = PAT.FLAME[(o.flame + 1) % 3]; px(f, X - 3, F - 7, 'r'); px(g2, X + 3, F - 6, 'y'); px(f, X + 9, F - 7, 'r'); px(g2, X + 15, F - 6, 'y'); px(f, X + 21, F - 7, 'r'); [[X + 5, Y - 3], [X + 18, Y - 2], [X + 11, Y - 5]].forEach(([x, y], i) => set(x, y - (o.flame + i) % 3, i % 2 ? 'y' : 'r')); }
   if (o.steam !== undefined) { const t = o.steam; [[6, 2], [11, 0], [16, 2]].forEach(([x, , ], i) => fill(X + x, Y - 4 - ((t + i) % 3) * 2, 2, 2, 'v')); }

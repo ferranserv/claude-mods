@@ -81,15 +81,14 @@ test('terminal band: one text line, no Svg', async ($, on) => {
   await ui.unmount()
 })
 
-test('a survey takes the band: meters draws nothing of its own', async ($, on) => {
+test('a survey or a question holds the band and the cockpit stays under it, never vanishing', async ($, on) => {
   mock.clock(on, { now: WED })
   on('session.measure', (_, e) => ({ changed: e.changed }))
   on('ui.render', () => ({ type: 'engine', ref: 0 }) as never)
 
   for (const surface of ['desktop', 'terminal'] as const) {
     const ui = await $.ui.mount(band(surface, { hasSurvey: true }))
-    expect(await ui.find({ type: 'Svg' })).toBeUndefined()
-    expect(await ui.find({ type: 'Text', text: /Context/ })).toBeUndefined()
+    expect(surface === 'desktop' ? await ui.find({ type: 'Svg' }) : await ui.find({ type: 'Text', text: /Ctx|Context/ })).toBeDefined()
     await ui.unmount()
   }
 })

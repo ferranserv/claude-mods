@@ -4,7 +4,7 @@ Personal Claude Code mods, published as the `claude-mods` plugin marketplace.
 
 | Mod | What it does |
 | --- | --- |
-| `cockpit` | One band above the prompt: Clawd the mascot (30 animated states, one per thing that is happening), context window, 5-hour limit, weekly limit (five weekday slots) and the **prompt cache countdown**, in one collapsed row. An arrow at the right opens the whole picture whenever you want it; it also opens by itself when something needs you. Every warning comes with the button that answers it. Also: saver (easy prompts go to Haiku 5.5), preflight (warns on main, uncommitted work, another session in the folder), prompt enhancer (🪄 button), and a chime when a turn ends. Replaces `meters`, `saver`, `preflight-guard` and `prompt-enhancer` (kept in `archive/`). |
+| `cockpit` | One band above the prompt: Clawd the mascot (31 animated states, one per thing that is happening), context window, 5-hour limit, weekly limit (five weekday slots) and the **prompt cache countdown**, in one collapsed row. An arrow at the right opens the whole picture whenever you want it; it also opens by itself when something needs you. Every warning comes with the button that answers it. Also: saver (easy prompts go to Haiku 5.5), preflight (warns on main, uncommitted work, another session in the folder), prompt enhancer (🪄 button), and a chime when a turn ends. Replaces `meters`, `saver`, `preflight-guard` and `prompt-enhancer` (kept in `archive/`). |
 
 ## Install
 
@@ -77,7 +77,7 @@ The cache states show only while Claude is idle (a running turn keeps the cache 
 - Claude Code has no render site inside the prompt box, so the Enhance button sits in the band above it. The hotkey and `/enhance` work anywhere.
 - The Alt hotkeys do not work reliably in the desktop app; use the buttons or the commands.
 - The chime uses `afplay` on macOS and a PowerShell sound player on Windows (best effort: it needs the host to allow running commands). On Linux it plays nothing.
-- Clawd animates by SVG animation in a sandboxed frame; if your build does not play it, you see the first frame of each state. `/cockpit demo` shows all 30 states, 4 seconds each (`/cockpit demo typing` for one, `/cockpit demo off` to stop). In the terminal there are no drawings: a short text face and the text row. Clawd belongs to Anthropic: personal use only.
+- Clawd animates by SVG animation in a sandboxed frame; if your build does not play it, you see the first frame of each state. `/cockpit demo` shows all 31 states, 4 seconds each (`/cockpit demo typing` for one, `/cockpit demo off` to stop). In the terminal there are no drawings: a short text face and the text row. Clawd belongs to Anthropic: personal use only.
 - The Enhance sparkle is always shown (dim until you type a draft) because the desktop app may not raise draft events.
 
 ## Audit

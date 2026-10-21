@@ -49,3 +49,5 @@ SVG per frame set, frames swapped by SMIL (`animate` on opacity, `isInteractive:
 - Permission asks are debounced 1.5 s (a tool that runs right after was auto-allowed, not an ask); PowerShell counts as a shell for test runs.
 - Frozen flakes move; drunk and hourglass start from the neutral pose.
 - Meters: collapsed and open are the same drawing; 5-hour shows "Resets at HH:MM (in ...)", weekly "usage % and difference"; context and cache add a subtitle only near their warning. Narrow windows use short labels.
+
+- 0.17.0: `creating` (a curled moustache and no hat, a color palette with four blobs of paint in the left hand, a paintbrush in the right that dips into the palette and strokes the air with the color of each blob); 31 states.

@@ -112,8 +112,8 @@ describe('the drawings', () => {
       expect(d.label.length).toBeGreaterThan(5)
     }
   })
-  test('30 states, each with a terminal face', () => {
-    expect(STATE_IDS.length).toBe(30)
+  test('31 states, each with a terminal face', () => {
+    expect(STATE_IDS.length).toBe(31)
     for (const id of STATE_IDS) expect(STATES[id].face.length).toBeGreaterThan(2)
   })
   test('the alarm clock shows the wake-up time it is given', () => {
@@ -244,7 +244,8 @@ describe('the moves between states', () => {
     expect(fr.some(x => x.z !== undefined)).toBe(true)
   })
   test('the raised hand has an exclamation mark, and the detective a mouth', () => {
-    expect(STATES.hand.frames.every(x => x.bangC === 1)).toBe(true) // centered above his head
+    expect(STATES.hand.frames.every(x => x.bangC !== undefined && x.bangC >= 1 && x.bangC <= 3)).toBe(true) // centered above his head, bobbing down to three pixels
+    expect(new Set(STATES.hand.frames.map(x => x.bangC)).size).toBe(3) // and it does bob
     expect(STATES.detective.frames.every(x => x.mouth !== undefined)).toBe(true)
   })
   test('a pair without a hand-drawn move gets a morph; staying put gets nothing', () => {

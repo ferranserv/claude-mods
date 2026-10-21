@@ -79,7 +79,7 @@ Checked against the code (0.11.0). "Resets by itself" means no new measurement o
 | "Needs your OK" | immediately when you answer |
 | One with a button (warnings) | you click its button or send a message; or its warning ends by itself. After you answer it stays quiet until the warning ends and comes back. The button is a real button next to the bubble, not a click area over a drawing |
 | `/cockpit demo <state>` (one state, with a button) | you click the button, send a message or `/cockpit demo off`. A tour of every state shows each bubble with its state for 4 s and leaves nothing pending |
-| Any other | about 12 s after its state ends |
+| Any other | when its state ends (the words are deleted letter by letter). A pose that is still there but whose bubble is gone: hover over Clawd and it comes back while the pointer is on him |
 
 
 ## 0.13.0: tokens and accounting
@@ -120,3 +120,19 @@ Supersedes "Band" above (collapsed/expanded, arrow, auto-open, saver line, in-ba
 - Preflight findings and notices are bubbles too (`adviceSpeech`, `noticeSpeech`). The notice state now outranks the preflight one so a "worktree ready" is not hidden behind a finding.
 - No blinking: Clawd and the meters are two drawings (`bandParts`). A new pose replaces only Clawd's; the meters' drawing is the same string, so it is not reloaded. A bubble is kept as long as its words stand; when new words replace old ones the drawing starts as the old bubble, deletes the old letters, resizes, and types the new (`speechSvg(text, room, prev)`, SMIL).
 - A bubble that stands for a warning is only said while the warning stands.
+
+## 0.16.0: the bubble lane
+
+From the owner's testing of 0.15.0.
+- The bubble has a lane of its own, one row (18 px), always there, under the meters and beside Clawd (meters moved right by 24 px for him). Silent or speaking, the cockpit has the same height: nothing opens or closes. The bubble is at the lane's left with its tail toward Clawd, its buttons at the right, all one row tall.
+- The bubble is a pixel drawing again without any shadow: gray, black stepped border. It is as wide as its words (letters stretched with `textLength` to the width counted), one line (an ellipsis if it cannot fit).
+- Its motion is one drawing per change (`bubbleArt(from, to, room)`): opening scales out of Clawd while the words are typed and the bubble grows with them; changing deletes the old words letter by letter, resizes, types the new; closing deletes the words as it shrinks, then scales back to Clawd. The frame is as wide as the lane's bubble zone whatever the words.
+- No blink: each new drawing is laid over the old one (separate keyed Boxes, so the old one stays mounted), the old is dropped 250 ms later; a closed bubble leaves nothing drawn (`bubbleLane`).
+- A bubble belongs to the pose on screen: no lingering after its state ends (a lingering "Editing x" over a detective was the bug), and it waits until Clawd has finished his move into the pose (`moveMs`) before it speaks.
+- Hover over Clawd: a hidden card (same hover scope as Clawd) with what he would say about his current pose, with its first button, shown by the app only while the pointer is on him (`hoverCard`). Not seen in the cloud: whether the app honours a hover scope across drawings.
+- The raised hand ("Waiting for your answer") is only for a question to you (`AskUserQuestion`, `ExitPlanMode`), not for permission prompts. Its "!" bobs. Typing has a mouth.
+
+## 0.17.0: a painter, and the cockpit under a question
+
+- New pose `creating` (31 states): Clawd with a curled moustache, a color palette in one hand and a paintbrush in the other, paints while the model is writing a file (the "Creating 11.3k tokens" stretch). Signal: the model's own stream in `turn.step` (a `tool` chunk for Write, Edit, MultiEdit or NotebookEdit, then the first `input` pieces name the file: bubble "Creating new_module.py"); the stream is passed on untouched. When the tool runs the hammer takes over at once (creating, building, reading and browse follow each other without the 5 s hold).
+- The cockpit no longer yields to a survey or to a question from Claude (`hasSurvey`): it stays under it, and Clawd raises his hand for the question.

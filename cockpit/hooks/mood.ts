@@ -4,7 +4,7 @@
 // play for a few seconds and the lasting state comes back by itself. Highest first:
 //   1. needs you now          hand (a permission prompt is open), writing (a brief or a draft is being written)
 //   2. fleeting events        oops, bell, lab, love, idea, wand, coins, plug
-//   3. while it happens       dizzy (compacting), then building, reading, browse (the tool that is running)
+//   3. while it happens       dizzy (compacting), then creating (a file is being written), building, reading, browse (the tool that is running)
 //   4. session start          walk, hello
 //   5. lasting warnings       asleep, mad, fire, talk (a notice waits for OK), detective, cold, hourglass, gauge, drunk, sleepy
 //   6. background             coffee, typing, thinking, talk (a notice is up), idle
@@ -13,7 +13,7 @@ import type { ActionId } from './lib'
 
 export type Fleet = 'oops' | 'bell' | 'lab' | 'love' | 'idea' | 'wand' | 'coins' | 'plug'
 export const FLEET_ORDER: readonly Fleet[] = ['oops', 'bell', 'lab', 'love', 'idea', 'wand', 'coins', 'plug']
-export type ToolKind = 'building' | 'reading' | 'browse'
+export type ToolKind = 'building' | 'reading' | 'browse' | 'creating'
 
 /** How long each fleeting event plays, in ms. */
 export const FLEET_MS: Record<Fleet, number> = { oops: 5000, bell: 5000, lab: 5000, love: 5000, idea: 5000, wand: 5000, coins: 5000, plug: 6000 }
@@ -86,7 +86,7 @@ export type BubbleInput = {
 /** What he says, or null when the band already says it (preflight rows) or there is nothing to say. */
 export function bubbleFor(id: StateId, b: BubbleInput): Bubble | null {
   switch (id) {
-    case 'hand': return { text: 'Needs your OK' }
+    case 'hand': return { text: 'Waiting for your answer' }
     case 'writing': return { text: 'Writing it down…' }
     case 'oops': return { text: b.detail !== '' ? `${b.detail} failed` : 'A tool failed' }
     case 'bell': return { text: 'Done.' }
@@ -97,6 +97,7 @@ export function bubbleFor(id: StateId, b: BubbleInput): Bubble | null {
     case 'coins': return { text: b.savedUsd !== '' ? `Haiku answered that · saved ${b.savedUsd} today` : 'Haiku answered that' }
     case 'plug': return { text: 'A connector is offline' }
     case 'dizzy': return { text: 'Compacting the conversation' }
+    case 'creating': return { text: b.detail !== '' ? `Creating ${b.detail}` : 'Creating a file' }
     case 'building': return { text: b.detail !== '' ? `Editing ${b.detail}` : 'Editing' }
     case 'reading': return { text: b.detail !== '' ? `Reading ${b.detail}` : 'Reading' }
     case 'browse': return { text: 'Searching the web' }
@@ -122,7 +123,7 @@ export function bubbleFor(id: StateId, b: BubbleInput): Bubble | null {
 
 /** Every state, most important first: a shown state is only interrupted by one earlier in this list. */
 export const ORDER: readonly StateId[] = [
-  'hand', 'writing', ...FLEET_ORDER, 'dizzy', 'building', 'reading', 'browse', 'walk', 'hello',
+  'hand', 'writing', ...FLEET_ORDER, 'dizzy', 'creating', 'building', 'reading', 'browse', 'walk', 'hello',
   'asleep', 'mad', 'fire', 'talk', 'detective', 'cold', 'hourglass', 'gauge', 'drunk', 'sleepy', 'coffee', 'typing', 'thinking', 'idle',
 ]
 export const rank = (id: StateId): number => ORDER.indexOf(id)
