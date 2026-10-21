@@ -39,10 +39,10 @@ export const STATES: Record<StateId, Def> = {
   cold: { label: 'Clawd is frozen: the prompt cache is cold', face: '(-_-)*', fd: 0.45, frames: [1, 2, 3].map(snow => ({ pal: { c: '#8fb9d9', k: '#6d97b8', f: '#b6d5ea' }, eyes: 'half', mouth: 'grim', snow, ice: 1, armL: 'half', armR: 'half' })) },
   gauge: { label: 'Clawd checks a nearly empty gauge: today\'s allowance is almost used', face: '(o_o)!', fd: 0.35, frames: [{ look: 'left', eyes: 'wide', gauge: 2, bang: 1, bangX: OX + 20 }, { look: 'right', eyes: 'wide', gauge: 2, bang: 1, bangX: OX + 20, dy: 1 }] },
   mad: { label: 'Clawd is angry: over today\'s allowance', face: '(`o\')', fd: 0.22, frames: [0, 1, 2].map(t => ({ pal: { c: '#e2553f', k: '#b83a29', f: '#f08a74' }, eyes: 'angry', mouth: 'grim', steam: t, armL: 'up', armR: 'up', dy: t % 2 })) },
-  sleepy: { label: 'Clawd is getting sleepy and yawns: the 5-hour limit is nearly used', face: '(-_-)z', fd: 0.4, frames: [{ eyes: 'half', z: 0 }, { eyes: 'half', dy: 1, z: 1 }, { eyes: 'half', mouth: 'o', armR: 'half' }, { eyes: 'happy', mouth: 'yawn', armR: 'up', dy: -1 }, { eyes: 'happy', mouth: 'yawn', armR: 'up', dy: -1 }, { eyes: 'half', mouth: 'o', armR: 'half', dy: 1 }, { eyes: 'blink', dy: 2, z: 2 }, { eyes: 'half', dy: 1, z: 1 }] },
-  asleep: { label: 'Clawd is asleep with an alarm clock set beneath him: the 5-hour limit is reached', face: '(-.-)zZ', fd: 0.5, frames: range(4).map(t => ({ lift: 7, dy: t % 3 === 1 ? 1 : 0, mask: 1, clock: '00:00', zzz: t })) },
+  sleepy: { label: 'Clawd is getting sleepy and yawns, wide awake: the 5-hour limit is nearly used', face: '(-_-)z', fd: 0.4, frames: [{ eyes: 'open', z: 0 }, { eyes: 'open', dy: 1, z: 1 }, { eyes: 'open', mouth: 'o', armR: 'half' }, { eyes: 'happy', mouth: 'yawn', armR: 'up', dy: -1, z: 1 }, { eyes: 'happy', mouth: 'yawn', armR: 'up', dy: -1, z: 2 }, { eyes: 'open', mouth: 'o', armR: 'half', dy: 1 }, { eyes: 'open', dy: 1, z: 1 }] },
+  asleep: { label: 'Clawd is asleep, collapsed on the alarm clock that is set beneath him: the 5-hour limit is reached', face: '(-.-)zZ', fd: 0.5, frames: range(4).map(t => ({ lift: 3, noLegs: 1, dy: [0, 1, 2, 1][t], mask: 1, clock: '00:00', zzz: t })) },
   love: { label: 'Clawd hugs himself: the handoff is saved', face: '(^_^)<3', fd: 0.3, frames: range(6).map(t => ({ eyes: 'happy', mouth: 'smile', armL: 'cross', armR: 'cross', heart: t % 4 })) },
-  detective: { label: 'Clawd the detective found something in the repo', face: '(o_o)?!', fd: 0.5, frames: [{ hat: 'fedora', eyes: 'half', look: 'right', magnifier: 1, armR: 'up', bang: 1, bangX: OX + 1 }, { hat: 'fedora', eyes: 'open', look: 'right', magnifier: 1, armR: 'up', dy: 1, bang: 1, bangX: OX + 1 }] },
+  detective: { label: 'Clawd the detective found something in the repo', face: '(o_o)?!', fd: 0.5, frames: [{ hat: 'fedora', eyes: 'half', look: 'right', magnifier: 1, armR: 'up', mouth: 'flat', bang: 1, bangX: OX + 1 }, { hat: 'fedora', eyes: 'open', look: 'right', magnifier: 1, armR: 'up', mouth: 'o', dy: 1, bang: 1, bangX: OX + 1 }] },
   oops: { label: 'Clawd says oops: a tool failed', face: '(x_x)!', fd: 0.35, frames: [{ eyes: 'x', mouth: 'o', bang: 1, bangX: OX + 21 }, { eyes: 'x', mouth: 'o', bang: 1, bangX: OX + 21, dy: 1 }] },
   wand: { label: 'Clawd the wizard enhanced your draft', face: '(^_^)*', fd: 0.4, frames: [{ hat: 'wizard', wand: 1, eyes: 'happy', mouth: 'smile', armR: 'up' }, { hat: 'wizard', wand: 1, eyes: 'open', mouth: 'smile', armR: 'up', star: 1 }] },
   hello: { label: 'Clawd waves hello', face: '(^_^)/', fd: 0.3, frames: [{ armR: 'high', mouth: 'smile', eyes: 'happy' }, { armR: 'up', mouth: 'smile', eyes: 'open' }] },
@@ -54,7 +54,7 @@ export const STATES: Record<StateId, Def> = {
   plug: { label: 'Clawd holds an unplugged cable: a connector is offline', face: '(;_;)~', fd: 0.4, frames: [0, 1].map(t => ({ plug: t, eyes: 'sad', mouth: 'grim', armL: 'half', armR: 'half', dy: t })) },
   dizzy: { label: 'Clawd is dizzy: the conversation is being compacted', face: '(@_@)', fd: 0.2, frames: [0, -1, 0, 1].map((dx, i) => ({ spiral: (i % 2) + 1, eyes: 'dizzy', dx, mouth: 'o' })) },
   lab: { label: 'Clawd holds bubbling flasks: the tests passed', face: '(^_^)8', fd: 0.35, frames: [0, 1, 2].map(t => ({ flask: t + 1, mouth: 'smile', eyes: t === 1 ? 'happy' : 'open' })) },
-  hand: { label: 'Clawd holds a clipboard and a pencil: something needs your approval', face: '(o_o)[]', fd: 0.4, frames: [1, 2, 3, 3].map(clipboard => ({ clipboard, look: 'down', mouth: 'flat' })) },
+  hand: { label: 'Clawd holds a clipboard and a pencil and raises a hand: something needs your approval', face: '(o_o)[]!', fd: 0.4, frames: [1, 2, 3, 3].map(clipboard => ({ clipboard, look: 'down', mouth: 'flat', bang: 1, bangX: OX + 21 })) },
   writing: { label: 'Clawd writes it down with a quill', face: '(o_o)~', fd: 0.4, frames: [1, 2, 3, 4].map(paper => ({ glasses: 1, paper, look: 'down', mouth: 'flat' })) },
 }
 
@@ -138,9 +138,9 @@ export const MOVES: Partial<Record<string, Move>> = {
   'oops>typing': { fd: 0.25, frames: [{ ...OOPS }, { look: 'down', eyes: 'half', mouth: 'flat', armL: 'type1', armR: 'type0' }, { ...LAPTOP }] },
   'typing>bell': { fd: 0.2, frames: [{ ...LAPTOP }, { ...READY }] },
   'bell>idle': { fd: 0.25, frames: [{ ...READY }, { ...SUN }] },
-  'typing>hand': { fd: 0.25, frames: [{ ...LAPTOP }, { clipboard: 1, look: 'down', mouth: 'flat' }] },
-  'thinking>hand': { fd: 0.25, frames: [{ ...MUSE }, { clipboard: 1, look: 'down', mouth: 'flat' }] },
-  'hand>typing': { fd: 0.25, frames: [{ clipboard: 1, look: 'down', mouth: 'flat' }, { ...LAPTOP }] },
+  'typing>hand': { fd: 0.25, frames: [{ ...LAPTOP }, F('hand')] },
+  'thinking>hand': { fd: 0.25, frames: [{ ...MUSE }, F('hand')] },
+  'hand>typing': { fd: 0.25, frames: [F('hand'), { ...LAPTOP }] },
   'hello>idle': { fd: 0.2, frames: [{ armR: 'high', mouth: 'smile', eyes: 'happy' }, { armR: 'up', mouth: 'smile', eyes: 'open' }, { eyes: 'happy', mouth: 'smile' }, { ...SUN }] },
   'idle>typing': { fd: 0.2, frames: [{ ...SUN }, { eyes: 'open', mouth: 'smile' }, { ...LAPTOP }] },
   'idle>building': { fd: 0.2, frames: [{ ...SUN }, { hat: 'hard', look: 'down', armR: 'up', mouth: 'smile', eyes: 'open' }, { ...HAT }] },
@@ -181,6 +181,16 @@ export const MOVES: Partial<Record<string, Move>> = {
 
 const NEUTRAL: Pose = { eyes: 'blink', mouth: 'smile' }
 
+/** Going to bed: the alarm clock rises under his feet and pushes him up, he hops, his legs fold away and he slumps onto it, asleep (mask, then the Zs). */
+const RISE: Pose[] = [
+  { lift: 0, clockY: 26, clock: '00:00', eyes: 'wide', mouth: 'o' },
+  { lift: 1, clockY: 24, clock: '00:00', eyes: 'wide', mouth: 'o', armL: 'up', armR: 'up' },
+  { lift: 2, clockY: 22, clock: '00:00', eyes: 'wide', mouth: 'o', armL: 'up', armR: 'up' },
+  { lift: 3, clockY: 19, dy: -1, clock: '00:00', eyes: 'wide', mouth: 'o', armL: 'up', armR: 'up' },
+  { lift: 3, noLegs: 1, dy: 2, clock: '00:00', eyes: 'half', mouth: 'o' },
+  { lift: 3, noLegs: 1, dy: 1, clock: '00:00', eyes: 'half', mouth: 'flat', zzz: 0 },
+]
+
 /** Props he wears or holds: when one goes or comes, his hand takes it or fetches it. */
 const HELD = ['shades', 'hat', 'glasses', 'laptop', 'book', 'stack', 'scroll', 'clipboard', 'cup', 'flask', 'glass', 'browser', 'bell', 'wrench', 'paper', 'bulb', 'wand']
 const without = (p: Pose, ks: string[]): Pose => {
@@ -190,30 +200,31 @@ const without = (p: Pose, ks: string[]): Pose => {
 }
 
 /**
- * Between two frames, a prop that goes away is taken by his hand (reach, hold it, then the arm swings out to put
- * it behind him, out of sight); a prop that comes is fetched from behind him (the arm swings out, then brings
- * it round). The frames on either side are untouched, so a move still meets its neighbours.
+ * Between two frames, a prop that goes away is taken by his hand: the hand reaches it, lifts it away from where it
+ * was (shown small in his hand), and the arm swings out to put it behind him, out of sight. A prop that comes is
+ * fetched the other way: the arm swings out, brings it up, and it goes on. The frames on either side are
+ * untouched, so a move still meets its neighbours.
  */
 function stage(frames: Pose[]): Pose[] {
   const out: Pose[] = []
   frames.forEach((g, i) => {
     const f = frames[i - 1]
     if (f) {
-      const gone = HELD.filter(k => f[k] && !g[k])
-      const came = HELD.filter(k => !f[k] && g[k])
+      // Present means defined: the bell's rest position is 0, which is still a bell.
+      const gone = HELD.filter(k => f[k] !== undefined && g[k] === undefined)
+      const came = HELD.filter(k => f[k] === undefined && g[k] !== undefined)
       let cur = f
       if (gone.length) {
+        const k = gone[0]!
         out.push({ ...cur, armR: 'up' })
-        cur = { ...without(cur, gone), armR: 'up' }
-        out.push(cur)
-        cur = { ...cur, armR: 'out' }
-        out.push(cur)
+        out.push({ ...without(cur, gone), armR: 'up', carry: k, at: 1 })
+        out.push({ ...without(cur, gone), armR: 'out', carry: k, at: 3 })
+        cur = without(cur, gone)
       }
       if (came.length) {
-        out.push({ ...cur, armR: 'out' })
-        const pulled: Pose = { ...cur, armR: 'up' }
-        for (const k of came) pulled[k] = g[k]
-        out.push(pulled)
+        const k = came[0]!
+        out.push({ ...cur, armR: 'out', carry: k, at: 3 })
+        out.push({ ...cur, armR: 'up', carry: k, at: 1 })
       }
     }
     out.push(g)
@@ -265,6 +276,7 @@ function moveOf(from: StateId, to: StateId): (Move & { w: number }) | null {
   // Drawn on the canvas of the state he enters (the band's layout is fixed by it); a wider scene he leaves is skipped.
   const w = b.w ?? 34
   const first = (a.w ?? 34) <= w ? [a.frames[0] ?? {}] : []
+  if (to === 'asleep') return { ...paced(smooth([...first, { ...NEUTRAL, eyes: 'open' }, ...RISE, b.frames[0] ?? {}]), from), w }
   // Reading brings a lot with it (glasses, a book, a stack of books): they come and go one at a time, not all at once.
   if (to === 'reading') return { ...paced(smooth([...first, { ...NEUTRAL }, { glasses: 1, look: 'down', eyes: 'half' }, { glasses: 1, stack: 1, look: 'down', eyes: 'half', armL: 'hold', armR: 'hold' }, b.frames[0] ?? {}]), from), w }
   if (from === 'reading') return { ...paced(smooth([...first, { glasses: 1, stack: 1, look: 'down', eyes: 'half' }, { glasses: 1, look: 'down', eyes: 'half' }, { ...NEUTRAL }, b.frames[0] ?? {}]), from), w }
@@ -307,8 +319,9 @@ export function enterMarkup(from: StateId, to: StateId, clock = '', scale: 1 | 2
   const d = STATES[to]
   const frames = to === 'asleep' && clock !== '' ? d.frames.map(f => ({ ...f, clock })) : d.frames
   const w = d.w ?? 34
-  const dur = onceSeconds(m.frames, m.fd)
-  const made = { markup: renderOnce(m.frames, m.fd, m.w, scale) + renderFrames(frames, d.fd, w, d.drift === true, scale, dur), width: w * scale, height: 28 * scale }
+  const rise = to === 'asleep' && clock !== '' ? m.frames.map(f => (f.clock ? { ...f, clock } : f)) : m.frames
+  const dur = onceSeconds(rise, m.fd)
+  const made = { markup: renderOnce(rise, m.fd, m.w, scale) + renderFrames(frames, d.fd, w, d.drift === true, scale, dur), width: w * scale, height: 28 * scale }
   enterCache.set(key, made)
   return made
 }

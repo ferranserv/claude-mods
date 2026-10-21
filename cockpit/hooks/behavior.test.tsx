@@ -644,7 +644,26 @@ test('a bubble that asks for a decision stays until you answer it', async ($, on
   await w.clock.advance(10_000)
   const after = await svgOf($)
   expect(after).not.toContain(speaking) // sending something else answers it: it has faded out
-  expect(after).toContain('<g opacity="0"><animate attributeName="opacity" from="1" to="0"')
+  expect(after).toContain('opacity="0"><animate attributeName="opacity" from="1" to="0"')
+})
+
+test('a pending decision keeps its pose, and "Done." does not push it aside', async ($, on) => {
+  const w = world(on)
+  on('prompt.submit', (_, e) => e as never)
+  on('turn.complete', (_, e) => ({ text: e.answer }) as never)
+  await started($)
+  await measureCtx($, 60)
+  await w.clock.advance(6000)
+  await $.command.run({ command: 'cockpit', args: 'close' } as never)
+  expect(await altOf($)).toContain('tipsy')
+  await measureCtx($, 10) // the warning is gone; the decision is still open
+  await w.clock.advance(30_000)
+  expect(await altOf($)).toContain('tipsy') // he does not go back to idle
+  await ($ as unknown as Do).turn.start({ text: 'go', turnId: 't1' })
+  await ($ as unknown as Do).turn.complete({ reason: 'answer', answer: 'x', durationMs: 5, isAborted: false, turnId: 't1' })
+  const during = await svgOf($)
+  expect(during).not.toContain('>Done.<') // the bell rings, but the open question keeps the bubble
+  expect(during).toContain('>Handoff<') // with its button inside it
 })
 
 test('a bubble with nothing to decide lingers after its state ends, then fades out', async ($, on) => {
@@ -662,7 +681,7 @@ test('a bubble with nothing to decide lingers after its state ends, then fades o
   await w.clock.advance(12_000)
   const later = await svgOf($)
   expect(later).not.toContain(speaking)
-  expect(later).toContain('<g opacity="0"><animate attributeName="opacity" from="1" to="0"')
+  expect(later).toContain('opacity="0"><animate attributeName="opacity" from="1" to="0"')
 })
 
 test('a finished turn rings the bell over a warning, then the warning returns', async ($, on) => {

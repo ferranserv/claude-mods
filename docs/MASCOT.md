@@ -13,7 +13,7 @@ Cockpit signals
 - hourglass: classic triangular glass held under his hand, he just watches the sand run, not sad (cache <= 5 min)
 - frozen: icy blue, no movement, ice over his feet no wider than him (cache cold)
 - gauge low (allowance within 2%) | mad (over allowance)
-- sleepy (5h >= 80%): yawns, one hand over his mouth, eyes squeezed | asleep: eye mask, Zs drifting up from his head, sitting raised with the alarm clock beneath him showing the wake-up time (5h reached; the normal 34 px canvas, so the cockpit does not shift); no bed
+- sleepy (5h >= 80%): wide awake and yawning, one hand over his mouth, eyes squeezed during the yawn, small Zs | asleep: eye mask, Zs drifting up from his head, collapsed on the alarm clock (no legs) with the wake-up time on it; going to bed, the clock rises and pushes him up, he hops, his legs fold away and he slumps onto it (5h reached; the normal 34 px canvas, so the cockpit does not shift); no bed
 - love (handoff saved, 5 s) | detective: fedora, magnifying glass, alert mark beside it (preflight finding) | oops (tool failed)
 - wizard: wizard hat and wand (draft enhanced)
 Tool and session scenarios (added by Claude; owner pre-approved)
@@ -43,7 +43,7 @@ SVG per frame set, frames swapped by SMIL (`animate` on opacity, `isInteractive:
 
 ## 0.4.0 changes
 
-- Every state starts from the same neutral pose (props and colours change, not position), so switches look smooth; a switch plays a short one-shot move: hand-drawn for the common pairs (`MOVES` in `states.ts`, 49 of them, each built from the neighbouring states' own first frames), a morph (drop what he holds, pick up the next) for the rest. Every move is staged and eased (`stage` and `smooth`): a prop that goes is taken by his hand and put behind him, one that comes is fetched from behind him; then a short first frame, a blink over the prop swap, a small hop, a longer last frame.
+- Every state starts from the same neutral pose (props and colours change, not position), so switches look smooth; a switch plays a short one-shot move: hand-drawn for the common pairs (`MOVES` in `states.ts`, 49 of them, each built from the neighbouring states' own first frames), a morph (drop what he holds, pick up the next) for the rest. Every move is staged and eased (`stage` and `smooth`): a prop that goes is lifted in his hand (drawn small, in the hand) and swung out behind him, one that comes is fetched from behind him the same way; then a short first frame, a blink over the prop swap, a small hop, a longer last frame.
 - Hold rule: the shown state stays at least 5 s unless a higher-priority one arrives (`HOLD_MS` in `mood.ts`); every fleeting state lasts 5 s or more.
 - The bubble is a pixel Svg (white inside, dark stepped border, tail down to Clawd, regular text) in a row above the band, with the action button beside it; `/cockpit bubble float|inline` (inline is a text row under the band).
 - Permission asks are debounced 1.5 s (a tool that runs right after was auto-allowed, not an ask); PowerShell counts as a shell for test runs.

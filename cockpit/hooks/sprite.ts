@@ -30,6 +30,13 @@ const PAT = {
   HAND: ['.##.', '####', '####', '.##.'],
   DIG: { 0: ['###', '#.#', '#.#', '#.#', '###'], 1: ['.#.', '##.', '.#.', '.#.', '###'], 2: ['###', '..#', '###', '#..', '###'], 3: ['###', '..#', '###', '..#', '###'], 4: ['#.#', '#.#', '###', '..#', '..#'], 5: ['###', '#..', '###', '..#', '###'], 6: ['###', '#..', '###', '#.#', '###'], 7: ['###', '..#', '..#', '..#', '..#'], 8: ['###', '#.#', '###', '#.#', '###'], 9: ['###', '#.#', '###', '..#', '###'], ':': ['.', '#', '.', '#', '.'], '-': ['...', '...', '###', '...', '...'] }
 };
+// Small versions of what he wears or holds, shown in his hand while a prop is taken away or fetched.
+const MINI = {
+  shades: ['ddddd', '.d.d.'], glasses: ['nnnnn', 'n.n.n'], hat: ['.EEE.', 'EEEEE'], laptop: ['LLLLL', 'LdddL', 'LLLLL'],
+  book: ['XXXXX', 'XoooX', 'XXXXX'], stack: ['hhhhh', 'lllll', 'uuuuu'], scroll: ['ooooo', 'OOOOO', 'ooooo'], clipboard: ['.KK.', 'KKKK', 'KwwK', 'KKKK'],
+  cup: ['www', 'w.w', 'www'], flask: ['.q.', 'qqq', 'qqq'], bell: ['.bb.', 'bbbb', '.bb.'], paper: ['wwww', 'wOOw', 'wwww'], bulb: ['.s.', 'sss', '.s.'],
+  thing: ['ggg', 'ggg'],
+};
 const SPIN = [[0, -3], [2, -2], [3, 0], [2, 2], [0, 3], [-2, 2], [-3, 0], [-2, -2]];
 
 
@@ -64,7 +71,7 @@ function clawd(o) {
   // ---- body from the canonical grid
   ART.forEach((row, cy) => [...row].forEach((ch, cx) => {
     if (ch === '.') return;
-    if (cy >= 6) { if (o.legsUp?.includes(cx) && cy === 7) return; fill(OX + cx * 2, OYv + cy * 2, 2, 2, 'c'); }
+    if (cy >= 6) { if (o.noLegs) return; if (o.legsUp?.includes(cx) && cy === 7) return; fill(OX + cx * 2, OYv + cy * 2, 2, 2, 'c'); }
     else fill(X + cx * 2, Y + cy * 2, 2, 2, 'c');
   }));
   const clearArm = (side) => { const x0 = side === 'L' ? X : X + 20; for (let j = 4; j < 8; j++) for (let i = 0; i < 4; i++) set(x0 + i, Y + j, null); return x0; };
@@ -217,11 +224,16 @@ function clawd(o) {
   if (o.ice) { fill(X - 1, F - 1, 26, 4, 'i'); fill(X - 1, F - 1, 26, 1, 'w'); fill(X + 1, F + 3, 22, 1, 'Q'); for (const x of [X + 1, X + 8, X + 15, X + 21]) { fill(x, F - 3, 2, 2, 'i'); } }
   if (o.sweat !== undefined) px(['.#.', '###', '###'], X + 22, Y + 1 + o.sweat, 'q');
   if (o.gauge !== undefined) { fill(X + 6, Y - 7, 12, 4, 'g'); fill(X + 7, Y - 6, 10, 2, 'd'); fill(X + 7, Y - 6, o.gauge, 2, 'r'); }
-  if (o.clock) {   // under him, inside the normal canvas: he sits raised (lift) and the alarm clock is below
-    const cx = OX, cy = F + 2, t = o.clock;
-    fill(cx + 2, cy - 2, 3, 1, 'g'); fill(cx + 18, cy - 2, 3, 1, 'g');
-    fill(cx, cy - 1, 23, 9, 'g'); fill(cx + 1, cy, 21, 7, 'd');
-    let x = cx + 3; [...t].forEach(ch => { const p = PAT.DIG[ch]; px(p, x, cy + 1, 'a'); x += p[0].length + 1; });
+  if (o.carry) {   // the prop in his hand: at 1 above the raised hand, at 3 just under the arm that swings out to put it behind him
+    const [cxo, cyo] = o.at === 3 ? [X + 22, Y + 7] : [X + 19, Y - 5];
+    stamp(MINI[o.carry] || MINI.thing, cxo, cyo, 'g');
+  }
+  if (o.clock) {   // under him, inside the normal canvas: he sits raised (lift) and the alarm clock is below. Drawn clipped, so it can rise into view from the bottom edge
+    const cx = OX, cy = o.clockY ?? OYv + 14, t = o.clock;   // clockY: where its top is while it rises; resting, it is right under his body (no legs)
+    const cf = (x, y, w, h, c) => { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { const xx = x + i, yy = y + j; if (xx >= 0 && xx < W && yy >= 0 && yy < H) k.g[yy][xx] = c; } };
+    cf(cx + 2, cy - 2, 3, 1, 'g'); cf(cx + 18, cy - 2, 3, 1, 'g');
+    cf(cx, cy - 1, 23, 9, 'g'); cf(cx + 1, cy, 21, 7, 'd');
+    let x = cx + 3; [...t].forEach(ch => { const p = PAT.DIG[ch]; p.forEach((row, j) => [...row].forEach((c2, i) => { if (c2 === '#') cf(x + i, cy + 1 + j, 1, 1, 'a'); })); x += p[0].length + 1; });
   }
   if (false) { fill(X - 3, Y + 9, 30, 8, 'u'); fill(X - 3, Y + 9, 30, 1, 'U'); for (let x = X - 1; x < X + 26; x += 6) fill(x, Y + 11, 3, 5, 'J'); }
   return k;

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'claude-code/testing'
 
-import { alertsOf, attentionOf, cockpitSvg, model, wandSvg } from './lib'
+import { alertsOf, attentionOf, cockpitSvg, model, pillSvg, wandSvg } from './lib'
 import { stateMarkup } from './states'
 
 const NOW = new Date(2026, 9, 21, 12).getTime() // a Wednesday: 60% of the week is allotted
@@ -87,7 +87,7 @@ describe('wandSvg', () => {
 
 describe('the speech bubble in the band', () => {
   const mascot = { markup: '<g/>', width: 68, height: 56 }
-  const said = (t: string, phase: 'in' | 'out' = 'in') => cockpitSvg(600, m(10), mascot, { text: t, phase })
+  const said = (t: string, phase: 'in' | 'out' = 'in', button: string | null = null) => cockpitSvg(600, m(10), mascot, { text: t, phase, button })
   test('it sits at the foot of the band over the small print, so the band keeps its size', () => {
     const plain = cockpitSvg(600, m(10), mascot)
     const b = said('Needs your OK')
@@ -97,23 +97,50 @@ describe('the speech bubble in the band', () => {
     expect(b.source).toContain('font-weight="400"')
     expect(b.source).toContain('#8E8E93') // the cockpit gray inside
     expect(b.source).not.toContain('#ffffff')
-    expect(b.bubbleEnd).toBeGreaterThan(68)
-    expect(b.bubbleY).toBeGreaterThan(b.height / 2) // low: the meters' labels and bars stay uncovered
-    expect(b.bubbleY + 26).toBeLessThanOrEqual(b.height)
-    expect(plain.bubbleEnd).toBe(0)
+    expect(b.bubbleBox!.x).toBeGreaterThan(68)
+    expect(b.bubbleBox!.y).toBeGreaterThanOrEqual(22) // low: below the meters' labels (and the bars in any band with room)
+    expect(b.bubbleBox!.y + b.bubbleBox!.h).toBeLessThan(b.height) // and clear of the bottom edge
+    expect(plain.bubbleBox).toBeNull()
   })
-  test('what is behind it is dimmed in a feathered halo, and it slides and fades in', () => {
+  test('what is behind it fades out softly (a radial fade, no edges), and it materializes', () => {
     const b = said('Needs your OK').source
-    expect((b.match(/fill-opacity="0.17"/g) ?? []).length).toBeGreaterThanOrEqual(4)
+    expect(b).toContain('<radialGradient')
+    expect(b).toContain('stop-opacity="0"') // it ends at nothing, so there is no cut-off line
     expect(b).toContain('attributeName="opacity" from="0" to="1"')
-    expect(b).toContain('attributeName="transform" type="translate"')
+    expect(b).toContain('type="scale" values="0.55;1.06;1"') // grows with a small overshoot
+    expect(b).not.toContain('type="translate"') // it does not pan in from the side
   })
-  test('leaving: the same drawing, invisible, fading out', () => {
+  test('leaving: the same drawing, invisible, shrinking and fading out', () => {
     const b = said('Done.', 'out').source
-    expect(b).toContain('<g opacity="0"><animate attributeName="opacity" from="1" to="0"')
+    expect(b).toContain('opacity="0"><animate attributeName="opacity" from="1" to="0"')
+    expect(b).toContain('type="scale" values="1;0.82"')
   })
-  test('text is escaped and the bubble leaves room for its button', () => {
+  test('its button is drawn inside it, and its box is reported so the real button can be laid over it', () => {
+    const b = said('Cache is cold', 'in', 'Handoff')
+    expect(b.source).toContain('>Handoff<')
+    expect(b.buttonBox).not.toBeNull()
+    const box = b.bubbleBox!
+    const btn = b.buttonBox!
+    expect(btn.x).toBeGreaterThan(box.x)
+    expect(btn.x + btn.w).toBeLessThanOrEqual(box.x + box.w)
+    expect(btn.y).toBeGreaterThanOrEqual(box.y)
+    expect(btn.y + btn.h).toBeLessThanOrEqual(box.y + box.h)
+    expect(said('Done.').buttonBox).toBeNull()
+    expect(said('Done.', 'out', 'Handoff').buttonBox).toBeNull() // nothing to press once it is leaving
+  })
+  test('text is escaped and the bubble stays inside the band', () => {
     expect(said('a < b & c').source).toContain('a &lt; b &amp; c')
-    expect(said('x'.repeat(200)).bubbleEnd).toBeLessThan(600 - 100)
+    const wide = said('x'.repeat(200), 'in', 'Handoff')
+    expect(wide.bubbleBox!.x + wide.bubbleBox!.w).toBeLessThan(wide.width)
+  })
+})
+
+describe('pillSvg', () => {
+  test('the cockpit gray with dark text, as wide as its columns', () => {
+    const p = pillSvg('Handoff')
+    expect(p.source).toContain('#8E8E93')
+    expect(p.source).toContain('>Handoff<')
+    expect(p.width).toBe(p.cols * 8)
+    expect(pillSvg('Copy brief').cols).toBeGreaterThan(p.cols)
   })
 })
