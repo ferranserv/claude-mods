@@ -67,7 +67,7 @@ Several things can be true at once, so there is an order. Fleeting events win ov
 | 5 | asleep, mad, on fire, detective, frozen, hourglass, gauge low, tipsy, sleepy | 5-hour limit reached; over today's allowance; context 80%+; a preflight finding; cache cold; cache about to expire; allowance within 2%; context 50%+; 5-hour limit 80%+ |
 | 6 | coffee, typing, thinking, talk, beach lounge | turn over 2 minutes; turn running; waiting for the model; a notice is up; nothing going on |
 
-The cache states show only while Claude is idle (a running turn keeps the cache warm). The speech bubble floats out of Clawd over whatever is behind it (the band never grows); `/cockpit bubble inline` puts it in its own row instead. It says what he is reacting to and carries the button for it. A state stays at least 5 seconds unless something more important arrives; changes crossfade. When Claude writes into your prompt box (handoff brief, enhancer) he puts on glasses and writes with a quill; a permission ask shows a clipboard and pencil. Source of the drawings: `docs/mascot/clawd-sheet.html`.
+The cache states show only while Claude is idle (a running turn keeps the cache warm). The speech bubble is a white pixel bubble above Clawd, with the button beside it. It says what he is reacting to and carries the button for it. A state stays at least 5 seconds unless something more important arrives; a change plays a short move (hand-drawn for the common pairs, a morph for the rest). When Claude writes into your prompt box (handoff brief, enhancer) he puts on glasses and writes with a quill; a permission ask shows a clipboard and pencil. Source of the drawings: `docs/mascot/clawd-sheet.html`.
 
 ## Limits
 

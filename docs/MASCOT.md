@@ -43,9 +43,9 @@ SVG per frame set, frames swapped by SMIL (`animate` on opacity, `isInteractive:
 
 ## 0.4.0 changes
 
-- Every state starts from the same neutral pose (props and colours change, not position), so switches look smooth; a switch crossfades over 0.5 s.
+- Every state starts from the same neutral pose (props and colours change, not position), so switches look smooth; a switch plays a short one-shot move: hand-drawn for the common pairs (`MOVES` in `states.ts`), a morph (drop what he holds, pick up the next) for the rest.
 - Hold rule: the shown state stays at least 5 s unless a higher-priority one arrives (`HOLD_MS` in `mood.ts`); every fleeting state lasts 5 s or more.
-- The bubble floats (absolute, opaque) from Clawd instead of growing the band; `/cockpit bubble float|inline`.
+- The bubble is a pixel Svg (white inside, dark stepped border, tail down to Clawd, regular text) in a row above the band, with the action button beside it; `/cockpit bubble float|inline` (inline is a text row under the band).
 - Permission asks are debounced 1.5 s (a tool that runs right after was auto-allowed, not an ask); PowerShell counts as a shell for test runs.
 - Frozen flakes move; drunk and hourglass start from the neutral pose.
 - Meters: collapsed and open are the same drawing; 5-hour shows "Resets at HH:MM (in ...)", weekly "usage % and difference"; context and cache add a subtitle only near their warning. Narrow windows use short labels.

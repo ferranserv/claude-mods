@@ -58,6 +58,57 @@ export const STATES: Record<StateId, Def> = {
   writing: { label: 'Clawd writes it down with a quill', face: '(o_o)~', fd: 0.4, frames: [1, 2, 3, 4].map(paper => ({ glasses: 1, paper, look: 'down', mouth: 'flat' })) },
 }
 
+/**
+ * The cartoon layer: what the body does while the props play. Each frame can be held `each` times (the body then
+ * moves faster than the props change), and `dx`/`dy` are the body's offsets in sprite pixels, cycled over the
+ * frames: a hop, a sway, a shiver, a stomp. The legs stay planted, so a hop reads as a squash and stretch. The
+ * first frame stays neutral (offset 0), and a frame that already sets its own offset keeps it.
+ */
+type Motion = { each?: number; dx?: number[]; dy?: number[] }
+const MOTION: Partial<Record<StateId, Motion>> = {
+  idle: { each: 2, dy: [0, 0, 1, 1, 1, 1, 0, 0] }, // breathes in the sun
+  typing: { dy: [0, -1, 0, -1] }, // bounces with each tap
+  thinking: { dx: [0, 0, 1, 1, 0, 0, -1, -1] }, // sways while the spinner turns
+  coins: { each: 2, dy: [0, -2, 0, -1] }, // hops over the coins
+  talk: { each: 2, dy: [0, -1, 0, 0, 0, -1, 0, 0] }, // nods as he talks
+  fire: { dy: [0, -1, 0, -1], dx: [0, 1, -1, 0] }, // panics on the spot
+  hourglass: { dx: [0, -1, 0, 0] }, // fidgets, waiting (props at the right edge: left only)
+  cold: { each: 2, dx: [0, 1, 0, -1, 0, 1, 0, -1] }, // shivers
+  gauge: { each: 2, dy: [0, 0, -1, 0] }, // startled hop
+  mad: { each: 2, dy: [0, -1, 0, -1, 0, -1], dx: [0, 1, -1, 1, -1, 0] }, // stomps
+  love: { dx: [0, 1, 1, 0, -1, -1] }, // sways in the hug
+  detective: { each: 2, dx: [0, -1, -2, -1] }, // creeps along
+  oops: { each: 2, dx: [0, 2, 0, -2] }, // shakes
+  wand: { each: 2, dy: [0, -1, 0, 0] }, // flourish
+  hello: { each: 2, dy: [0, -1, 0, -1] }, // bounces while he waves
+  idea: { each: 2, dy: [0, -2, 0, 0] }, // eureka hop
+  coffee: { each: 2, dy: [0, 0, 1, 0] }, // sips
+  reading: { each: 2, dy: [0, 0, 1, 0] }, // turns the page
+  building: { dy: [0, 1] }, // the body dips with each swing
+  browse: { dx: [0, -1, -2, -1] }, // leans in to look
+  plug: { each: 2, dx: [0, 1, 0, -1] }, // sags and sways
+  lab: { each: 2, dy: [0, -1, 0, -1, 0, -1] }, // bubbles over
+  hand: { dy: [0, 0, 1, 0] }, // taps his foot
+  writing: { dy: [0, 0, 1, 0] }, // leans into the page
+}
+for (const [id, m] of Object.entries(MOTION) as [StateId, Motion][]) {
+  const d = STATES[id]
+  const each = m.each ?? 1
+  const frames = d.frames.flatMap(f => Array.from({ length: each }, () => f))
+  d.frames = frames.map((f, i) => {
+    const out: Pose = { ...f }
+    if (i === 0) {
+      out.dx = out.dx ?? 0
+      out.dy = out.dy ?? 0
+      return out
+    }
+    if (m.dx && out.dx === undefined) out.dx = m.dx[i % m.dx.length]
+    if (m.dy && out.dy === undefined) out.dy = m.dy[i % m.dy.length]
+    return out
+  })
+  d.fd = d.fd / each
+}
+
 export const STATE_IDS = Object.keys(STATES) as StateId[]
 
 export type Mascot = { markup: string; width: number; height: number }
