@@ -134,7 +134,7 @@ const mood = {
   demoRun: 0,
   writing: false, // a handoff brief or an enhanced draft is being written
   sticky: null as { bubble: Bubble; state: StateId } | null, // a bubble that asks for a decision stays until you click its button or send something else
-  linger: null as { bubble: Bubble; until: number } | null, // any other bubble stays a while after its state ends
+  linger: null as { bubble: Bubble; until: number; state: StateId } | null, // any other bubble stays a while after its state ends
   dismissed: [] as string[], // warnings whose bubble you answered; quiet until the warning ends and comes back
   shownAlert: null as string | null, // the warning the bubble on screen stands for
   resetAt: 0, // the next limit reset a redraw is already booked for
@@ -932,9 +932,15 @@ async function snapshot($: EngineInterface, propsWorking: boolean): Promise<Snap
   } else {
     if (bubble?.action) mood.sticky = { bubble, state }
     if (bubble && (!mood.linger || mood.linger.bubble.text !== bubble.text)) $.clock.after(BUBBLE_LINGER_MS + 80, () => $.ui.invalidate('ui.render'))
-    if (bubble) mood.linger = { bubble, until: now + BUBBLE_LINGER_MS }
-    if (bubble && !bubble.action && mood.sticky) speech = mood.sticky.bubble // a pending decision is not pushed aside by a passing message
-    else if (!bubble) speech = mood.sticky ? mood.sticky.bubble : mood.linger && mood.linger.until > now ? mood.linger.bubble : null
+    if (bubble) mood.linger = { bubble, until: now + BUBBLE_LINGER_MS, state }
+    // A bubble belongs to the state it was said for and follows that state's priority (mood.ts ORDER): the one on screen
+    // speaks first; a pending decision or a lingering bubble only speaks when its state outranks the one shown.
+    const outranks = (from: StateId) => rank(from) < rank(state)
+    if (!bubble) {
+      if (mood.sticky && outranks(mood.sticky.state)) speech = mood.sticky.bubble
+      else if (mood.linger && mood.linger.until > now && outranks(mood.linger.state)) speech = mood.linger.bubble
+      else speech = null
+    }
   }
   mood.shownAlert = isDemo ? null : (speech?.alertId ?? null)
   return {
