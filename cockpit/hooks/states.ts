@@ -54,7 +54,7 @@ export const STATES: Record<StateId, Def> = {
   plug: { label: 'Clawd holds an unplugged cable: a connector is offline', face: '(;_;)~', fd: 0.4, frames: [0, 1].map(t => ({ plug: t, eyes: 'sad', mouth: 'grim', armL: 'half', armR: 'half', dy: t })) },
   dizzy: { label: 'Clawd is dizzy: the conversation is being compacted', face: '(@_@)', fd: 0.2, frames: [0, -1, 0, 1].map((dx, i) => ({ spiral: (i % 2) + 1, eyes: 'dizzy', dx, mouth: 'o' })) },
   lab: { label: 'Clawd holds bubbling flasks: the tests passed', face: '(^_^)8', fd: 0.35, frames: [0, 1, 2].map(t => ({ flask: t + 1, mouth: 'smile', eyes: t === 1 ? 'happy' : 'open' })) },
-  hand: { label: 'Clawd holds a clipboard and a pencil and raises a hand: something needs your approval', face: '(o_o)[]!', fd: 0.4, frames: [1, 2, 3, 3].map(clipboard => ({ clipboard, look: 'down', mouth: 'flat', bang: 1, bangX: OX + 21 })) },
+  hand: { label: 'Clawd holds a clipboard and a pencil and raises a hand: something needs your approval', face: '(o_o)[]!', fd: 0.4, frames: [1, 2, 3, 3].map(clipboard => ({ clipboard, look: 'down', mouth: 'flat', bangC: 1 })) },
   writing: { label: 'Clawd writes it down with a quill', face: '(o_o)~', fd: 0.4, frames: [1, 2, 3, 4].map(paper => ({ glasses: 1, paper, look: 'down', mouth: 'flat' })) },
 }
 

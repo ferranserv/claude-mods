@@ -212,7 +212,7 @@ describe('the moves between states', () => {
     expect(fr.some(x => x.z !== undefined)).toBe(true)
   })
   test('the raised hand has an exclamation mark, and the detective a mouth', () => {
-    expect(STATES.hand.frames.every(x => x.bang === 1)).toBe(true)
+    expect(STATES.hand.frames.every(x => x.bangC === 1)).toBe(true) // centered above his head
     expect(STATES.detective.frames.every(x => x.mouth !== undefined)).toBe(true)
   })
   test('a pair without a hand-drawn move gets a morph; staying put gets nothing', () => {
