@@ -17,6 +17,7 @@ import {
   bandWidth,
   cacheView,
   clockText,
+  bubbleSvg,
   cockpitSvg,
   learnWindow,
   line,
@@ -135,7 +136,7 @@ const mood = {
   drawn: null as { id: StateId; since: number } | null, // what is on screen, and since when
   move: null as { from: StateId; to: StateId; until: number } | null, // the one-shot move between the last two states, while it plays
 }
-// Where the speech bubble is drawn: float (over the text above, comes out of Clawd) or inline (a row under the band).
+// Where the speech bubble is drawn: float (a pixel bubble in a row above the band, tail to Clawd) or inline (a text row under the band).
 let bubbleMode: 'float' | 'inline' = 'float'
 /** A permission ask must stay open this long before Clawd raises a hand: a rule or the mode often settles it first. */
 const ASK_MS = 2500
@@ -952,16 +953,15 @@ function alertRow(a: Alert, c: Comps, fx: Fx, isWorking: boolean) {
   return el(c.Box, { key: `alert-${a.id}`, flexDirection: 'row', alignItems: 'center', gap: 1, flexWrap: 'wrap' }, el(c.Text, { key: 't', color: tone }, `● ${a.text}`), ...wanted.map(id => actionButton(id, c, fx, false)))
 }
 
-/** The speech bubble drawn over the text above the band, coming out of Clawd: it takes no room, so the band never moves. */
-function bubbleFloat(b: Bubble, c: Comps, fx: Fx, isWorking: boolean) {
-  const items: unknown[] = [el(c.Text, { key: 't', color: '#ece8e1' }, b.text)]
+/** The speech bubble above the band: a pixel bubble with its tail down to Clawd, and the button that answers it beside it. */
+function bubbleFloat(b: Bubble, c: Comps, fx: Fx, isWorking: boolean, Svg: unknown = null) {
+  const items: unknown[] = []
+  if (Svg) {
+    const art = bubbleSvg(b.text)
+    items.push(el(Svg as never, { key: 'bubble-art', source: art.source, alt: b.text, width: art.width, height: art.height }))
+  } else items.push(el(c.Text, { key: 't' }, b.text))
   if (b.action && !(isWorking && b.action !== 'saverOn')) items.push(actionButton(b.action, c, fx, true))
-  return el(
-    c.Box,
-    { key: 'bubble-anchor', height: 0, position: 'relative' },
-    el(c.Box, { key: 'bubble', position: 'absolute', top: -3, left: 4, borderStyle: 'round', borderColor: '#8b949e', backgroundColor: '#2b2a28', paddingX: 1, flexDirection: 'row', alignItems: 'center', gap: 1 }, ...items),
-    el(c.Box, { key: 'bubble-tail', position: 'absolute', top: 0, left: 6 }, el(c.Text, { color: '#8b949e' }, '▼')),
-  )
+  return el(c.Box, { key: 'bubble', flexDirection: 'row', alignItems: 'center', gap: 1, paddingLeft: 3 }, ...items)
 }
 
 /** Clawd's speech bubble: what he is reacting to, and the button that answers it when there is one. */
@@ -1557,11 +1557,11 @@ export const register: Register = (on, options) => {
     }
     if (arg === 'bubble' || arg.startsWith('bubble ')) {
       const wanted = arg.slice(6).trim()
-      if (wanted !== 'float' && wanted !== 'inline') return { text: `The speech bubble is ${bubbleMode}. Use /cockpit bubble float (over the text above, comes out of Clawd) or inline (a row under the band).` }
+      if (wanted !== 'float' && wanted !== 'inline') return { text: `The speech bubble is ${bubbleMode}. Use /cockpit bubble float (a pixel bubble above Clawd) or inline (a text row under the band).` }
       bubbleMode = wanted
       await $.store.set('bubbleMode', wanted)
       poke($)
-      return { text: wanted === 'float' ? 'The speech bubble now comes out of Clawd, over the text above.' : 'The speech bubble is a row under the band.' }
+      return { text: wanted === 'float' ? 'The speech bubble is a pixel bubble above Clawd.' : 'The speech bubble is a row under the band.' }
     }
     if (arg === 'mascot' || arg.startsWith('mascot ')) {
       const wanted = arg.slice(6).trim()
@@ -1631,7 +1631,7 @@ export const register: Register = (on, options) => {
     }
 
     const speaks = bubbleMode === 'float' && s.bubble !== null && !(s.isOpen && s.bubble.alertId !== undefined && s.alerts.some(a => a.id === s.bubble?.alertId))
-    const mine = el(c.Box, { key: bandKey('cockpit'), flexDirection: 'column' }, ...(speaks && s.bubble ? [bubbleFloat(s.bubble, c, fx, s.isWorking)] : []), row, ...(details(s, c, fx, e.surface) as never[]))
+    const mine = el(c.Box, { key: bandKey('cockpit'), flexDirection: 'column' }, ...(speaks && s.bubble ? [bubbleFloat(s.bubble, c, fx, s.isWorking, e.surface === 'terminal' ? null : $.ui.resolve(e).Svg)] : []), row, ...(details(s, c, fx, e.surface) as never[]))
     return stack(below, mine as never, Box)
   })
 
