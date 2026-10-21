@@ -601,6 +601,49 @@ test('a failed tool is an oops, a passing test run is the lab, an approved plan 
   expect(await altOf($)).toContain('idea')
 })
 
+test('checks of any kind: a pass is the lab, a failure is the blast (not the plain oops); the plain oops stays for other tools', async ($, on) => {
+  const w = world(on)
+  let next: unknown = ok()
+  on('tool.call', () => next as never)
+  await started($)
+  await w.clock.advance(6000)
+  const d = $ as unknown as Do
+  for (const command of ['npx tsc --noEmit', 'ruff check .', 'claude plugin validate cockpit', 'npm run build', 'python -m pytest -q', 'cargo clippy', 'eslint src']) {
+    await d.tool.call({ tool: 'Bash', command })
+    expect(await altOf($), command).toContain('bubbling flasks')
+    await w.clock.advance(5000)
+  }
+  await d.tool.call({ tool: 'Bash', command: 'ls -la' })
+  expect(await altOf($)).not.toContain('bubbling flasks')
+  await w.clock.advance(5000)
+  next = { ref: 0, result: {}, text: 'x', isError: true }
+  await d.tool.call({ tool: 'Bash', command: 'npx tsc --noEmit' })
+  expect(await altOf($)).toContain('blows up')
+  await w.clock.advance(5000)
+  await d.tool.call({ tool: 'Bash', command: 'ls nope' })
+  expect(await altOf($)).toContain('oops')
+})
+
+test('a commit, a push or a pull request is a launch: the rocket; a failed push is an oops', async ($, on) => {
+  const w = world(on)
+  let next: unknown = ok()
+  on('tool.call', () => next as never)
+  await started($)
+  await w.clock.advance(6000)
+  const d = $ as unknown as Do
+  for (const command of ['git commit -m "x"', 'git push -u origin main', 'gh pr create --fill', 'git -C /repo push']) {
+    await d.tool.call({ tool: 'Bash', command })
+    expect(await altOf($), command).toContain('rocket')
+    await w.clock.advance(6000)
+  }
+  await d.tool.call({ tool: 'mcp__github__create_pull_request' })
+  expect(await altOf($)).toContain('rocket')
+  await w.clock.advance(6000)
+  next = { ref: 0, result: {}, text: 'x', isError: true }
+  await d.tool.call({ tool: 'Bash', command: 'git push' })
+  expect(await altOf($)).toContain('oops')
+})
+
 test('a question to you raises a hand until it is answered; permission prompts, other calls and queries do not', async ($, on) => {
   const w = world(on)
   on('tool.check', () => ({ decision: 'ask' }) as never)
@@ -653,7 +696,8 @@ test('a bubble that asks for a decision stays until you answer it, and clicking 
   await w.clock.advance(10_000)
   expect(await hasButton($, 'copy')).toBe(false) // sending something else answers it: the bubble is gone...
   let ui = await $.ui.mount(band('desktop'))
-  expect(await ui.find({ key: 'recall' })).toBeDefined() // ...but Clawd is a button: one click on him says it again (the app has no hover to count on)
+  expect(await ui.find({ key: 'recall' })).toBeDefined()
+  expect(await ui.find({ key: 'recall-1' })).toBeUndefined() // one button over the whole of him, not a stack // ...but Clawd is a button: one click on him says it again (the app has no hover to count on)
   await ui.press({ key: 'recall' })
   await ui.unmount()
   await settle($, w, 4000)

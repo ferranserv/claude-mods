@@ -2,7 +2,7 @@
 //
 // Three levels, so the general state of the account never talks over the task:
 //   1. needs you now     hand (a permission prompt is open), writing, idea (a plan waits for approval)
-//   2. the task          only while Claude works: oops, lab, plug (events of the task), dizzy (compacting), then creating,
+//   2. the task          only while Claude works: oops, boom (a check failed), lab (a check passed), ship (a commit, push or PR), plug (events of the task), dizzy (compacting), then creating,
 //                        building, reading, browse (the tool that runs), then coffee (cycles with the work after
 //                        COFFEE_AFTER_MS), typing, thinking. Session events (walk, hello) and the owner's own actions
 //                        (love, wand) play whenever they happen, for FLEET_MS, and are not kept.
@@ -13,16 +13,16 @@
 import type { StateId } from './states'
 import type { ActionId } from './lib'
 
-export type Fleet = 'oops' | 'bell' | 'lab' | 'love' | 'idea' | 'wand' | 'coins' | 'plug'
+export type Fleet = 'oops' | 'boom' | 'bell' | 'lab' | 'ship' | 'love' | 'idea' | 'wand' | 'coins' | 'plug'
 /** idea is not here: it waits for you, so it ranks with the raised hand. */
-export const FLEET_ORDER: readonly Fleet[] = ['oops', 'bell', 'lab', 'love', 'wand', 'coins', 'plug']
+export const FLEET_ORDER: readonly Fleet[] = ['oops', 'boom', 'bell', 'lab', 'ship', 'love', 'wand', 'coins', 'plug']
 /** Status alerts, worst first: shown only when Claude is not working, one at a time, in turns. */
 export const ALERT_ORDER = ['asleep', 'mad', 'fire', 'gauge', 'sleepy', 'drunk', 'cold', 'hourglass', 'detective', 'plug'] as const
 export const isAlert = (id: StateId): boolean => (ALERT_ORDER as readonly string[]).includes(id)
 export type ToolKind = 'building' | 'reading' | 'browse' | 'creating'
 
 /** How long each fleeting event plays, in ms. */
-export const FLEET_MS: Record<Fleet, number> = { oops: 5000, bell: 5000, lab: 5000, love: 5000, idea: 5000, wand: 5000, coins: 5000, plug: 6000 }
+export const FLEET_MS: Record<Fleet, number> = { oops: 5000, boom: 5000, bell: 5000, lab: 5000, ship: 5200, love: 5000, idea: 5000, wand: 5000, coins: 5000, plug: 6000 }
 /** Whatever state is shown stays at least this long, unless something more important arrives. */
 export const HOLD_MS = 5000
 /** A tool's state lingers this long after it ends, so quick calls are still seen. */
@@ -129,9 +129,11 @@ export function bubbleFor(id: StateId, b: BubbleInput): Bubble | null {
     case 'writing': return { text: 'Writing it down…' }
     case 'oops': return { text: b.detail !== '' ? `${b.detail} failed` : 'A tool failed' }
     case 'bell': return { text: 'Done.' }
-    case 'lab': return { text: 'Tests passed' }
+    case 'boom': return { text: 'Checks failed' }
+    case 'lab': return { text: 'Checks passed' }
+    case 'ship': return { text: b.detail !== '' ? b.detail : 'Shipped' }
     case 'love': return { text: 'Handoff ready in the prompt box. Review, then Enter.' }
-    case 'idea': return { text: 'Plan ready for your approval' }
+    case 'idea': return { text: 'Plan approved' }
     case 'wand': return { text: 'Draft enhanced. ↩ restores yours.' }
     case 'coins': return { text: b.savedUsd !== '' ? `Haiku answered that · saved ${b.savedUsd} today` : 'Haiku answered that' }
     case 'plug': return { text: 'A connector is offline' }

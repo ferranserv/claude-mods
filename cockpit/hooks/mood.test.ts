@@ -4,7 +4,7 @@ import { COFFEE_AFTER_MS, COFFEE_CYCLE_MS, COFFEE_SHOW_MS, ROTATE_MS, activeAler
 import type { BubbleInput, MoodInput } from './mood'
 import type { StateId } from './states'
 import { MOVES, STATES, STATE_IDS, enterMarkup, moveFrames, moveMarkup, moveMs, stateMarkup } from './states'
-import { pixelsOutside } from './sprite'
+import { clawd, pixelsOutside } from './sprite'
 
 const NOW = 1_000_000
 const calm: MoodInput = {
@@ -25,9 +25,9 @@ describe('which state wins', () => {
     expect(mood({ waiting: true, fleet: { idea: NOW + 1 } })).toBe('hand')
   })
 
-  test('among fleeting events the order is oops, bell, lab, love, wand, coins, plug', () => {
-    const all = { oops: NOW + 1, bell: NOW + 1, lab: NOW + 1, love: NOW + 1, wand: NOW + 1, coins: NOW + 1, plug: NOW + 1 }
-    const order = ['oops', 'bell', 'lab', 'love', 'wand', 'coins', 'plug'] as const
+  test('among fleeting events the order is oops, boom, bell, lab, ship, love, wand, coins, plug', () => {
+    const all = { oops: NOW + 1, boom: NOW + 1, bell: NOW + 1, lab: NOW + 1, ship: NOW + 1, love: NOW + 1, wand: NOW + 1, coins: NOW + 1, plug: NOW + 1 }
+    const order = ['oops', 'boom', 'bell', 'lab', 'ship', 'love', 'wand', 'coins', 'plug'] as const
     const left: Partial<typeof all> = { ...all }
     for (const id of order) {
       expect(mood({ fleet: left })).toBe(id)
@@ -53,7 +53,7 @@ describe('which state wins', () => {
     expect(mood({ ...all, busy: true, hasTool: true })).toBe('typing')
     expect(mood({ ...all, busy: true, tool: { kind: 'reading', until: NOW + 1 } })).toBe('reading')
     for (const id of ['asleep', 'mad', 'fire', 'gauge', 'sleepy', 'drunk', 'cold', 'hourglass', 'detective', 'plug'] as const) expect(isAlert(id)).toBe(true)
-    for (const id of ['hand', 'idea', 'oops', 'bell', 'lab', 'typing', 'coffee', 'talk', 'idle'] as const) expect(isAlert(id)).toBe(false)
+    for (const id of ['hand', 'idea', 'oops', 'boom', 'ship', 'bell', 'lab', 'typing', 'coffee', 'talk', 'idle'] as const) expect(isAlert(id)).toBe(false)
   })
 
   test('when it is over the alerts are listed worst first and each is true only on its own range', () => {
@@ -149,8 +149,8 @@ describe('the drawings', () => {
       expect(d.label.length).toBeGreaterThan(5)
     }
   })
-  test('31 states, each with a terminal face', () => {
-    expect(STATE_IDS.length).toBe(31)
+  test('33 states, each with a terminal face', () => {
+    expect(STATE_IDS.length).toBe(33)
     for (const id of STATE_IDS) expect(STATES[id].face.length).toBeGreaterThan(2)
   })
   test('the alarm clock shows the wake-up time it is given', () => {
@@ -166,6 +166,49 @@ describe('the drawings', () => {
       expect(f.legsUp).toBeUndefined()
     }
     expect(stateMarkup('walk').markup).toContain('animateTransform')
+  })
+})
+
+describe('animation with flavour', () => {
+  test('his left arm moves in every state (but the one that sleeps)', () => {
+    const still = STATE_IDS.filter(id => !STATES[id].frames.some(f => f.armL !== undefined && f.armL !== 'rest'))
+    expect(still.sort()).toEqual(['asleep'])
+  })
+  test('comic effects are used widely: sparkles, lines, brows, orbiting stars', () => {
+    const uses = (key: string) => STATE_IDS.filter(id => STATES[id].frames.some(f => f[key] !== undefined)).length
+    expect(uses('spark')).toBeGreaterThanOrEqual(10)
+    expect(uses('lines')).toBeGreaterThanOrEqual(8)
+    expect(uses('brow')).toBeGreaterThanOrEqual(6)
+    expect(uses('sweatFly')).toBeGreaterThanOrEqual(4)
+    expect(uses('orbit')).toBeGreaterThanOrEqual(2)
+  })
+  test('the flakes fall down the edges and over his head, never next to his hands', () => {
+    const base = { w: 34, ...STATES.cold.frames[0], snow: undefined }
+    const without = clawd(base).g
+    for (const f of STATES.cold.frames) {
+      const g = clawd({ w: 34, ...f }).g
+      const none = clawd({ w: 34, ...f, snow: undefined }).g
+      g.forEach((row: (string | null)[], y: number) => row.forEach((c, x) => {
+        if (c !== none[y][x]) expect(x <= 4 || x >= 30 || y <= 7, `flake at ${x},${y}`).toBe(true)
+      }))
+    }
+    expect(without.length).toBeGreaterThan(0)
+  })
+  test('cold has eyes that dart and teeth that chatter', () => {
+    const fr = STATES.cold.frames
+    expect(new Set(fr.map(f => f.look)).size).toBeGreaterThanOrEqual(4)
+    expect(fr.some(f => f.mouth === 'chatter')).toBe(true)
+    expect(fr.some(f => f.brow === 'worry')).toBe(true)
+  })
+  test('thinking, the detective and coffee have long loops with a left hand', () => {
+    expect(STATES.thinking.frames.length).toBeGreaterThanOrEqual(12)
+    expect(STATES.detective.frames.length).toBeGreaterThanOrEqual(8)
+    expect(STATES.coffee.frames.length).toBeGreaterThanOrEqual(12)
+    expect(STATES.detective.frames.some(f => (f.mgx ?? 0) <= -8)).toBe(true) // the glass comes up to his eye
+  })
+  test('every pair of states has a move, hand-drawn or built from how each one begins, and over 90 are hand-drawn', () => {
+    expect(Object.keys(MOVES).length).toBeGreaterThanOrEqual(90)
+    for (const a of STATE_IDS) for (const b of STATE_IDS) if (a !== b) expect(moveMs(a, b), `${a}>${b}`).toBeGreaterThan(0)
   })
 })
 
@@ -220,16 +263,20 @@ describe('the moves between states', () => {
       expect(m.frames.slice(1, -1).some(f => f.eyes === 'blink' || (f.eyes !== undefined && f.eyes !== 'open' && f.eyes !== 'half')), `${key} blink or an expressive look in the middle`).toBe(true)
     }
   })
-  test('a prop that goes is carried in his hand and put behind him; one that comes is fetched the same way', () => {
+  test('a prop that goes is carried in his hand and put behind him; one that comes is fetched the same way; one hand takes off and the other puts on', () => {
     const gone = moveFrames('idle', 'thinking')!.frames
     const carried = gone.filter(f => f.carry === 'shades')
     expect(carried.length).toBeGreaterThanOrEqual(2) // lifted in his hand, then swung out behind him
-    expect(carried.some(f => f.at === 1 && f.armR === 'up')).toBe(true)
-    expect(carried.some(f => f.at === 3 && f.armR === 'out')).toBe(true)
+    expect(carried.every(f => f.carrySide === 'L')).toBe(true) // the sunglasses go with the LEFT hand
+    expect(carried.some(f => f.at === 1 && f.armL === 'up')).toBe(true)
+    expect(carried.some(f => f.at === 3 && f.armL === 'out')).toBe(true)
     expect(carried.every(f => f.shades === undefined)).toBe(true) // it is in his hand, no longer on his face
     const came = moveFrames('bell', 'idle')!.frames
-    expect(came.some(f => f.carry === 'shades' && f.at === 3 && f.armR === 'out')).toBe(true) // fetched from behind him
-    expect(came.some(f => f.carry === 'bell')).toBe(true) // and the bell was put away first
+    expect(came.some(f => f.carry === 'bell' && f.carrySide === 'R')).toBe(true) // the bell is put away with the right
+    expect(came.some(f => f.carry === 'shades' && f.at === 3 && f.armL === 'out' && f.carrySide === 'L')).toBe(true) // and the shades come back from behind him in the left
+    const swap = moveFrames('typing', 'building')!.frames
+    expect(swap.some(f => f.carry === 'laptop' && f.carrySide === 'L')).toBe(true) // the laptop leaves with the left hand
+    expect(swap.some(f => f.carry === 'hat-hard' && f.carrySide === 'R')).toBe(true) // the hard hat is put on with the right
   })
   test('any state to cold turns him blue slowly, over two seconds; coming back out of it takes 1.2', () => {
     for (const id of STATE_IDS) {

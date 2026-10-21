@@ -128,6 +128,7 @@ const mood = {
   toolNote: '',
   inputJson: '', // the first pieces of the arguments being streamed, to find the file's name
   failNote: '',
+  shipNote: '', // what shipped: Committed, Pushed, Pull request opened...
   walkUntil: 0,
   helloUntil: 0,
   isFirstPrompt: true,
@@ -207,7 +208,42 @@ async function flash($: EngineInterface, id: Fleet): Promise<void> {
 }
 
 type ToolInput = { tool?: string; tool_use_id?: string; file_path?: string; notebook_path?: string; pattern?: string; command?: string }
-const TEST_COMMAND = /\b(pytest|vitest|jest|mocha|rspec|phpunit|ctest|go test|cargo test|npm (run )?test|pnpm (run )?test|yarn test|bun test|deno test|dotnet test|make (test|check)|mvn( \S+)* test|gradlew? (\S+ )*test|node --test|unittest|tox|nox|plugin test)\b/i
+/** Claude checking its own work: tests, linters, type checks, builds, validators. A pass shows the lab, a failure the blast. */
+const VERIFY_COMMAND = new RegExp(
+  '\\b(' +
+    [
+      'pytest|py\\.test|vitest|jest|mocha|rspec|phpunit|ctest|tox|nox|unittest|node --test|bun test|yarn test',
+      '(npm|pnpm|yarn|bun)( run)? (test|lint|check|typecheck|type-check|build|validate|verify|ci)',
+      'go (test|vet|build)|cargo (test|check|clippy|build)|dotnet (test|build)|deno (test|lint|check)',
+      'make (test|check|lint|verify)|mvn( \\S+)* (test|verify)|gradlew? (\\S+ )*(test|check|build)',
+      'plugin (test|validate)|tsc|eslint|ruff|mypy|pyright|flake8|pylint|rubocop|shellcheck|phpstan|golangci-lint',
+      'black --check|prettier --check|biome (check|lint|ci)|playwright test|cypress run|pre-commit run|terraform validate|helm lint',
+      'bash -n|python3? -m (py_compile|pytest|unittest|compileall)',
+    ].join('|') +
+    ')\\b',
+  'i',
+)
+/** Something leaving for the world: a commit, a push, a pull request, a release. The text is what he says. */
+const SHIP_COMMANDS: [RegExp, string][] = [
+  [/\bgh\s+pr\s+merge\b/i, 'Merged'],
+  [/\bgh\s+pr\s+create\b/i, 'Pull request opened'],
+  [/\b(gh\s+release\s+create|npm\s+publish|cargo\s+publish|twine\s+upload)\b/i, 'Released'],
+  [/\bgit\b[^|;&\n]*\bpush\b/i, 'Pushed'],
+  [/\bgit\b[^|;&\n]*\bcommit\b/i, 'Committed'],
+  [/\bgit\b[^|;&\n]*\b(merge|tag)\b/i, 'Merged'],
+]
+const SHIP_TOOLS: Record<string, string> = {
+  mcp__github__create_pull_request: 'Pull request opened',
+  mcp__github__merge_pull_request: 'Merged',
+  mcp__github__push_files: 'Pushed',
+  mcp__github__create_or_update_file: 'Pushed',
+}
+function shipOf(tool: string, command: string): string | null {
+  if (SHIP_TOOLS[tool]) return SHIP_TOOLS[tool]!
+  if (tool !== 'Bash' && tool !== 'PowerShell') return null
+  for (const [re, text] of SHIP_COMMANDS) if (re.test(command)) return text
+  return null
+}
 const baseName = (p: string) => p.replace(/\\/g, '/').split('/').filter(Boolean).pop() ?? ''
 
 function toolKind(tool: string): ToolKind | null {
@@ -269,11 +305,22 @@ async function toolEnds($: EngineInterface, input: ToolInput, r: { isError?: boo
     mood.tool = { kind: mood.tool.kind, until: now + TOOL_LINGER_MS }
     poke($, TOOL_LINGER_MS)
   }
+  const command = String(input.command ?? '')
+  const isCheck = (tool === 'Bash' || tool === 'PowerShell') && VERIFY_COMMAND.test(command)
   if (r?.isError) {
-    mood.failNote = tool
-    await flash($, 'oops')
+    if (isCheck) await flash($, 'boom')
+    else {
+      mood.failNote = tool
+      await flash($, 'oops')
+    }
   } else if (tool === 'ExitPlanMode') await flash($, 'idea')
-  else if ((tool === 'Bash' || tool === 'PowerShell') && TEST_COMMAND.test(String(input.command ?? ''))) await flash($, 'lab')
+  else {
+    const shipped = shipOf(tool, command)
+    if (shipped) {
+      mood.shipNote = shipped
+      await flash($, 'ship')
+    } else if (isCheck) await flash($, 'lab')
+  }
 }
 
 /** A demo that waits for its button has no end time. */
@@ -1081,7 +1128,7 @@ async function snapshot($: EngineInterface, propsWorking: boolean): Promise<Snap
     weekPace: m.week.paceText,
     weekRoom,
     saverOn: isOn,
-    detail: state === 'oops' ? mood.failNote : mood.toolNote,
+    detail: state === 'oops' ? mood.failNote : state === 'ship' ? mood.shipNote : mood.toolNote,
     savedUsd: usd > 0 ? money(usd) : '',
     hasAdvice: rows.length > 0,
   })
@@ -1206,7 +1253,7 @@ async function bandTree($: EngineInterface, e: { surface: string }, o: { isWorki
       const drawn = el(
         c.Box,
         { key: 'art', flexDirection: 'row', alignItems: 'center' },
-        ...(parts.mascot ? [el(c.Box, { key: 'clawd', position: 'relative', flexShrink: 0 }, el(Svg, { key: 'mascot', source: parts.mascot.source, alt: STATES[s.state].label, isInteractive: true, width: parts.mascot.width, height: parts.mascot.height }), ...(s.hover ? [el(c.Box, { key: 'recall-hit', position: 'absolute', top: 1, left: 0, right: 0, overflow: 'hidden' }, el(c.Button, { key: 'recall', plain: true, onPress: () => fx.recall(s.hover?.text ?? '', s.hover?.alertId) }, NBSP.repeat(Math.ceil(parts.mascot.width / 3))))] : []))] : []),
+        ...(parts.mascot ? [el(c.Box, { key: 'clawd', position: 'relative', flexShrink: 0 }, el(Svg, { key: 'mascot', source: parts.mascot.source, alt: STATES[s.state].label, isInteractive: true, width: parts.mascot.width, height: parts.mascot.height }), ...(s.hover ? [recallHit(c, parts.mascot.width, () => fx.recall(s.hover?.text ?? '', s.hover?.alertId))] : []))] : []),
         column,
       )
       row = el(c.Box, { key: 'row', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, drawn, controls(s, c, fx, Svg))
@@ -1279,6 +1326,16 @@ function buttonGroup(c: Comps, specs: BtnSpec[], key = 'btns') {
       el(c.Box, { key: 'hit', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, flexDirection: 'row', overflow: 'hidden' }, ...hit),
     ),
   ]
+}
+
+/**
+ * Clicking Clawd: ONE Button over his whole square. A Button is one text block, so its label is RECALL_ROWS lines of
+ * blanks (as wide as he is): one press wherever on him it lands. The Box cuts it at his edges, so nothing shows.
+ */
+const RECALL_ROWS = 4
+function recallHit(c: Comps, width: number, press: () => void) {
+  const label = Array.from({ length: RECALL_ROWS }, () => NBSP.repeat(Math.ceil(width / 3))).join('\n')
+  return el(c.Box, { key: 'recall-hit', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden' }, el(c.Button, { key: 'recall', plain: true, onPress: press }, label))
 }
 
 /** What one action's button does: pressing it answers the bubble and closes the menu. */
