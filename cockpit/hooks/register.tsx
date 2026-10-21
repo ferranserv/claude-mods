@@ -133,6 +133,7 @@ const mood = {
   isFirstPrompt: true,
   busySince: 0,
   hasTool: false,
+  dialog: false, // the dialog of a question from Claude is open: the band is drawn over it, not above the prompt
   offline: false, // a connector failed to connect and is still down
   coinsDue: false, // the saver routed during this turn: the coins play after the bell, not over the work
   shiftAt: 0, // when the next timed change of pose (coffee, the next alert) is already booked
@@ -258,6 +259,11 @@ async function toolEnds($: EngineInterface, input: ToolInput, r: { isError?: boo
     mood.waiting = false
     mood.askAt = 0
     mood.askId = ''
+    mood.dialog = false
+  }
+  if (tool === 'AskUserQuestion' && mood.dialog) {
+    mood.dialog = false
+    poke($)
   }
   if (mood.tool) {
     mood.tool = { kind: mood.tool.kind, until: now + TOOL_LINGER_MS }
@@ -1157,6 +1163,59 @@ function dismissBubble(): void {
 }
 
 /**
+ * The cockpit's band as one tree, for the places that draw it: above the prompt, and over the dialog of a question from
+ * Claude. `compact` leaves out the speech rows (a dialog has a small row budget).
+ */
+async function bandTree($: EngineInterface, e: { surface: string }, o: { isWorking: boolean; bodyColumns: number; compact: boolean; plain?: boolean }): Promise<never> {
+    let s: Snap
+    try {
+      s = await snapshot($, o.isWorking)
+    } catch (err) {
+      // A drawing that cannot be built must not blank the band without a word: say what failed.
+      const { Box: B, Text: T } = $.ui.resolve(e as never)
+      const c0 = { Box: B, Text: T } as unknown as Comps
+      return el(c0.Box, { key: bandKey('cockpit') }, el(c0.Text, { color: '#e2553f' }, `Cockpit could not draw: ${err instanceof Error ? err.message : String(err)}`)) as never
+    }
+    const { Box, Text, Button } = $.ui.resolve(e as never)
+    const Draw = ($.ui.resolve(e as never) as { Svg?: unknown }).Svg
+    const c = { Box, Text, Button, Svg: e.surface === 'terminal' ? undefined : Draw } as unknown as Comps
+    const fx = makeFx($)
+
+    let row
+    let speech: unknown[] = []
+    if (e.surface === 'terminal') {
+      const meters = el(c.Box, { key: 'meters' }, ...(mascotMode === 'off' ? [] : [el(c.Text, { key: 'face', dimColor: true }, `${STATES[s.state].face}  `)]), ...line(s.m).map((seg, i) => el(c.Text, { key: `s${i}`, color: seg.fill }, seg.t)))
+      // In the question's dialog the budget is 12 rows counted at 40 columns: one Text row, cut at the edge.
+      const one = el(c.Text, { key: 'plain', wrap: 'truncate-end' }, `${mascotMode === 'off' ? '' : `${STATES[s.state].face}  `}${line(s.m).map(seg => seg.t).join('')}`)
+      row = o.plain ? one : el(c.Box, { key: 'row', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, meters, controls(s, c, fx))
+      speech = o.compact ? [] : speechText(s, c, fx, e.surface)
+    } else {
+      const Svg = ($.ui.resolve(e as never) as { Svg: unknown }).Svg
+      const width = Math.max(300, bandWidth(o.bodyColumns) - 90)
+      // Clawd and the meters are two drawings: a new pose replaces only Clawd's, so the meters never reload (a replaced
+      // drawing blinks) and change only when a number does.
+      const parts = bandParts(width, s.m, s.mascot)
+      if (o.plain) {
+        // The dialog of a question takes no size and no place (no overlay, no fixed width): both drawings at their own size, in a row.
+        return el(c.Box, { key: bandKey('cockpit'), flexDirection: 'row', alignItems: 'center' },
+          ...(parts.mascot ? [el(Svg, { key: 'mascot', source: parts.mascot.source, alt: STATES[s.state].label, isInteractive: true })] : []),
+          el(Svg, { key: 'meters', source: parts.meters.source, alt: altText(s.m) })) as never
+      }
+      const lane = bubbleLane($, s, c, Svg, fx, parts.meters.width, e.surface)
+      const column = el(c.Box, { key: 'col', flexDirection: 'column', paddingLeft: parts.mascot ? 3 : 0 }, el(Svg, { key: 'meters', source: parts.meters.source, alt: altText(s.m), width: parts.meters.width, height: parts.meters.height }), ...lane)
+      const drawn = el(
+        c.Box,
+        { key: 'art', flexDirection: 'row', alignItems: 'center' },
+        ...(parts.mascot ? [el(c.Box, { key: 'clawd', position: 'relative', flexShrink: 0 }, el(Svg, { key: 'mascot', source: parts.mascot.source, alt: STATES[s.state].label, isInteractive: true, width: parts.mascot.width, height: parts.mascot.height }), ...(s.hover ? [el(c.Box, { key: 'recall-hit', position: 'absolute', top: 1, left: 0, right: 0, overflow: 'hidden' }, el(c.Button, { key: 'recall', plain: true, onPress: () => fx.recall(s.hover?.text ?? '', s.hover?.alertId) }, NBSP.repeat(Math.ceil(parts.mascot.width / 3))))] : []))] : []),
+        column,
+      )
+      row = el(c.Box, { key: 'row', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, drawn, controls(s, c, fx, Svg))
+    }
+
+    return el(c.Box, { key: bandKey('cockpit'), flexDirection: 'column' }, row, ...(speech as never[])) as never
+}
+
+/**
  * Clicking Clawd says again what his pose is about: a warning you had answered comes back (and stays until you answer it
  * again); anything else is said for a few seconds. There is no hover to count on in the app, so he is a button.
  */
@@ -1535,6 +1594,7 @@ export const register: Register = (on, options) => {
       mood.waiting = false
       mood.askAt = 0
       mood.askId = ''
+      mood.dialog = false
       mood.tool = null
       mood.compacting = false
       if (hasLog) await safe(() => logTurn($, e))
@@ -1607,6 +1667,7 @@ export const register: Register = (on, options) => {
     mood.waiting = false
     mood.askAt = 0
     mood.askId = ''
+    mood.dialog = false
     if (mood.tool?.kind === 'creating') mood.tool = null // a new request: whatever was being written has run, or never will
     const before = await read($, cache)
     const startedAt = await $.clock.now()
@@ -1905,7 +1966,9 @@ export const register: Register = (on, options) => {
   // ---- the band
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const below = await next(e)
-    // A survey or a question from Claude holds the band too, and the cockpit stays under it: Clawd raises his hand for the question.
+    // A survey holds the band too, and the cockpit stays under it. A question from Claude has its own dialog: the band
+    // is drawn there (the AskUserQuestion hook below), so it steps aside here and is never on screen twice.
+    if (mood.dialog) return below
 
     await read($, tick)
     if (await read($, isSide)) {
@@ -1916,46 +1979,28 @@ export const register: Register = (on, options) => {
         // No way to tell: draw the band.
       }
     }
-
-    let s: Snap
-    try {
-      s = await snapshot($, e.props.isWorking)
-    } catch (err) {
-      // A drawing that cannot be built must not blank the band without a word: say what failed.
-      const { Box: B, Text: T } = $.ui.resolve(e)
-      const c0 = { Box: B, Text: T } as unknown as Comps
-      return stack(below, el(c0.Box, { key: bandKey('cockpit') }, el(c0.Text, { color: '#e2553f' }, `Cockpit could not draw: ${err instanceof Error ? err.message : String(err)}`)) as never, B)
-    }
-    const { Box, Text, Button } = $.ui.resolve(e)
-    const Draw = ($.ui.resolve(e) as { Svg?: unknown }).Svg
-    const c = { Box, Text, Button, Svg: e.surface === 'terminal' ? undefined : Draw } as unknown as Comps
-    const fx = makeFx($)
-
-    let row
-    let speech: unknown[] = []
-    if (e.surface === 'terminal') {
-      row = el(c.Box, { key: 'row', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, el(c.Box, { key: 'meters' }, ...(mascotMode === 'off' ? [] : [el(c.Text, { key: 'face', dimColor: true }, `${STATES[s.state].face}  `)]), ...line(s.m).map((seg, i) => el(c.Text, { key: `s${i}`, color: seg.fill }, seg.t))), controls(s, c, fx))
-      speech = speechText(s, c, fx, e.surface)
-    } else {
-      const Svg = ($.ui.resolve(e) as { Svg: unknown }).Svg
-      const width = Math.max(300, bandWidth(e.props.bodyColumns) - 90)
-      // Clawd and the meters are two drawings: a new pose replaces only Clawd's, so the meters never reload (a replaced
-      // drawing blinks) and change only when a number does.
-      const parts = bandParts(width, s.m, s.mascot)
-      const lane = bubbleLane($, s, c, Svg, fx, parts.meters.width, e.surface)
-      const column = el(c.Box, { key: 'col', flexDirection: 'column', paddingLeft: parts.mascot ? 3 : 0 }, el(Svg, { key: 'meters', source: parts.meters.source, alt: altText(s.m), width: parts.meters.width, height: parts.meters.height }), ...lane)
-      const drawn = el(
-        c.Box,
-        { key: 'art', flexDirection: 'row', alignItems: 'center' },
-        ...(parts.mascot ? [el(c.Box, { key: 'clawd', position: 'relative', flexShrink: 0 }, el(Svg, { key: 'mascot', source: parts.mascot.source, alt: STATES[s.state].label, isInteractive: true, width: parts.mascot.width, height: parts.mascot.height }), ...(s.hover ? [el(c.Box, { key: 'recall-hit', position: 'absolute', top: 1, left: 0, right: 0, overflow: 'hidden' }, el(c.Button, { key: 'recall', plain: true, onPress: () => fx.recall(s.hover?.text ?? '', s.hover?.alertId) }, NBSP.repeat(Math.ceil(parts.mascot.width / 3))))] : []))] : []),
-        column,
-      )
-      row = el(c.Box, { key: 'row', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, drawn, controls(s, c, fx, Svg))
-    }
-
-    const mine = el(c.Box, { key: bandKey('cockpit'), flexDirection: 'column' }, row, ...(speech as never[]))
-    return stack(below, mine as never, Box)
+    const mine = await bandTree($, e, { isWorking: e.props.isWorking, bodyColumns: e.props.bodyColumns, compact: false })
+    return stack(below, mine, $.ui.resolve(e).Box)
   })
+
+  // The dialog of a question from Claude replaces the prompt area, so the band above the prompt goes with it: draw the band
+  // over the dialog instead, with the engine's own dialog kept once beneath it. The dialog's row budget is small on the
+  // terminal (12 rows), so there the band is one row, without the speech.
+  on('ui.render', { component: 'AskUserQuestion' }, async ($, e, next) => {
+    const dialog = await next(e)
+    if (!mood.dialog) {
+      // The band above the prompt steps aside from now on (see its hook): one redraw so it does.
+      mood.dialog = true
+      $.clock.after(0, () => $.ui.invalidate('ui.render'))
+    }
+    try {
+      const { Box } = $.ui.resolve(e)
+      const mine = await bandTree($, e, { isWorking: true, bodyColumns: e.viewport?.columns ?? 80, compact: e.surface === 'terminal', plain: true })
+      return h(Box as never, { key: 'ask-band', flexDirection: 'column' } as never, mine as never, dialog as never) as never
+    } catch {
+      return dialog
+    }
+  }).catch(($, e, next) => next(e))
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const s = await snapshot($, false)

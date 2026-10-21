@@ -190,3 +190,9 @@ The px-sized lane (0.18.1) and the Button layer spanning the box with two Button
 - Clawd's drawing no longer carries the bubble's words in its alt text (a changed prop could redraw him); the bubble's own drawing carries them.
 - Tests: a bubble that arrives with buttons opens with the scale out of Clawd, one that leaves closes with the scale back; Clawd's alt is stable; `altOf` reads the bubble's drawing.
 - Reviewed and left as they are: the timers (every `invalidate` is scheduled once per change, none from inside a render except the one that closes a stale menu), the stream observation in `turn.step` (every chunk passed on unchanged, the generator closed if it is cut short), the terminal and side-panel paths (text buttons, no drawings), the meters' drawing (a new string only when a number changes).
+
+## The band over a question from Claude (0.24.0)
+The dialog of a question (`AskUserQuestion`) replaces the prompt area, and the band above the prompt went with it. Now a `ui.render` hook on `AskUserQuestion` draws a small band over the dialog and keeps the engine's dialog once beneath it (`hooks/register.tsx`, `bandTree` with `plain: true`).
+- The dialog's tree takes no size and no place: no overlay, no fixed width, no buttons, no speech. On the desktop it is Clawd and the meters at their own size in a row; on the terminal one text row (12-row budget counted at 40 columns), cut at the edge.
+- While the dialog is open the band above the prompt steps aside (`mood.dialog`), so it is never on screen twice. The flag ends with the tool call (`toolEnds`), the turn, or a new message.
+- Not verified on the real desktop app: whether it also keeps drawing AbovePrompt during the dialog (the types do not say), and how the dialog's own layout looks with the band over it. If the dialog is skipped, the engine draws it alone (an invalid tree is skipped).
