@@ -93,6 +93,26 @@ test('a survey or a question holds the band and the cockpit stays under it, neve
   }
 })
 
+const dialog = (surface: 'desktop' | 'terminal') =>
+  ({ plugin: 'cockpit', surface, component: 'AskUserQuestion', props: { tool: 'AskUserQuestion', questions: [{ question: 'Which?', header: 'Pick', options: [], multiSelect: false }] } }) as never
+
+test('a question from Claude: the band is drawn over its dialog, the engine dialog kept once, and the band above the prompt steps aside', async ($, on) => {
+  mock.clock(on, { now: WED })
+  on('session.measure', (_, e) => ({ changed: e.changed }))
+  on('ui.render', () => ({ type: 'engine', ref: 0 }) as never)
+
+  for (const surface of ['desktop', 'terminal'] as const) {
+    const ui = await $.ui.mount(dialog(surface))
+    expect(surface === 'desktop' ? await ui.find({ type: 'Svg' }) : await ui.find({ type: 'Text', text: /Ctx|Context/ })).toBeDefined()
+    expect(await ui.findAll({ type: 'engine' })).toHaveLength(1)
+    await ui.unmount()
+  }
+  // From then on the band above the prompt is not drawn as well (it would be on screen twice).
+  const above = await $.ui.mount(band('desktop'))
+  expect(await above.find({ type: 'Svg' })).toBeUndefined()
+  await above.unmount()
+})
+
 // The side panel: the app, not the mod, decides whether (and where) a docked pane is drawn.
 test('/meters side opens the pane and the band steps aside; /meters top brings it back', async ($, on) => {
   const w = world(on, { isPlaced: true })
