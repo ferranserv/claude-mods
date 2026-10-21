@@ -94,7 +94,7 @@ describe('the speech bubble', () => {
   })
   test('it fits its words: as wide as they are, padding either side, letters never squashed', () => {
     const still = (t: string) => bubbleArt(t, t, 600)
-    const widthOf = (t: string) => Number(/<rect x="10" y="3" width="(\d+)"/.exec(still(t).source)?.[1])
+    const widthOf = (t: string) => Number(/<rect x="10" y="2" width="(\d+)"/.exec(still(t).source)?.[1])
     expect(widthOf('Done.')).toBe(bubbleTextWidth('Done.') + 24 - 4) // the border block, inside the stepped corners; 12 px of padding each side
     expect(widthOf('A much longer sentence than the first')).toBeGreaterThan(widthOf('Done.'))
     expect(still('Done.').source).toContain('lengthAdjust="spacing"') // only the space between letters is fitted, the letters keep their shape
@@ -116,7 +116,7 @@ describe('the speech bubble', () => {
     expect(bubbleTextWidth(cut)).toBeLessThanOrEqual(150)
     expect(fitText('Done.', 150)).toBe('Done.')
   })
-  test('opening scales out of Clawd while the words are typed; closing deletes them and scales back; changing deletes, resizes, types', () => {
+  test('opening scales out of Clawd while the words are typed; closing deletes them and scales back; changing deletes (the bubble shortens), types (it lengthens)', () => {
     const open = bubbleArt('', 'Done.', 400)
     expect(open.source).toContain('opacity="0"')
     expect(open.source).toContain('type="scale" values="0.5;1.06;1"')
@@ -132,7 +132,7 @@ describe('the speech bubble', () => {
     expect(change.source).toContain('>Waiting for your answer<')
     expect(change.source).toContain('clip-path="url(#cko)"')
     expect(change.source).toContain('clip-path="url(#ckn)"')
-    expect(change.source).toMatch(/<animate attributeName="width" from="\d+" to="\d+"/) // ...resized, not replaced
+    expect(change.source).toMatch(/<animate attributeName="width" values="[\d;]+" keyTimes="[\d.;]+" calcMode="discrete"/) // ...and the bubble shortens with the letters, then lengthens with the new ones: one drawing written over
     expect(change.source).not.toContain('type="scale"') // no pop between two bubbles
     expect(change.seconds).toBeGreaterThan(open.seconds * 0 + 0.3)
   })
@@ -146,12 +146,11 @@ describe('the speech bubble', () => {
 })
 
 describe('a button is a drawing with the Button over it', () => {
-  test('gray with dark text, a whole number of cells wide and exactly the lane (two rows) tall, so the Button over it covers exactly it', () => {
+  test('gray with dark text, as wide as its label needs in px and exactly one row tall, like the one Button over it', () => {
     const p = pillSvg('Handoff')
-    expect(p.width).toBe(p.cols * CELL.w)
-    expect(p.width).toBeGreaterThanOrEqual(textPx('Handoff', 12) + 26)
-    expect(p.height).toBe(CELL.h * 2)
-    expect(p.height).toBe(LANE_H)
+    expect(p.width).toBeGreaterThan(pillSvg('OK').width)
+    expect(p.width).toBeGreaterThanOrEqual(textPx('Handoff', 12) + 20)
+    expect(p.height).toBe(CELL.h)
     expect(p.source).toContain('#8E8E93')
     expect(p.source).toContain('>Handoff<')
     expect(p.source).not.toContain('fill-opacity')

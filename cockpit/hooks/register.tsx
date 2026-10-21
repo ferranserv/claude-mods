@@ -1143,6 +1143,18 @@ function dismissBubble(): void {
   mood.msg = null
 }
 
+/**
+ * Clicking Clawd says again what his pose is about: a warning you had answered comes back (and stays until you answer it
+ * again); anything else is said for a few seconds. There is no hover to count on in the app, so he is a button.
+ */
+async function recallNow($: EngineInterface, text: string, alertId?: string): Promise<void> {
+  if (alertId !== undefined) {
+    mood.dismissed = mood.dismissed.filter(id => id !== alertId)
+    mood.msg = null
+    poke($)
+  } else if (text !== '') await tell($, text)
+}
+
 /** What pressing a button does. */
 function runAct(a: ActRef, fx: Fx, surface: string): void {
   if (a.id === 'handoff') fx.handoff('full')
@@ -1168,11 +1180,13 @@ function runAct(a: ActRef, fx: Fx, surface: string): void {
  */
 function artButton(c: Comps, label: string, key: string, onPress: () => void) {
   const art = pillSvg(label)
+  // The drawing is one row tall and px wide; the box around it is exactly that (no cells counted), and ONE Button, one row
+  // tall like the drawing, is cut to it: the Button's box is the drawing and the drawing is where it is clicked.
   return el(
     c.Box,
-    { key: `${key}-wrap`, position: 'relative', width: art.cols, height: LANE_H / CELL.h, overflow: 'hidden', flexShrink: 0 },
+    { key: `${key}-wrap`, position: 'relative', overflow: 'hidden', flexShrink: 0 },
     el(c.Svg as never, { key: 'art', source: art.source, alt: label, width: art.width, height: art.height }),
-    el(c.Box, { key: 'hit', position: 'absolute', top: 0, left: 0 }, el(c.Button, { key, plain: true, onPress }, NBSP.repeat(art.cols * 2))),
+    el(c.Box, { key: 'hit', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden' }, el(c.Button, { key, plain: true, onPress }, NBSP.repeat(Math.ceil(art.width / 3)))),
   )
 }
 
@@ -1232,26 +1246,6 @@ function controls(s: Snap, c: Comps, fx: Fx, Svg: unknown = null) {
 }
 
 
-/** The hover group of Clawd and the bubble that reappears while the pointer is on him. */
-const HOVER = 'cockpit-clawd'
-
-/**
- * What Clawd would say about the state he is in, drawn hidden over the lane and revealed while the pointer is on him (a
- * hover group, no hook runs): a bubble that went away is one hover from coming back, and goes again when the pointer leaves.
- */
-function hoverCard(s: Snap, c: Comps, Svg: unknown, fx: Fx, room: number, surface: string): unknown[] {
-  if (!s.hover || s.speech || !s.mascot.width) return []
-  const first = s.hover.acts[0]
-  const art = bubbleArt(s.hover.text, s.hover.text, Math.max(120, room - (first ? pillSvg(first.label).width + CELL.w : 0)))
-  return [
-    el(
-      c.Box,
-      { key: 'hover-card', position: 'absolute', top: 0, left: 0, display: 'none', hover: { scope: HOVER, display: 'flex' }, flexDirection: 'row', alignItems: 'center', gap: 1 },
-      el(Svg, { key: 'art', source: art.source, alt: s.hover.text, width: art.width, height: art.height }),
-      ...(first ? [actButton(first, c, fx, surface, 'hover-')] : []),
-    ),
-  ]
-}
 
 /**
  * The bubble's lane: one row, always there, under the meters and beside Clawd, so the cockpit never grows or shrinks when
@@ -1265,7 +1259,7 @@ function bubbleLane($: EngineInterface, s: Snap, c: Comps, Svg: unknown, fx: Fx,
   // The bubble gets all the row up to its buttons (and no more than its words need); with no buttons, all of it.
   const gap = CELL.w
   const buttonsPx = (first ? pillSvg(first.label).width : 0) + (hasMore ? pillSvg('…').width : 0) + (first && hasMore ? gap : 0)
-  const room = Math.max(120, Math.floor((metersPx - (buttonsPx > 0 ? buttonsPx + gap : 0)) / CELL.w) * CELL.w)
+  const room = Math.max(120, metersPx - (buttonsPx > 0 ? buttonsPx + gap : 0))
   const text = s.speech?.text ?? ''
   let bub = mood.bub
   if (!bub || bub.room !== room) {
@@ -1289,16 +1283,17 @@ function bubbleLane($: EngineInterface, s: Snap, c: Comps, Svg: unknown, fx: Fx,
   const last = bub.layers[bub.layers.length - 1]
   if (last && bub.text === '' && last.until <= s.now) bub.layers = [] // closed: nothing is left drawn
   const buttons = s.speech ? [...(first ? [actButton(first, c, fx, surface)] : []), ...(hasMore ? [moreButton(s, c, fx)] : [])] : []
-  const cols = (px: number) => Math.floor(px / CELL.w)
-  const rows = LANE_H / CELL.h
+  // The lane is made of drawings in px and the buttons sit at the right edge of the meters' width through a growing spacer:
+  // nothing is counted in the host's character cells, so nothing drifts.
   const zone = el(
     c.Box,
-    { key: 'zone', position: 'relative', width: cols(room), height: rows, flexShrink: 0 },
+    { key: 'zone', position: 'relative', flexShrink: 0 },
+    // A blank drawing that holds the lane's height and the bubble's width (the bubble drawings are laid over it).
+    el(Svg, { key: 'space', source: `<svg xmlns="http://www.w3.org/2000/svg" width="${room}" height="${LANE_H}"/>`, alt: 'bubble space', width: room, height: LANE_H }),
     ...bub.layers.map(l => el(c.Box, { key: l.key, position: 'absolute', top: 0, left: 0 }, el(Svg, { key: 'art', source: l.art.source, alt: text, isInteractive: true, width: l.art.width, height: l.art.height }))),
-    ...hoverCard(s, c, Svg, fx, room, surface),
   )
   return [
-    el(c.Box, { key: 'lane', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: cols(metersPx), height: rows }, zone, el(c.Box, { key: 'buttons', flexDirection: 'row', alignItems: 'center', gap: 1, flexShrink: 0 }, ...buttons)),
+    el(c.Box, { key: 'lane', flexDirection: 'row', alignItems: 'center' }, zone, el(c.Box, { key: 'grow', flexGrow: 1 }), el(c.Box, { key: 'buttons', flexDirection: 'row', alignItems: 'center', gap: 1, flexShrink: 0 }, ...buttons)),
     ...menuRow(s, c, fx, surface, 0),
   ]
 }
@@ -1322,6 +1317,7 @@ type Fx = {
   hideAdvice: () => void
   dismissNotice: () => void
   menu: (open: boolean) => void
+  recall: (text: string, alertId?: string) => void
 }
 
 /** What the band's buttons do; every one passes `$` only to a function declared above. */
@@ -1348,6 +1344,7 @@ function makeFx($: EngineInterface): Fx {
     hideAdvice: () => void update($, isDismissed, () => true),
     dismissNotice: () => void update($, notice, () => null),
     menu: open => void update($, menuState, () => open),
+    recall: (text, alertId) => void recallNow($, text, alertId),
   }
 }
 
@@ -1424,6 +1421,11 @@ async function startBand($: EngineInterface): Promise<void> {
   const storedMascot = await $.store.get('mascot')
   if (storedMascot === 'normal' || storedMascot === 'small' || storedMascot === 'off') mascotMode = storedMascot
   mood.walkUntil = (await $.clock.now()) + START_MS
+  // A session started (or opened again): what was drawn for another one is forgotten, so nothing stale is laid over what this one draws.
+  mood.bub = null
+  mood.drawn = null
+  mood.move = null
+  mood.msg = null
   mood.isFirstPrompt = true
   poke($, START_MS)
 }
@@ -1898,7 +1900,7 @@ export const register: Register = (on, options) => {
       const drawn = el(
         c.Box,
         { key: 'art', flexDirection: 'row', alignItems: 'center' },
-        ...(parts.mascot ? [el(c.Box, { key: 'clawd', hover: { scope: HOVER } }, el(Svg, { key: 'mascot', source: parts.mascot.source, alt: `${STATES[s.state].label}${s.speech ? `. ${s.speech.text}` : ''}`, isInteractive: true, width: parts.mascot.width, height: parts.mascot.height }))] : []),
+        ...(parts.mascot ? [el(c.Box, { key: 'clawd', position: 'relative', flexShrink: 0 }, el(Svg, { key: 'mascot', source: parts.mascot.source, alt: `${STATES[s.state].label}${s.speech ? `. ${s.speech.text}` : ''}`, isInteractive: true, width: parts.mascot.width, height: parts.mascot.height }), ...(s.hover ? [el(c.Box, { key: 'recall-hit', position: 'absolute', top: 1, left: 0, right: 0, overflow: 'hidden' }, el(c.Button, { key: 'recall', plain: true, onPress: () => fx.recall(s.hover?.text ?? '', s.hover?.alertId) }, NBSP.repeat(Math.ceil(parts.mascot.width / 3))))] : []))] : []),
         column,
       )
       row = el(c.Box, { key: 'row', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, drawn, controls(s, c, fx, Svg))

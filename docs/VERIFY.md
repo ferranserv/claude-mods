@@ -154,3 +154,13 @@ Report anything off in plain words ("the palm tree overlaps", "no animation", "a
 
 | 95 | Ask Claude to write a long new file | Clawd paints (moustache, a palette in one hand, a brush in the other) with the bubble "Creating <file>"; the hammer when the tool runs | |
 | 96 | Let Claude ask you a question (AskUserQuestion) | The cockpit stays under the question; Clawd raises his hand with the bobbing "!" | |
+
+## 0.19.0
+
+| # | Do | Expect | OK? |
+|---|---|---|---|
+| 97 | Click Clawd (his body) while a warning bubble is dismissed or he is thinking | The warning comes back with its button, or a short line says what he is doing | |
+| 98 | Click each gray button at its top, bottom, left and right edges | Every edge of the drawing clicks; nothing outside it does; no second button shows | |
+| 99 | Let a bubble change text (`/cockpit demo cold` then `demo fire`) | The old words are deleted and the bubble shortens; the new ones are typed and it lengthens. No second bubble over the first | |
+| 100 | Watch Clawd typing for 10 seconds | He chews, blows a pink bubble, it pops, he chews again | |
+| 101 | Switch to another session and back | Clawd's box is not white. If it is: does it clear by itself, or on the next pose change? | |

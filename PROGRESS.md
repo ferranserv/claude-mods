@@ -188,3 +188,5 @@ Not verifiable from the cloud: the lane's px height in the app (blank drawing in
 ## 0.18.3: bell<->detective moves, smaller typing mouth, button hit areas sized by their drawings (px) instead of cells. 232 tests.
 
 ## 0.18.4: buttons back to the cell-based layout that lined up (0.18.1/0.18.3 broke it: two stacked Buttons showed as two native buttons). Bubble/buttons 30 px in a 36 px lane, meters 41 px. 232 tests.
+
+## 0.19.0: click on Clawd instead of hover, gum bubbles while typing, bubble written over (shortens/lengthens with letters), buttons one row tall in px with one Button each, moustache clear of the eyes, state reset on session start. 232 tests.

@@ -53,3 +53,4 @@ SVG per frame set, frames swapped by SMIL (`animate` on opacity, `isInteractive:
 - 0.17.0: `creating` (a curled moustache and no hat, a color palette with four blobs of paint in the left hand, a paintbrush in the right that dips into the palette and strokes the air with the color of each blob); 31 states.
 - 0.18.0: `creating` redrawn as a clear painter (handlebar moustache, palette, brush, an easel with a canvas that fills in); `typing` has a concentration mouth (`focus`).
 - 0.18.2: hand-drawn moves painter <-> builder and painter <-> typing; the brush and the palette are carried props (small in his hand while put away or fetched).
+- 0.19.0: `typing` chews gum and blows pink bubbles (gum 1 to 3, pop 4; mouths `chew` and `chewOpen`); the painter's moustache is two rows clear of the eyes.

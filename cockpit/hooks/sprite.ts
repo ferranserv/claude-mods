@@ -118,11 +118,20 @@ function clawd(o) {
   if (o.mouth === 'o') fill(mc + 1, my - 1, 2, 2, 'k');
   if (o.mouth === 'yawn') { fill(mc, my - 2, 4, 5, 'k'); fill(mc + 1, my + 1, 2, 1, 'h'); }
   if (o.mouth === 'flat') fill(mc + 1, my, 2, 1, 'w');
-  if (o.mouth === 'focus') fill(mc + 4, my + 1, 2, 1, 'w');   // concentrating: a very small flat line, low and off to one side, well away from the eyes
+  if (o.mouth === 'focus') fill(mc + 4, my + 1, 2, 1, 'w');
+  if (o.mouth === 'chew') fill(mc + 3, my + 1, 3, 1, 'w');   // chewing gum, closed
+  if (o.mouth === 'chewOpen') { fill(mc + 3, my + 1, 3, 2, 'k'); fill(mc + 3, my + 1, 3, 1, 'w'); }   // and open   // concentrating: a very small flat line, low and off to one side, well away from the eyes
 
   if (o.mouth === 'grim') { fill(mc, my, 4, 1, 'w'); set(mc - 1, my + 1, 'w'); set(mc + 4, my + 1, 'w'); }
+  if (o.gum) {   // bubble gum from the mouth: it swells (1 to 3) and pops (4), pink with a darker rim and a glint
+    const gx = X + 15, gy = Y + 7, g = o.gum;
+    if (g === 1) fill(gx - 1, gy - 1, 2, 2, 'p');
+    if (g === 2) { fill(gx - 2, gy - 1, 4, 3, 'p'); fill(gx - 1, gy - 2, 2, 1, 'p'); fill(gx - 1, gy + 2, 2, 1, 'P'); set(gx - 2, gy + 1, 'P'); set(gx + 1, gy + 1, 'P'); }
+    if (g === 3) { fill(gx - 3, gy - 2, 6, 4, 'p'); fill(gx - 2, gy - 3, 4, 1, 'p'); fill(gx - 2, gy + 2, 4, 1, 'p'); fill(gx - 1, gy + 3, 2, 1, 'P'); fill(gx - 3, gy + 1, 1, 2, 'P'); fill(gx + 2, gy + 1, 1, 2, 'P'); set(gx - 2, gy - 2, 'w'); set(gx - 1, gy - 2, 'w'); }
+    if (g === 4) { [[-4, -2], [-3, 1], [4, -1], [3, 2], [0, -4], [-1, 3], [2, 3]].forEach(([dx, dy]) => set(gx + dx, gy + dy, 'p')); [[-3, -1], [3, 0], [-2, 2], [2, -3]].forEach(([dx, dy]) => set(gx + dx, gy + dy, 'P')); }   // it pops: scraps of gum around the mouth
+  }
   // a handlebar moustache under the eyes, ends curled up (the painter)
-  if (o.stache) { fill(X + 8, Y + 5, 8, 2, 'X'); fill(X + 6, Y + 6, 2, 1, 'X'); fill(X + 5, Y + 5, 1, 1, 'X'); fill(X + 4, Y + 4, 2, 1, 'X'); fill(X + 16, Y + 6, 2, 1, 'X'); fill(X + 18, Y + 5, 1, 1, 'X'); fill(X + 18, Y + 4, 2, 1, 'X'); set(X + 11, Y + 5, null); set(X + 12, Y + 5, null); }
+  if (o.stache) { fill(X + 8, Y + 5, 8, 2, 'X'); fill(X + 6, Y + 6, 2, 1, 'X'); fill(X + 16, Y + 6, 2, 1, 'X'); set(X + 5, Y + 5, 'X'); set(X + 18, Y + 5, 'X'); set(X + 11, Y + 5, null); set(X + 12, Y + 5, null); }   // nothing above Y + 5: a clear row stays between it and the eyes
   // ---- face props
   if (o.shades) { fill(X + 5, Y + 2, 5, 3, 'd'); fill(X + 14, Y + 2, 5, 3, 'd'); fill(X + 10, Y + 2, 4, 1, 'd'); set(X + 6, Y + 2, 'w'); set(X + 15, Y + 2, 'w'); }
   if (o.glasses) { for (const gx of [X + 4, X + 14]) { fill(gx, Y + 1, 6, 1, 'n'); fill(gx, Y + 5, 6, 1, 'n'); fill(gx, Y + 1, 1, 5, 'n'); fill(gx + 5, Y + 1, 1, 5, 'n'); } fill(X + 10, Y + 3, 4, 1, 'n'); }
