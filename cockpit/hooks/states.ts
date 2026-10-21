@@ -193,6 +193,8 @@ const RISE: Pose[] = [
 
 /** Props he wears or holds: when one goes or comes, his hand takes it or fetches it. */
 const HELD = ['shades', 'hat', 'glasses', 'laptop', 'book', 'stack', 'scroll', 'clipboard', 'cup', 'flask', 'glass', 'browser', 'bell', 'wrench', 'paper', 'bulb', 'wand']
+/** The drawing of a prop in his hand: a hat is told apart by its kind (hard hat, fedora, wizard hat). */
+const carried = (k: string, p: Pose): string => (k === 'hat' ? `hat-${p.hat}` : k)
 const without = (p: Pose, ks: string[]): Pose => {
   const o: Pose = { ...p }
   for (const k of ks) delete o[k]
@@ -215,14 +217,14 @@ function stage(frames: Pose[]): Pose[] {
       const came = HELD.filter(k => f[k] === undefined && g[k] !== undefined)
       let cur = f
       if (gone.length) {
-        const k = gone[0]!
+        const k = carried(gone[0]!, f)
         out.push({ ...cur, armR: 'up' })
         out.push({ ...without(cur, gone), armR: 'up', carry: k, at: 1 })
         out.push({ ...without(cur, gone), armR: 'out', carry: k, at: 3 })
         cur = without(cur, gone)
       }
       if (came.length) {
-        const k = came[0]!
+        const k = carried(came[0]!, g)
         out.push({ ...cur, armR: 'out', carry: k, at: 3 })
         out.push({ ...cur, armR: 'up', carry: k, at: 1 })
       }
@@ -262,6 +264,32 @@ function paced(frames: Pose[], from: StateId): { fd: number; frames: Pose[] } {
   return { fd: total > cap ? (MOVE_FD * cap) / total : MOVE_FD, frames }
 }
 
+/** His colors when he is warm and when the cache has frozen him. */
+const WARM_PAL = { c: '#DA7758', k: '#b5593d', f: '#f0a07c' }
+const COLD_PAL = STATES.cold.frames[0]!.pal as Record<string, string>
+const COLD_MOVE_S = 2
+const WARM_MOVE_S = 1.2
+const mixHex = (a: string, b: string, t: number): string => {
+  const n = (h: string, i: number) => parseInt(h.slice(1 + i * 2, 3 + i * 2), 16)
+  return `#${[0, 1, 2].map(i => Math.round(n(a, i) + (n(b, i) - n(a, i)) * t).toString(16).padStart(2, '0')).join('')}`
+}
+
+/**
+ * Going to or from cold is a slow change of color: his body goes from orange to ice blue (or back) a little with
+ * every frame, over COLD_MOVE_S (WARM_MOVE_S coming back). The first frame is the state he leaves, the last his
+ * first in the one he enters, both with their own colors.
+ */
+function tinted(frames: Pose[], toCold: boolean): { fd: number; frames: Pose[] } {
+  const n = frames.length
+  const out = frames.map((f, i) => {
+    const t = toCold ? i / (n - 1) : 1 - i / (n - 1)
+    if (i === 0 || i === n - 1) return f
+    return { ...f, pal: { c: mixHex(WARM_PAL.c, COLD_PAL.c!, t), k: mixHex(WARM_PAL.k, COLD_PAL.k!, t), f: mixHex(WARM_PAL.f, COLD_PAL.f!, t) } }
+  })
+  const weight = out.reduce((a, f) => a + (f.hold ?? 1), 0)
+  return { fd: (toCold ? COLD_MOVE_S : WARM_MOVE_S) / weight, frames: out }
+}
+
 /**
  * The move between two states: the hand-drawn one when there is one, otherwise a morph. The morph drops what
  * he holds (a bare, blinking Clawd) and picks up the next thing, which works for any pair because every state
@@ -276,6 +304,10 @@ function moveOf(from: StateId, to: StateId): (Move & { w: number }) | null {
   // Drawn on the canvas of the state he enters (the band's layout is fixed by it); a wider scene he leaves is skipped.
   const w = b.w ?? 34
   const first = (a.w ?? 34) <= w ? [a.frames[0] ?? {}] : []
+  if (to === 'cold' || from === 'cold') {
+    const mid: Pose[] = [{ ...NEUTRAL }, { eyes: 'half', mouth: 'grim' }, { eyes: 'half', mouth: 'grim', armL: 'half', armR: 'half' }, { eyes: 'half', mouth: 'grim', armL: 'half', armR: 'half' }]
+    return { ...tinted(smooth([...first, ...mid, b.frames[0] ?? {}]), to === 'cold'), w }
+  }
   if (to === 'asleep') return { ...paced(smooth([...first, { ...NEUTRAL, eyes: 'open' }, ...RISE, b.frames[0] ?? {}]), from), w }
   // Reading brings a lot with it (glasses, a book, a stack of books): they come and go one at a time, not all at once.
   if (to === 'reading') return { ...paced(smooth([...first, { ...NEUTRAL }, { glasses: 1, look: 'down', eyes: 'half' }, { glasses: 1, stack: 1, look: 'down', eyes: 'half', armL: 'hold', armR: 'hold' }, b.frames[0] ?? {}]), from), w }

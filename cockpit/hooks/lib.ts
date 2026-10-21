@@ -426,40 +426,25 @@ export function wandSvg(dim: boolean): { source: string; width: number; height: 
 }
 
 const BUBBLE_H = 26
-const BTN_H = 18
-/** How wide a button drawn as a pill is, in whole terminal columns (the click area is laid over it in columns of 8 px). */
-export const pillCols = (label: string): number => Math.ceil((label.length * 7 + 18) / 8)
+/** Room around a bubble drawn on its own: the tail on the left, the shadow all round. */
+const BUBBLE_PAD = { x: 8, y: 6 }
 
-/** One button as a drawing: the cockpit gray with dark text and stepped pixel corners. The real, clickable button is laid over it. */
-export function pillSvg(label: string): { source: string; width: number; height: number; cols: number } {
-  const cols = pillCols(label)
-  const w = cols * 8
-  const h = BTN_H
-  const r = (x: number, y: number, rw: number, rh: number) => `<rect x="${x}" y="${y}" width="${rw}" height="${rh}" fill="${C.gray}"/>`
-  const out = `${r(2, 0, w - 4, h)}${r(0, 2, w, h - 4)}<text x="${w / 2}" y="${h / 2 + 4}" text-anchor="middle" font-size="11" font-weight="400" fill="#1b1a19">${esc(label)}</text>`
-  return { source: wrapSvg(w, h, out), width: w, height: h, cols }
-}
-
-/** How wide the speech bubble is for this text (and the button inside it, if any), in px. */
-const bubbleWidth = (text: string, button: string | null, room: number): number =>
-  Math.min(Math.max(60, room), Math.max(60, Math.round(text.length * 7 + 24 + (button ? pillCols(button) * 8 + 12 : 0))))
+/** How wide the speech bubble is for this text, in px. */
+const bubbleWidth = (text: string, room: number): number => Math.min(Math.max(60, room), Math.max(60, Math.round(text.length * 7 + 24)))
 
 /**
- * Clawd's speech bubble in pixels, drawn inside the band at its foot, over the small print and not the meters, so the
- * band never grows: the cockpit gray inside, a dark stepped border, a tail pointing left to Clawd, regular text, and
- * its button drawn inside it at the right. What is behind it is dimmed by a shadow in the bubble's own shape. It
- * materializes (grows with a small overshoot and fades in) or, leaving, shrinks and fades; leaving stays in the
- * drawing, invisible, so it takes no second redraw. (bx, by) is its top left.
+ * Clawd's speech bubble in pixels: the cockpit gray inside, a dark stepped border, a tail pointing left to Clawd and
+ * regular text. What is behind it is dimmed by a shadow in the bubble's own shape. It materializes (grows with a
+ * small overshoot and fades in) or, leaving, shrinks and fades; leaving stays in the drawing, invisible, so it takes
+ * no second redraw. (bx, by) is its top left.
  */
-function bubbleOut(text: string, bx: number, by: number, w: number, phase: 'in' | 'out', button: string | null): string {
+function bubbleOut(text: string, bx: number, by: number, w: number, phase: 'in' | 'out'): string {
   const h = BUBBLE_H
   const cx = bx + Math.round(w / 2)
   const cy = by + h / 2
   const r = (x: number, y: number, rw: number, rh: number, c: string) => `<rect x="${x}" y="${y}" width="${rw}" height="${rh}" fill="${c}"/>`
   const D = '#0b0705'
   const G = C.gray
-  const bw = button ? pillCols(button) * 8 : 0
-  const textMid = button ? bx + Math.round((w - bw - 6) / 2) : bx + Math.round(w / 2)
   const art = [
     r(bx + 2, by, w - 4, h, D), r(bx, by + 2, w, h - 4, D), // the border: a block with its corners stepped
     r(bx + 4, by + 2, w - 8, h - 4, G), r(bx + 2, by + 4, w - 4, h - 8, G), // the inside, stepped the same way
@@ -467,8 +452,7 @@ function bubbleOut(text: string, bx: number, by: number, w: number, phase: 'in' 
     r(bx - 2, by + 8, 2, 10, D), r(bx - 2, by + 10, 2, 6, G),
     r(bx - 4, by + 10, 2, 6, D), r(bx - 4, by + 12, 2, 2, G),
     r(bx - 6, by + 12, 2, 2, D),
-    `<text x="${textMid}" y="${by + h / 2 + 4}" text-anchor="middle" font-size="12" font-weight="400" fill="#1b1a19">${esc(text)}</text>`,
-    button ? `${r(bx + w - bw - 6 + 2, by + 4, bw - 4, BTN_H, '#2b2a28')}${r(bx + w - bw - 6, by + 6, bw, BTN_H - 4, '#2b2a28')}<text x="${bx + w - bw / 2 - 6}" y="${by + 4 + BTN_H / 2 + 4}" text-anchor="middle" font-size="11" font-weight="400" fill="#ece8e1">${esc(button)}</text>` : '',
+    `<text x="${bx + Math.round(w / 2)}" y="${by + h / 2 + 4}" text-anchor="middle" font-size="12" font-weight="400" fill="#1b1a19">${esc(text)}</text>`,
   ].join('')
   // The shadow has the bubble's own stepped shape: a few copies, each a pixel wider and fainter, so it fades out
   // over 4 px all round and never reaches the edge of the band (the bubble keeps 6 px clear below it).
@@ -480,6 +464,17 @@ function bubbleOut(text: string, bx: number, by: number, w: number, phase: 'in' 
   const anim = `<animate attributeName="opacity" from="${fade[0]}" to="${fade[1]}" dur="${dur}s" fill="freeze"/>`
   const grow = `<animateTransform attributeName="transform" type="scale" ${scale} dur="${dur}s" fill="freeze"/>`
   return `<g transform="translate(${cx} ${cy})"${phase === 'out' ? ' opacity="0"' : ''}>${anim}<g>${grow}<g transform="translate(${-cx} ${-cy})">${dim}${art}</g></g></g>`
+}
+
+/**
+ * A bubble drawn on its own, `w` wide (the width cockpitSvg gave it), for one with a real button beside it: the
+ * button is laid out next to this drawing and not over a guessed spot in the band, so the click area is the
+ * button itself and cannot drift from what is drawn.
+ */
+export function bubbleSvg(text: string, w: number): { source: string; width: number; height: number } {
+  const width = w + BUBBLE_PAD.x + 6
+  const height = BUBBLE_H + 2 * BUBBLE_PAD.y
+  return { source: wrapSvg(width, height, bubbleOut(text, BUBBLE_PAD.x, BUBBLE_PAD.y, w, 'in')), width, height }
 }
 
 /** One slim band: the meters side by side, a few lines tall. */
@@ -564,10 +559,11 @@ export function bandSvg(width: number, m: Model): { source: string; width: numbe
 export const MIN_ROW = 46
 
 /** The whole cockpit drawing: the mascot on the left (if any), the meters beside it. */
-export type SpeechBubble = { text: string; phase: 'in' | 'out'; button?: string | null }
+/** `apart`: the bubble is not drawn here (it is drawn on its own, bubbleSvg, with a button beside it); only its place is worked out. */
+export type SpeechBubble = { text: string; phase: 'in' | 'out'; apart?: boolean }
 export type Rect = { x: number; y: number; w: number; h: number }
 
-export function cockpitSvg(width: number, m: Model, mascot: { markup: string; width: number; height: number }, bubble: SpeechBubble | null = null): { source: string; width: number; height: number; bubbleBox: Rect | null; buttonBox: Rect | null } {
+export function cockpitSvg(width: number, m: Model, mascot: { markup: string; width: number; height: number }, bubble: SpeechBubble | null = null): { source: string; width: number; height: number; bubbleBox: Rect | null } {
   const gap = mascot.width > 0 ? 12 : 0
   const bodyW = Math.max(200, width - mascot.width - gap)
   const body = bandBody(bodyW, m)
@@ -577,21 +573,15 @@ export function cockpitSvg(width: number, m: Model, mascot: { markup: string; wi
   const mascotY = Math.round((height - mascot.height) / 2)
   let out = `<g transform="translate(0 ${mascotY})">${mascot.markup}</g><g transform="translate(${mascot.width + gap} ${top})">${body.out}</g>`
   let bubbleBox: Rect | null = null
-  let buttonBox: Rect | null = null
   if (bubble) {
-    const button = bubble.phase === 'in' ? (bubble.button ?? null) : null
     const bx = mascot.width + gap + 6
-    const w = bubbleWidth(bubble.text, button, bodyW - 40)
+    const w = bubbleWidth(bubble.text, bodyW - 40 - (bubble.apart ? 90 : 0))
     // Below the bars (a meter row is label at 11, bar to 24), so only the small print is covered, and clear of the bottom edge.
-    const by = Math.min(height - BUBBLE_H - 6, Math.max(top + 28, height - BUBBLE_H - 10))
-    out += bubbleOut(bubble.text, bx, Math.max(0, by), w, bubble.phase, button)
-    bubbleBox = { x: bx, y: Math.max(0, by), w, h: BUBBLE_H }
-    if (button) {
-      const bw = pillCols(button) * 8
-      buttonBox = { x: bx + w - bw - 6, y: Math.max(0, by) + 4, w: bw, h: BTN_H }
-    }
+    const by = Math.max(0, Math.min(height - BUBBLE_H - 6, Math.max(top + 28, height - BUBBLE_H - 10)))
+    if (!bubble.apart) out += bubbleOut(bubble.text, bx, by, w, bubble.phase)
+    bubbleBox = { x: bx, y: by, w, h: BUBBLE_H }
   }
-  return { source: wrapSvg(mascot.width + gap + bodyW, height, out), width: mascot.width + gap + bodyW, height, bubbleBox, buttonBox }
+  return { source: wrapSvg(mascot.width + gap + bodyW, height, out), width: mascot.width + gap + bodyW, height, bubbleBox }
 }
 
 /** A hairline with room above and below it, to set one band apart from the next. */

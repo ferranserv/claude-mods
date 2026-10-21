@@ -18,9 +18,8 @@ import {
   cacheView,
   clockText,
   C,
+  bubbleSvg,
   cockpitSvg,
-  pillCols,
-  pillSvg,
   learnWindow,
   line,
   model,
@@ -131,7 +130,7 @@ const mood = {
   isFirstPrompt: true,
   busySince: 0,
   hasTool: false,
-  demo: null as { id: StateId; until: number } | null,
+  demo: null as { id: StateId; until: number; single: boolean } | null, // single: the only state of the demo; one with a button then stays until you answer it
   demoRun: 0,
   writing: false, // a handoff brief or an enhanced draft is being written
   sticky: null as { bubble: Bubble; state: StateId } | null, // a bubble that asks for a decision stays until you click its button or send something else
@@ -215,17 +214,21 @@ async function toolEnds($: EngineInterface, input: ToolInput, r: { isError?: boo
   else if ((tool === 'Bash' || tool === 'PowerShell') && TEST_COMMAND.test(String(input.command ?? ''))) await flash($, 'lab')
 }
 
+/** A demo that waits for its button has no end time. */
+const HELD = Number.MAX_SAFE_INTEGER
+
 /** `/cockpit demo`: shows every state for four seconds each, so you can check them on your own screen. */
 async function demoLoop($: EngineInterface, ids: StateId[]): Promise<void> {
   const run = ++mood.demoRun
   try {
     for (const id of ids) {
       if (run !== mood.demoRun) return
-      mood.demo = { id, until: (await $.clock.now()) + 4000 }
+      mood.demo = { id, until: (await $.clock.now()) + 4000, single: ids.length === 1 }
       poke($)
       await $.clock.sleep(4000)
     }
-    if (run === mood.demoRun) {
+    // A demo held for a button (see snapshot) ends when that is answered, not on a timer.
+    if (run === mood.demoRun && mood.demo?.until !== HELD) {
       mood.demo = null
       poke($)
     }
@@ -920,7 +923,11 @@ async function snapshot($: EngineInterface, propsWorking: boolean): Promise<Snap
   // A bubble that asks for a decision stays until you click its button or send something else; any other lingers a while
   // after its state ends. The raised hand never lingers: it goes the moment you answer.
   let speech: Bubble | null = bubble
-  if (state === 'hand') {
+  if (isDemo) {
+    // A demo shows the state with its own bubble and takes both away together; it leaves nothing pending behind. One
+    // state shown alone with a button waits for you to answer it, like the real one.
+    if (mood.demo?.single && bubble?.action) mood.demo.until = HELD
+  } else if (state === 'hand') {
     mood.linger = null
   } else {
     if (bubble?.action) mood.sticky = { bubble, state }
@@ -929,7 +936,7 @@ async function snapshot($: EngineInterface, propsWorking: boolean): Promise<Snap
     if (bubble && !bubble.action && mood.sticky) speech = mood.sticky.bubble // a pending decision is not pushed aside by a passing message
     else if (!bubble) speech = mood.sticky ? mood.sticky.bubble : mood.linger && mood.linger.until > now ? mood.linger.bubble : null
   }
-  mood.shownAlert = speech?.alertId ?? null
+  mood.shownAlert = isDemo ? null : (speech?.alertId ?? null)
   return {
     m,
     now,
@@ -975,28 +982,13 @@ const el = (type: unknown, props: Record<string, unknown>, ...children: unknown[
 const NBSP = '\u00A0'
 
 /**
- * The click area laid over a drawing: plain buttons of non-breaking spaces. A space is about half a column wide in the
- * app's font, so there are two per column; `rows` buttons are stacked, so a drawing that does not sit exactly on the
- * row grid is still covered.
- */
-function hit(c: Comps, key: string, cols: number, rows: number, onPress: () => void) {
-  const blank = NBSP.repeat(cols * 2)
-  return el(c.Box, { key: `${key}-hit`, flexDirection: 'column' }, ...Array.from({ length: rows }, (_, i) => el(c.Button, { key: i === 0 ? key : `${key}-${i}`, plain: true, onPress }, blank)))
-}
-
-/**
  * A button in the cockpit gray with dark text, the same as the speech bubble, whatever the app's own button style is.
- * On the desktop it is a drawing (pillSvg) with the real, plain button laid over it, one non-breaking space per column
- * so it has the size of the drawing; on the terminal it is text. A leading symbol of the label is dropped: it says what it does.
+ * It is a real button whose label carries the color (no drawing with a click area laid over it), so what you see is
+ * what you click on every surface. A leading symbol of the label is dropped: it says what it does.
  */
-function pill(c: Comps, label: string, props: Record<string, unknown>) {
+function pill(c: Comps, label: string, props: Record<string, unknown>, fill: { color: string; backgroundColor: string } = { color: '#1b1a19', backgroundColor: C.gray }) {
   const text = label.replace(/^[^\p{L}\p{N}]+/u, '')
-  if (c.Svg) {
-    const { key, ...rest } = props
-    const art = pillSvg(text)
-    return el(c.Box, { key: `${String(key)}-pill`, position: 'relative' }, el(c.Svg, { key: 'art', source: art.source, alt: text, width: art.width, height: art.height }), el(c.Box, { key: 'hit', position: 'absolute', top: 0, left: 0 }, hit(c, String(key), art.cols, 1, rest.onPress as () => void)))
-  }
-  return el(c.Button, { plain: true, ...props }, el(c.Text, { color: '#1b1a19', backgroundColor: C.gray }, ` ${text} `))
+  return el(c.Button, { plain: true, ...props }, el(c.Text, fill, `${NBSP}${text}${NBSP}`))
 }
 
 /** What each answer to a warning is called, and what pressing it does. */
@@ -1010,6 +1002,10 @@ function runAction(id: ActionId, fx: Fx): void {
 
 /** Pressing a button, or sending something else, is the decision a bubble was waiting for. */
 function dismissBubble(): void {
+  if (mood.demo?.until === HELD) {
+    mood.demoRun++
+    mood.demo = null
+  }
   if (mood.shownAlert && !mood.dismissed.includes(mood.shownAlert)) mood.dismissed.push(mood.shownAlert)
   mood.sticky = null
   mood.linger = null
@@ -1706,16 +1702,20 @@ export const register: Register = (on, options) => {
       const { Svg } = $.ui.resolve(e)
       // The bubble is drawn inside the band's own drawing, over the meters: the band never grows for it.
       const said = speaks && s.bubble ? s.bubble.text : null
-      if (said) mood.lastSaid = said
-      // When it has nothing to say it fades out of the same drawing (invisible) instead of being redrawn away.
+      // A bubble with a button is drawn apart from the band's drawing and laid out in a row with its real button: the
+      // click area is the button itself, never a guessed spot over a drawing.
       const act = speaks && s.bubble?.action && !(s.isWorking && s.bubble.action !== 'saverOn') ? s.bubble.action : null
-      const speech = said ? { text: said, phase: 'in' as const, button: act ? (ACTION_LABELS[act] ?? act) : null } : mood.lastSaid ? { text: mood.lastSaid, phase: 'out' as const } : null
+      // When it has nothing to say it fades out of the same drawing (invisible) instead of being redrawn away.
+      if (said && !act) mood.lastSaid = said
+      else if (act) mood.lastSaid = null
+      const speech = said ? { text: said, phase: 'in' as const, apart: act !== null } : mood.lastSaid ? { text: mood.lastSaid, phase: 'out' as const } : null
       const svg = cockpitSvg(Math.max(300, bandWidth(e.props.bodyColumns) - 90), s.m, s.mascot, speech)
-      // The button is drawn inside the bubble; the real one is laid over it (a column is about 8 px, a row about 18).
-      const bb = svg.buttonBox
-      const beside = act && bb ? [el(c.Box, { key: 'bubble', position: 'absolute', top: Math.max(0, Math.floor(bb.y / 18)), left: Math.round(bb.x / 8) }, hit(c, act === 'saverOn' ? 'saver' : act, pillCols(ACTION_LABELS[act] ?? act), 2, () => { dismissBubble(); runAction(act, fx) }))] : []
+      const bb = svg.bubbleBox
+      const label = act ? (ACTION_LABELS[act] ?? act) : ''
+      const art = act && said && bb ? bubbleSvg(said, bb.w) : null
+      const apart = act && said && art ? [el(c.Box, { key: 'bubble', position: 'absolute', top: Math.max(0, Math.floor((bb.y - 6) / 18)), left: Math.max(0, Math.floor((bb.x - 8) / 8)), flexDirection: 'row', alignItems: 'center' }, el(Svg, { key: 'bubble-art', source: art.source, alt: said, isInteractive: true, width: art.width, height: art.height }), pill(c, label, { key: act === 'saverOn' ? 'saver' : act, onPress: () => { dismissBubble(); runAction(act, fx) } }, { color: '#ece8e1', backgroundColor: '#2b2a28' }))] : []
       // An interactive Svg is drawn in a frame of its own: give it its real size, or the frame is far taller than the drawing.
-      row = el(c.Box, { key: 'row', position: 'relative', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, el(Svg, { key: 'svg', source: svg.source, alt: `${STATES[s.state].label}. ${said ? `${said}. ` : ''}${altText(s.m)}`, isInteractive: true, width: svg.width, height: svg.height }), controls(s, c, fx, onToggle, Svg), ...beside)
+      row = el(c.Box, { key: 'row', position: 'relative', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, el(Svg, { key: 'svg', source: svg.source, alt: `${STATES[s.state].label}. ${said ? `${said}. ` : ''}${altText(s.m)}`, isInteractive: true, width: svg.width, height: svg.height }), controls(s, c, fx, onToggle, Svg), ...apart)
     }
 
     const mine = el(c.Box, { key: bandKey('cockpit'), flexDirection: 'column' }, ...(speaks && s.bubble && e.surface === 'terminal' ? [bubbleFloat(s.bubble, c, fx, s.isWorking)] : []), row, ...(details(s, c, fx, e.surface) as never[]))

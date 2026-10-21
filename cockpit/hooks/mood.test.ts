@@ -194,6 +194,38 @@ describe('the moves between states', () => {
     expect(came.some(f => f.carry === 'shades' && f.at === 3 && f.armR === 'out')).toBe(true) // fetched from behind him
     expect(came.some(f => f.carry === 'bell')).toBe(true) // and the bell was put away first
   })
+  test('any state to cold turns him blue slowly, over two seconds; coming back out of it takes 1.2', () => {
+    for (const id of STATE_IDS) {
+      if (id === 'cold') continue
+      expect(moveMs(id, 'cold'), `${id}>cold`).toBe(2000)
+      expect(moveMs('cold', id), `cold>${id}`).toBe(1200)
+    }
+    const f = moveFrames('idle', 'cold')!.frames
+    const reds = f.map(x => (x.pal ? parseInt((x.pal as Record<string, string>).c!.slice(1, 3), 16) : null)).filter((v): v is number => v !== null)
+    expect(reds.length).toBeGreaterThanOrEqual(5) // a color at every step, not a jump
+    for (let i = 1; i < reds.length; i++) expect(reds[i]!).toBeLessThan(reds[i - 1]!) // each a little bluer than the one before
+    expect(f[0]!.pal).toBeUndefined() // he starts in his own colors
+    expect((f[f.length - 1]!.pal as Record<string, string>).c).toBe('#8fb9d9') // and ends frozen
+    const back = moveFrames('cold', 'idle')!.frames
+    expect((back[0]!.pal as Record<string, string>).c).toBe('#8fb9d9')
+    expect(back[back.length - 1]!.pal).toBeUndefined()
+  })
+  test('what he carries in his hand is a prop of one of the two states, and none looks like a bell but the bell', () => {
+    const mini = (k: string) => k
+    for (const a of STATE_IDS) for (const b of STATE_IDS) {
+      const m = moveFrames(a, b)
+      if (!m) continue
+      const own = new Set([...STATES[a].frames, ...STATES[b].frames].flatMap(fr => Object.keys(fr)))
+      for (const fr of m.frames) {
+        if (!fr.carry) continue
+        const key = mini(String(fr.carry)).replace(/^hat-.*/, 'hat')
+        expect(own.has(key), `${a}>${b} carries ${fr.carry}`).toBe(true)
+        if (fr.carry === 'bell') expect([a, b].includes('bell'), `${a}>${b} carries a bell`).toBe(true)
+      }
+    }
+    const hand = moveFrames('idle', 'hand')!.frames.filter(fr => fr.carry)
+    expect(hand.map(fr => fr.carry)).not.toContain('bell')
+  })
   test('going to bed: the clock rises and pushes him up, he hops, his legs fold away and he slumps onto it', () => {
     const f = moveFrames('sleepy', 'asleep')!.frames
     const rise = f.filter(x => x.clockY !== undefined)
