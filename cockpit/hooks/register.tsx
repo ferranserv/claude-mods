@@ -52,7 +52,7 @@ import {
 import type { Change, Facts, Peer, Phase, Stat } from './preflight-logic'
 import { COLOR, CONTEXT_LIMIT, HAIKU_ID, dayKey, isStripShown, labelLocally, parseMode, savingOf, shortName } from './saver-logic'
 import type { Level } from './saver-logic'
-import { STATES, STATE_IDS, moveMarkup, moveMs, stateMarkup } from './states'
+import { STATES, STATE_IDS, enterMarkup, stateMarkup } from './states'
 import type { StateId } from './states'
 
 // ======================================================================================================
@@ -134,19 +134,18 @@ const mood = {
   writing: false, // a handoff brief or an enhanced draft is being written
   askAt: 0, // when a permission ask was seen; it only counts if the call has not started a moment later
   drawn: null as { id: StateId; since: number } | null, // what is on screen, and since when
-  move: null as { from: StateId; to: StateId; until: number } | null, // the one-shot move between the last two states, while it plays
+  move: null as { from: StateId; to: StateId } | null, // the state he left, so the drawing can play the move into the one he is in
 }
 // Where the speech bubble is drawn: float (a pixel bubble in a row above the band, tail to Clawd) or inline (a text row under the band).
 let bubbleMode: 'float' | 'inline' = 'float'
 /** A permission ask must stay open this long before Clawd raises a hand: a rule or the mode often settles it first. */
 const ASK_MS = 2500
 
-/** Clawd's drawing: the move from the state he left while it plays, then the state itself. */
-function mascotFor(state: StateId, clock: string, move: { from: StateId; to: StateId; until: number } | null, now: number, scale: 1 | 2) {
-  if (move && move.to === state && now < move.until) {
+/** Clawd's drawing: the move from the state he left and the state's own loop, in one drawing (see enterMarkup). */
+function mascotFor(state: StateId, clock: string, move: { from: StateId; to: StateId } | null, scale: 1 | 2) {
+  if (move && move.to === state) {
     try {
-      const m = moveMarkup(move.from, move.to, scale)
-      if (m) return m
+      return enterMarkup(move.from, move.to, clock, scale)
     } catch {
       // A move that cannot be drawn falls back to the state itself.
     }
@@ -875,11 +874,8 @@ async function snapshot($: EngineInterface, propsWorking: boolean): Promise<Snap
   const shown = mood.drawn
   const state: StateId = !isDemo && shown && shown.id !== picked && shown.id !== 'hand' && now - shown.since < HOLD_MS && rank(picked) >= rank(shown.id) ? shown.id : picked
   if (!mood.drawn || mood.drawn.id !== state) {
-    const from = mood.drawn ? mood.drawn.id : null
-    const ms = from ? moveMs(from, state) : 0
-    mood.move = ms > 0 && from ? { from, to: state, until: now + ms } : null
+    mood.move = mood.drawn ? { from: mood.drawn.id, to: state } : null
     mood.drawn = { id: state, since: now }
-    if (mood.move) $.clock.after(ms + 20, () => $.ui.invalidate('ui.render'))
     $.clock.after(HOLD_MS + 80, () => $.ui.invalidate('ui.render'))
   }
   const usd = saved.day === day ? saved.usd : 0
@@ -911,7 +907,7 @@ async function snapshot($: EngineInterface, propsWorking: boolean): Promise<Snap
     state,
     bubble,
     clock,
-    mascot: mascotMode === 'off' ? { markup: '', width: 0, height: 0 } : mascotFor(state, clock, mood.move, now, mascotMode === 'small' ? 1 : 2),
+    mascot: mascotMode === 'off' ? { markup: '', width: 0, height: 0 } : mascotFor(state, clock, mood.move, mascotMode === 'small' ? 1 : 2),
   }
 }
 

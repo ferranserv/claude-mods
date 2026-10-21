@@ -159,7 +159,10 @@ function moveOf(from: StateId, to: StateId): (Move & { w: number }) | null {
   if (m) return { ...m, w: 34 }
   const a = STATES[from]
   const b = STATES[to]
-  return { fd: 0.12, w: Math.max(a.w ?? 34, b.w ?? 34), frames: [a.frames[0] ?? {}, { ...NEUTRAL }, b.frames[0] ?? {}] }
+  // Drawn on the canvas of the state he enters (the band's layout is fixed by it); a wider scene he leaves is skipped.
+  const w = b.w ?? 34
+  const first = (a.w ?? 34) <= w ? [a.frames[0] ?? {}] : []
+  return { fd: 0.12, w, frames: [...first, { ...NEUTRAL }, b.frames[0] ?? {}] }
 }
 
 /** How long a move plays, in ms; 0 when nothing changes. */
@@ -179,6 +182,28 @@ export function moveMarkup(from: StateId, to: StateId, scale: 1 | 2 = 2): Mascot
   if (!m) return null
   const made = { markup: renderOnce(m.frames, m.fd, m.w, scale), width: m.w * scale, height: 28 * scale }
   moveCache.set(key, made)
+  return made
+}
+
+const enterCache = new Map<string, Mascot>()
+
+/**
+ * What the band draws after a state change: the move and the new state's own loop in ONE drawing. The loop starts
+ * when the move ends, so the drawing is replaced once per change, not twice (a replaced drawing reloads the whole
+ * band, meters included, which showed as a blink).
+ */
+export function enterMarkup(from: StateId, to: StateId, clock = '', scale: 1 | 2 = 2): Mascot {
+  const m = moveOf(from, to)
+  if (!m) return stateMarkup(to, clock, scale)
+  const key = `${from}>${to}${to === 'asleep' ? `:${clock}` : ''}@${scale}`
+  const hit = enterCache.get(key)
+  if (hit) return hit
+  const d = STATES[to]
+  const frames = to === 'asleep' && clock !== '' ? d.frames.map(f => ({ ...f, clock })) : d.frames
+  const w = d.w ?? 34
+  const dur = m.frames.length * m.fd
+  const made = { markup: renderOnce(m.frames, m.fd, m.w, scale) + renderFrames(frames, d.fd, w, d.drift === true, scale, dur), width: w * scale, height: 28 * scale }
+  enterCache.set(key, made)
   return made
 }
 
