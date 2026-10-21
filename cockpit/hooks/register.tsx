@@ -142,8 +142,12 @@ const ASK_MS = 2500
 /** Clawd's drawing: the move from the state he left while it plays, then the state itself. */
 function mascotFor(state: StateId, clock: string, move: { from: StateId; to: StateId; until: number } | null, now: number, scale: 1 | 2) {
   if (move && move.to === state && now < move.until) {
-    const m = moveMarkup(move.from, move.to, scale)
-    if (m) return m
+    try {
+      const m = moveMarkup(move.from, move.to, scale)
+      if (m) return m
+    } catch {
+      // A move that cannot be drawn falls back to the state itself.
+    }
   }
   return stateMarkup(state, clock, scale)
 }
@@ -1591,7 +1595,15 @@ export const register: Register = (on, options) => {
       }
     }
 
-    const s = await snapshot($, e.props.isWorking)
+    let s: Snap
+    try {
+      s = await snapshot($, e.props.isWorking)
+    } catch (err) {
+      // A drawing that cannot be built must not blank the band without a word: say what failed.
+      const { Box: B, Text: T } = $.ui.resolve(e)
+      const c0 = { Box: B, Text: T } as unknown as Comps
+      return stack(below, el(c0.Box, { key: bandKey('cockpit') }, el(c0.Text, { color: '#e2553f' }, `Cockpit could not draw: ${err instanceof Error ? err.message : String(err)}`)) as never, B)
+    }
     // A collapse only holds while the alert level stays where it was; once calm, forget it.
     if (s.attention === 0 && (await read($, snooze)) !== 0) $.clock.after(0, () => void update($, snooze, () => 0))
 
