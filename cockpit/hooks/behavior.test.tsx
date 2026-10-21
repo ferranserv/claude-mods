@@ -628,6 +628,43 @@ test('a /handoff turn shows Clawd writing with the quill, and the writing ends w
   expect(await altOf($)).not.toContain('quill')
 })
 
+test('a bubble that asks for a decision stays until you answer it', async ($, on) => {
+  const w = world(on)
+  on('prompt.submit', (_, e) => e as never)
+  await started($)
+  await measureCtx($, 60) // a warning with a button, spoken by the bubble while the band is collapsed
+  await w.clock.advance(6000)
+  await $.command.run({ command: 'cockpit', args: 'close' } as never)
+  const speaking = 'from="0" to="1"' // the bubble sliding and fading in
+  expect(await svgOf($)).toContain(speaking)
+  await measureCtx($, 10) // the warning is gone, but the bubble asked for a decision
+  await w.clock.advance(30_000)
+  expect(await svgOf($)).toContain(speaking)
+  await ($ as unknown as { prompt: { submit: (i: unknown) => Promise<unknown> } }).prompt.submit({ text: 'something else', origin: { kind: 'composer' } })
+  await w.clock.advance(10_000)
+  const after = await svgOf($)
+  expect(after).not.toContain(speaking) // sending something else answers it: it has faded out
+  expect(after).toContain('<g opacity="0"><animate attributeName="opacity" from="1" to="0"')
+})
+
+test('a bubble with nothing to decide lingers after its state ends, then fades out', async ($, on) => {
+  const w = world(on)
+  on('turn.complete', (_, e) => ({ text: e.answer }) as never)
+  await started($)
+  await measureCtx($, 10) // calm: no lasting warning to take over once the bell is over
+  await w.clock.advance(6000)
+  await ($ as unknown as Do).turn.start({ text: 'go', turnId: 't1' })
+  await ($ as unknown as Do).turn.complete({ reason: 'answer', answer: 'x', durationMs: 5, isAborted: false, turnId: 't1' })
+  const speaking = 'from="0" to="1"'
+  expect(await svgOf($)).toContain(speaking) // "Done." while the bell rings
+  await w.clock.advance(8000) // the bell is over after 5 s, the words stay a little longer
+  expect(await svgOf($)).toContain(speaking)
+  await w.clock.advance(12_000)
+  const later = await svgOf($)
+  expect(later).not.toContain(speaking)
+  expect(later).toContain('<g opacity="0"><animate attributeName="opacity" from="1" to="0"')
+})
+
 test('a finished turn rings the bell over a warning, then the warning returns', async ($, on) => {
   const w = world(on)
   on('turn.complete', (_, e) => ({ text: e.answer }) as never)

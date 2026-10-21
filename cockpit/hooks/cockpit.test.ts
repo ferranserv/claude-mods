@@ -79,6 +79,7 @@ describe('wandSvg', () => {
     expect(on).toContain('#8E8E93')
     expect(on.match(/#[0-9a-fA-F]{6}/g)?.every(c => c.toLowerCase() === '#8e8e93')).toBe(true)
     expect(wandSvg(false).width).toBe(18)
+    expect(on).toContain('M6 3V9') // a small sparkle apart from the wand
     expect(on).not.toContain('Gradient')
     expect(wandSvg(true).source).toContain('fill-opacity="0.45"')
   })
@@ -86,21 +87,33 @@ describe('wandSvg', () => {
 
 describe('the speech bubble in the band', () => {
   const mascot = { markup: '<g/>', width: 68, height: 56 }
-  test('it is drawn over the meters, so the band keeps its size', () => {
+  const said = (t: string, phase: 'in' | 'out' = 'in') => cockpitSvg(600, m(10), mascot, { text: t, phase })
+  test('it sits at the foot of the band over the small print, so the band keeps its size', () => {
     const plain = cockpitSvg(600, m(10), mascot)
-    const said = cockpitSvg(600, m(10), mascot, 'Needs your OK')
-    expect(said.height).toBe(plain.height)
-    expect(said.width).toBe(plain.width)
-    expect(said.source).toContain('Needs your OK')
-    expect(said.source).toContain('font-weight="400"')
-    expect(said.source).toContain('#8E8E93') // the cockpit gray inside
-    expect(said.source).not.toContain('#ffffff')
-    expect(said.bubbleEnd).toBeGreaterThan(68)
+    const b = said('Needs your OK')
+    expect(b.height).toBe(plain.height)
+    expect(b.width).toBe(plain.width)
+    expect(b.source).toContain('Needs your OK')
+    expect(b.source).toContain('font-weight="400"')
+    expect(b.source).toContain('#8E8E93') // the cockpit gray inside
+    expect(b.source).not.toContain('#ffffff')
+    expect(b.bubbleEnd).toBeGreaterThan(68)
+    expect(b.bubbleY).toBeGreaterThan(b.height / 2) // low: the meters' labels and bars stay uncovered
+    expect(b.bubbleY + 26).toBeLessThanOrEqual(b.height)
     expect(plain.bubbleEnd).toBe(0)
   })
+  test('what is behind it is dimmed in a feathered halo, and it slides and fades in', () => {
+    const b = said('Needs your OK').source
+    expect((b.match(/fill-opacity="0.17"/g) ?? []).length).toBeGreaterThanOrEqual(4)
+    expect(b).toContain('attributeName="opacity" from="0" to="1"')
+    expect(b).toContain('attributeName="transform" type="translate"')
+  })
+  test('leaving: the same drawing, invisible, fading out', () => {
+    const b = said('Done.', 'out').source
+    expect(b).toContain('<g opacity="0"><animate attributeName="opacity" from="1" to="0"')
+  })
   test('text is escaped and the bubble leaves room for its button', () => {
-    expect(cockpitSvg(600, m(10), mascot, 'a < b & c').source).toContain('a &lt; b &amp; c')
-    const wide = cockpitSvg(600, m(10), mascot, 'x'.repeat(200))
-    expect(wide.bubbleEnd).toBeLessThan(600 - 100)
+    expect(said('a < b & c').source).toContain('a &lt; b &amp; c')
+    expect(said('x'.repeat(200)).bubbleEnd).toBeLessThan(600 - 100)
   })
 })

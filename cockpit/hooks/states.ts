@@ -1,6 +1,6 @@
 // Clawd's states: what each looks like (frames), how fast it plays, and the words that go with it.
 // The sheet in docs/mascot/clawd-sheet.html shows every one of them animated.
-import { onceSeconds, renderFrames, renderOnce } from './sprite'
+import { onceSeconds, pixelsOutside, renderFrames, renderOnce } from './sprite'
 import type { Pose } from './sprite'
 
 export type StateId =
@@ -39,8 +39,8 @@ export const STATES: Record<StateId, Def> = {
   cold: { label: 'Clawd is frozen: the prompt cache is cold', face: '(-_-)*', fd: 0.45, frames: [1, 2, 3].map(snow => ({ pal: { c: '#8fb9d9', k: '#6d97b8', f: '#b6d5ea' }, eyes: 'half', mouth: 'grim', snow, ice: 1, armL: 'half', armR: 'half' })) },
   gauge: { label: 'Clawd checks a nearly empty gauge: today\'s allowance is almost used', face: '(o_o)!', fd: 0.35, frames: [{ look: 'left', eyes: 'wide', gauge: 2, bang: 1, bangX: OX + 20 }, { look: 'right', eyes: 'wide', gauge: 2, bang: 1, bangX: OX + 20, dy: 1 }] },
   mad: { label: 'Clawd is angry: over today\'s allowance', face: '(`o\')', fd: 0.22, frames: [0, 1, 2].map(t => ({ pal: { c: '#e2553f', k: '#b83a29', f: '#f08a74' }, eyes: 'angry', mouth: 'grim', steam: t, armL: 'up', armR: 'up', dy: t % 2 })) },
-  sleepy: { label: 'Clawd is getting sleepy: the 5-hour limit is nearly used', face: '(-_-)z', fd: 0.6, frames: [{ eyes: 'half', z: 0 }, { eyes: 'half', dy: 1, z: 1 }, { eyes: 'blink', dy: 2, z: 2 }, { eyes: 'half', dy: 1, z: 1 }] },
-  asleep: { label: 'Clawd is asleep with an alarm clock set: the 5-hour limit is reached', face: '(-.-)zZ', fd: 0.5, w: 56, frames: range(4).map(t => ({ dy: t % 3 === 1 ? 1 : 0, mask: 1, clock: '00:00', z: t, z2: (t + 2) % 4 })) },
+  sleepy: { label: 'Clawd is getting sleepy and yawns: the 5-hour limit is nearly used', face: '(-_-)z', fd: 0.4, frames: [{ eyes: 'half', z: 0 }, { eyes: 'half', dy: 1, z: 1 }, { eyes: 'half', mouth: 'o', armR: 'half' }, { eyes: 'happy', mouth: 'yawn', armR: 'up', dy: -1 }, { eyes: 'happy', mouth: 'yawn', armR: 'up', dy: -1 }, { eyes: 'half', mouth: 'o', armR: 'half', dy: 1 }, { eyes: 'blink', dy: 2, z: 2 }, { eyes: 'half', dy: 1, z: 1 }] },
+  asleep: { label: 'Clawd is asleep with an alarm clock set beneath him: the 5-hour limit is reached', face: '(-.-)zZ', fd: 0.5, frames: range(4).map(t => ({ lift: 7, dy: t % 3 === 1 ? 1 : 0, mask: 1, clock: '00:00', zzz: t })) },
   love: { label: 'Clawd hugs himself: the handoff is saved', face: '(^_^)<3', fd: 0.3, frames: range(6).map(t => ({ eyes: 'happy', mouth: 'smile', armL: 'cross', armR: 'cross', heart: t % 4 })) },
   detective: { label: 'Clawd the detective found something in the repo', face: '(o_o)?!', fd: 0.5, frames: [{ hat: 'fedora', eyes: 'half', look: 'right', magnifier: 1, armR: 'up', bang: 1, bangX: OX + 1 }, { hat: 'fedora', eyes: 'open', look: 'right', magnifier: 1, armR: 'up', dy: 1, bang: 1, bangX: OX + 1 }] },
   oops: { label: 'Clawd says oops: a tool failed', face: '(x_x)!', fd: 0.35, frames: [{ eyes: 'x', mouth: 'o', bang: 1, bangX: OX + 21 }, { eyes: 'x', mouth: 'o', bang: 1, bangX: OX + 21, dy: 1 }] },
@@ -48,7 +48,7 @@ export const STATES: Record<StateId, Def> = {
   hello: { label: 'Clawd waves hello', face: '(^_^)/', fd: 0.3, frames: [{ armR: 'high', mouth: 'smile', eyes: 'happy' }, { armR: 'up', mouth: 'smile', eyes: 'open' }] },
   idea: { label: 'Clawd has an idea: a plan is ready', face: '(o_o)!', fd: 0.4, frames: [{ bulb: 1, eyes: 'open', mouth: 'smile', armR: 'up' }, { bulb: 2, eyes: 'happy', mouth: 'smile', armR: 'up' }] },
   coffee: { label: 'Clawd drinks coffee: this turn is taking a while', face: '(-_-)c', fd: 0.5, frames: [0, 1].map(t => ({ cup: t + 1, armR: 'hold', mouth: 'smile', eyes: 'open' })) },
-  reading: { label: 'Clawd is reading files, a stack of books beside him', face: '(o_o)=', fd: 0.8, frames: [{ glasses: 1, book: 1, stack: 1, look: 'down', armL: 'hold', armR: 'hold' }, { glasses: 1, book: 1, stack: 1, look: 'down', eyes: 'blink', armL: 'hold', armR: 'hold' }] },
+  reading: { label: 'Clawd is reading files, turning pages of a book, a stack of books beside him', face: '(o_o)=', fd: 0.5, frames: [{ glasses: 1, book: 1, stack: 1, look: 'down', armL: 'hold', armR: 'hold' }, { glasses: 1, book: 1, stack: 1, look: 'down', eyes: 'blink', armL: 'hold', armR: 'hold' }, { glasses: 1, book: 2, stack: 1, look: 'down', armL: 'hold', armR: 'hold' }, { glasses: 1, book: 3, stack: 1, look: 'down', armL: 'hold', armR: 'hold' }] },
   building: { label: 'Clawd is editing code with a hammer', face: '(>_<)T', fd: 0.22, frames: [0, 1].map(t => ({ hat: 'hard', wrench: t + 1, armR: 'up', mouth: 'smile', eyes: 'open' })) },
   browse: { label: 'Clawd is searching the web', face: '(o_o)Q', fd: 0.5, frames: [1, 2, 1, 2].map(b => ({ browser: b, glass: 1, look: 'right' })) },
   plug: { label: 'Clawd holds an unplugged cable: a connector is offline', face: '(;_;)~', fd: 0.4, frames: [0, 1].map(t => ({ plug: t, eyes: 'sad', mouth: 'grim', armL: 'half', armR: 'half', dy: t })) },
@@ -83,7 +83,6 @@ const MOTION: Partial<Record<StateId, Motion>> = {
   hello: { each: 2, dy: [0, -1, 0, -1] }, // bounces while he waves
   idea: { each: 2, dy: [0, -2, 0, 0] }, // eureka hop
   coffee: { each: 2, dy: [0, 0, 1, 0] }, // sips
-  reading: { each: 2, dy: [0, 0, 1, 0] }, // turns the page
   building: { dy: [0, 1] }, // the body dips with each swing
   browse: { dx: [0, -1, -2, -1] }, // leans in to look
   plug: { each: 2, dx: [0, 1, 0, -1] }, // sags and sways
@@ -182,23 +181,74 @@ export const MOVES: Partial<Record<string, Move>> = {
 
 const NEUTRAL: Pose = { eyes: 'blink', mouth: 'smile' }
 
+/** Props he wears or holds: when one goes or comes, his hand takes it or fetches it. */
+const HELD = ['shades', 'hat', 'glasses', 'laptop', 'book', 'stack', 'scroll', 'clipboard', 'cup', 'flask', 'glass', 'browser', 'bell', 'wrench', 'paper', 'bulb', 'wand']
+const without = (p: Pose, ks: string[]): Pose => {
+  const o: Pose = { ...p }
+  for (const k of ks) delete o[k]
+  return o
+}
+
 /**
- * What makes a move read as one motion and not a slideshow: the first frame is short (he is already moving), a
- * blink covers the swap of props in the middle, a small hop gives the change some life, and the last frame holds
- * a little longer so he settles into the state. The ends stay as they are, so a move still meets its neighbours.
+ * Between two frames, a prop that goes away is taken by his hand (reach, hold it, then the arm swings out to put
+ * it behind him, out of sight); a prop that comes is fetched from behind him (the arm swings out, then brings
+ * it round). The frames on either side are untouched, so a move still meets its neighbours.
+ */
+function stage(frames: Pose[]): Pose[] {
+  const out: Pose[] = []
+  frames.forEach((g, i) => {
+    const f = frames[i - 1]
+    if (f) {
+      const gone = HELD.filter(k => f[k] && !g[k])
+      const came = HELD.filter(k => !f[k] && g[k])
+      let cur = f
+      if (gone.length) {
+        out.push({ ...cur, armR: 'up' })
+        cur = { ...without(cur, gone), armR: 'up' }
+        out.push(cur)
+        cur = { ...cur, armR: 'out' }
+        out.push(cur)
+      }
+      if (came.length) {
+        out.push({ ...cur, armR: 'out' })
+        const pulled: Pose = { ...cur, armR: 'up' }
+        for (const k of came) pulled[k] = g[k]
+        out.push(pulled)
+      }
+    }
+    out.push(g)
+  })
+  return out
+}
+
+/**
+ * What makes a move read as one motion and not a slideshow: props are taken and fetched by hand (stage), the first
+ * frame is short (he is already moving), a blink covers the middle, a small hop gives the change some life, and
+ * the last frame holds a little longer so he settles into the state. The ends stay as they are.
  */
 function smooth(frames: Pose[]): Pose[] {
-  const n = frames.length
-  if (n < 3) return frames
+  const staged = stage(frames)
+  const n = staged.length
+  if (n < 3) return staged
   const mid = Math.floor((n - 1) / 2)
-  return frames.map((f, i) => {
+  return staged.map((f, i) => {
     if (i === 0) return { ...f, hold: 0.6 }
     if (i === n - 1) return { ...f, hold: 1.3 }
     const out: Pose = { ...f }
     if (i === mid && (out.eyes === undefined || out.eyes === 'open' || out.eyes === 'half')) out.eyes = 'blink'
-    if (out.dy === undefined && i % 2 === 1) out.dy = -1
+    // The hop only happens where it fits: overhead props (a spinner, a spiral) would leave the top of the canvas.
+    if (out.dy === undefined && i % 2 === 1 && pixelsOutside([{ ...out, dy: -1 }], 34) === 0) out.dy = -1
     return out
   })
+}
+
+/** Slow enough to see (a frame is at least MOVE_FD), but never longer than MOVE_MAX_S in all; leaving the raised hand is quick. */
+const MOVE_FD = 0.2
+const MOVE_MAX_S = 2.2
+function paced(frames: Pose[], from: StateId): { fd: number; frames: Pose[] } {
+  const cap = from === 'hand' ? 0.7 : MOVE_MAX_S
+  const total = onceSeconds(frames, MOVE_FD)
+  return { fd: total > cap ? (MOVE_FD * cap) / total : MOVE_FD, frames }
 }
 
 /**
@@ -209,16 +259,16 @@ function smooth(frames: Pose[]): Pose[] {
 function moveOf(from: StateId, to: StateId): (Move & { w: number }) | null {
   if (from === to) return null
   const m = MOVES[`${from}>${to}`]
-  if (m) return { fd: Math.min(m.fd, 0.15), w: 34, frames: smooth(m.frames) }
+  if (m) return { ...paced(smooth(m.frames), from), w: 34 }
   const a = STATES[from]
   const b = STATES[to]
   // Drawn on the canvas of the state he enters (the band's layout is fixed by it); a wider scene he leaves is skipped.
   const w = b.w ?? 34
   const first = (a.w ?? 34) <= w ? [a.frames[0] ?? {}] : []
   // Reading brings a lot with it (glasses, a book, a stack of books): they come and go one at a time, not all at once.
-  if (to === 'reading') return { fd: 0.14, w, frames: smooth([...first, { ...NEUTRAL }, { glasses: 1, look: 'down', eyes: 'half' }, { glasses: 1, stack: 1, look: 'down', eyes: 'half', armL: 'hold', armR: 'hold' }, b.frames[0] ?? {}]) }
-  if (from === 'reading') return { fd: 0.14, w, frames: smooth([...first, { glasses: 1, stack: 1, look: 'down', eyes: 'half' }, { glasses: 1, look: 'down', eyes: 'half' }, { ...NEUTRAL }, b.frames[0] ?? {}]) }
-  return { fd: 0.13, w, frames: smooth([...first, { ...NEUTRAL }, b.frames[0] ?? {}]) }
+  if (to === 'reading') return { ...paced(smooth([...first, { ...NEUTRAL }, { glasses: 1, look: 'down', eyes: 'half' }, { glasses: 1, stack: 1, look: 'down', eyes: 'half', armL: 'hold', armR: 'hold' }, b.frames[0] ?? {}]), from), w }
+  if (from === 'reading') return { ...paced(smooth([...first, { glasses: 1, stack: 1, look: 'down', eyes: 'half' }, { glasses: 1, look: 'down', eyes: 'half' }, { ...NEUTRAL }, b.frames[0] ?? {}]), from), w }
+  return { ...paced(smooth([...first, { ...NEUTRAL }, b.frames[0] ?? {}]), from), w }
 }
 
 /** How long a move plays, in ms; 0 when nothing changes. */

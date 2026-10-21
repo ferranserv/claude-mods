@@ -68,3 +68,19 @@ Report anything off in plain words ("the palm tree overlaps", "no animation", "a
 | 40 | Approve a permission (Edit, then a plain tool), fail a tool, pass a test run | hand > building / thinking, building > oops, oops > thinking, typing > lab, lab > typing: props swap one at a time | |
 | 41 | Let a turn run long, search the web, compact, write a handoff, enhance a draft | typing / thinking > coffee, browse, dizzy; idle > writing > love > idle; idle > wand > idle | |
 
+## 0.9.0 additions
+
+| # | Do | Expect | OK? |
+|---|---|---|---|
+| 42 | Watch idle > thinking and bell > idle | Slow enough to see: his hand takes the sunglasses (or the bell) and puts it behind him; fetches the glasses from behind him and puts them on | |
+| 43 | Read a file | The open book turns a page now and then; the body does not bob | |
+| 44 | Trigger a bubble (a context warning with the band closed) | Grey bubble at the foot of the band, over the small print only; the meters' labels and bars stay visible; a soft dim around it; it slides in, and fades out | |
+| 45 | Look at every button (bubble, alerts, Hide, OK, wand excepted) | All the same grey as the bubble, dark text; none white, none transparent | |
+| 46 | A bubble with a button (cold cache, context warning) | It stays until you click the button or send another message, even if the warning goes away | |
+| 47 | A bubble without a button ("Done.", "Tests passed") | It stays about 9 s after the state ends, then fades | |
+| 48 | Approve a permission | The hand and "Needs your OK" go at once; the move out of the hand is quick | |
+| 49 | Reach 80% of the 5-hour limit (or `/cockpit demo sleepy`) | He yawns: hand to mouth, mouth wide, eyes squeezed | |
+| 50 | `/cockpit demo asleep` | Asleep with Zs drifting up; the alarm clock sits under him; the cockpit does not shift right | |
+| 51 | Look at the wand and click it | Stick, a gap, then a sparkle and a small one apart; clickable; enhances the draft | |
+| 52 | Run tests: `npm test`, `bun test`, `dotnet test`, `make test`, `pytest` | The flasks (lab) when they pass | |
+

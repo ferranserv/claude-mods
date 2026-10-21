@@ -13,7 +13,7 @@ Cockpit signals
 - hourglass: classic triangular glass held under his hand, he just watches the sand run, not sad (cache <= 5 min)
 - frozen: icy blue, no movement, ice over his feet no wider than him (cache cold)
 - gauge low (allowance within 2%) | mad (over allowance)
-- sleepy (5h >= 80%) | asleep: eye mask, Zs, alarm clock beside him with the wake-up time centered (5h reached; canvas 56 wide); no bed
+- sleepy (5h >= 80%): yawns, one hand over his mouth, eyes squeezed | asleep: eye mask, Zs drifting up from his head, sitting raised with the alarm clock beneath him showing the wake-up time (5h reached; the normal 34 px canvas, so the cockpit does not shift); no bed
 - love (handoff saved, 5 s) | detective: fedora, magnifying glass, alert mark beside it (preflight finding) | oops (tool failed)
 - wizard: wizard hat and wand (draft enhanced)
 Tool and session scenarios (added by Claude; owner pre-approved)
@@ -23,7 +23,7 @@ Tool and session scenarios (added by Claude; owner pre-approved)
 Implemented in `hooks/mood.ts` (header comment) and tested in `hooks/mood.test.ts`. Highest first: raised hand (clipboard and pencil); writing (glasses, quill and paper: Claude is writing into your prompt box);  fleeting events (oops, bell, lab, love, idea, wizard, coins, unplugged); dizzy and the tool at work (building, reading, browsing); walk, hello; lasting warnings (asleep, mad, on fire, detective, frozen, hourglass, gauge low, tipsy, sleepy); background (coffee, typing, thinking, talk, idle). Cache states apply only while idle.
 
 ## Canvas and bubble
-Canvas 34 x 28 px (asleep: 56 x 28), drawn at 2x (68 x 56). Every state is checked by the sheet for pixels outside the canvas (red tag, none now). The speech bubble sits right of him with a tail, wraps text (long text and narrow widths tested), and carries the action button for that warning.
+Canvas 34 x 28 px, drawn at 2x (68 x 56). Every state is checked by the sheet for pixels outside the canvas (red tag, none now). The speech bubble is drawn in the band at its foot, over the small print and not the meters (so the band never grows), in the cockpit grey with a dark stepped border, a tail to Clawd and a feathered dim behind it; it slides and fades in and out. A bubble with a button stays until you click it or send something else; the others stay about 9 s after their state ends; the raised hand goes the moment you answer.
 
 ## Status
 Cockpit 0.4.0 ships 30 states (0.2.0 had 29) and the state machine: `hooks/sprite.ts` (drawing, ported from the sheet), `hooks/states.ts` (frames, labels, terminal faces), `hooks/mood.ts` (priority, bubble text). "Reviewed" has no signal in the plugin API and was dropped. Signals: `tool.call` (tool kind, failure, test runs, plans), `tool.check` (a permission ask), `session.compact`, `mcp.connect`, turn and session events, plus the cockpit's own (handoff, enhance, saver).
@@ -43,7 +43,7 @@ SVG per frame set, frames swapped by SMIL (`animate` on opacity, `isInteractive:
 
 ## 0.4.0 changes
 
-- Every state starts from the same neutral pose (props and colours change, not position), so switches look smooth; a switch plays a short one-shot move: hand-drawn for the common pairs (`MOVES` in `states.ts`, 49 of them, each built from the neighbouring states' own first frames), a morph (drop what he holds, pick up the next) for the rest. Every move is eased (`smooth`): a short first frame, a blink over the prop swap, a small hop, a longer last frame.
+- Every state starts from the same neutral pose (props and colours change, not position), so switches look smooth; a switch plays a short one-shot move: hand-drawn for the common pairs (`MOVES` in `states.ts`, 49 of them, each built from the neighbouring states' own first frames), a morph (drop what he holds, pick up the next) for the rest. Every move is staged and eased (`stage` and `smooth`): a prop that goes is taken by his hand and put behind him, one that comes is fetched from behind him; then a short first frame, a blink over the prop swap, a small hop, a longer last frame.
 - Hold rule: the shown state stays at least 5 s unless a higher-priority one arrives (`HOLD_MS` in `mood.ts`); every fleeting state lasts 5 s or more.
 - The bubble is a pixel Svg (white inside, dark stepped border, tail down to Clawd, regular text) in a row above the band, with the action button beside it; `/cockpit bubble float|inline` (inline is a text row under the band).
 - Permission asks are debounced 1.5 s (a tool that runs right after was auto-allowed, not an ask); PowerShell counts as a shell for test runs.
