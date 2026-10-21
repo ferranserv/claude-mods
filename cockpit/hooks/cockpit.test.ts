@@ -94,7 +94,7 @@ describe('the speech bubble', () => {
   })
   test('it fits its words: as wide as they are, padding either side, letters never squashed', () => {
     const still = (t: string) => bubbleArt(t, t, 600)
-    const widthOf = (t: string) => Number(/<rect x="10" y="5" width="(\d+)"/.exec(still(t).source)?.[1])
+    const widthOf = (t: string) => Number(/<rect x="10" y="2" width="(\d+)"/.exec(still(t).source)?.[1])
     expect(widthOf('Done.')).toBe(bubbleTextWidth('Done.') + 24 - 4) // the border block, inside the stepped corners; 12 px of padding each side
     expect(widthOf('A much longer sentence than the first')).toBeGreaterThan(widthOf('Done.'))
     expect(still('Done.').source).toContain('lengthAdjust="spacing"') // only the space between letters is fitted, the letters keep their shape

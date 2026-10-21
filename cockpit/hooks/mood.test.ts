@@ -51,6 +51,7 @@ describe('which state wins', () => {
     expect(mood({ weekRoom: -1, ctx: 'alert', hasAdvice: true, cache: 'cold' })).toBe('mad')
     expect(mood({ ctx: 'alert', hasAdvice: true, cache: 'cold' })).toBe('fire')
     expect(mood({ hasAdvice: true, cache: 'cold' })).toBe('detective')
+    expect(mood({ hasAdvice: true, busy: true })).toBe('thinking') // findings are not offered while Claude works, so neither is the detective
     expect(mood({ cache: 'cold', weekRoom: 1, ctx: 'warn' })).toBe('cold')
     expect(mood({ cache: 'soon', weekRoom: 1, ctx: 'warn' })).toBe('hourglass')
     expect(mood({ weekRoom: 1, ctx: 'warn', fiveUsed: 85 })).toBe('gauge')
@@ -265,5 +266,19 @@ describe('the moves between states', () => {
         expect(made.markup).not.toContain('NaN')
       }
     }
+  })
+})
+
+describe('the painter moves', () => {
+  test('he puts the brush and the palette away on the way to the hammer or the laptop, and fetches them on the way back', () => {
+    for (const key of ['creating>building', 'building>creating', 'creating>typing', 'typing>creating']) {
+      expect(MOVES[key], key).toBeDefined()
+      const [from, to] = key.split('>') as [StateId, StateId]
+      expect(moveMs(from, to), key).toBeGreaterThan(0)
+      const src = moveMarkup(from, to)?.markup ?? ''
+      expect(src, key).not.toContain('NaN')
+    }
+    // the palette shows small in his hand while it is taken or fetched (a hand-drawn carry), not as a pop
+    expect(moveMarkup('creating', 'typing')?.markup.length).toBeGreaterThan(moveMarkup('idle', 'typing')!.markup.length * 0.5)
   })
 })

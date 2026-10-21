@@ -427,11 +427,11 @@ export function wandSvg(dim: boolean): { source: string; width: number; height: 
 
 /** One character cell of the host, in px: boxes are laid out in whole cells. */
 export const CELL = { w: 8, h: 18 }
-/** The bubble's lane is two cell rows tall: the bubble and the buttons are drawn in it, centered, and the cockpit's height never depends on them. */
-export const LANE_H = CELL.h * 2
+/** The bubble's lane: the bubble and the buttons are drawn in it, 2 px of margin above and below, and the cockpit's height never depends on them. */
+export const LANE_H = 30
 /** The bubble and the buttons beside it, one height. */
 const BUBBLE_H = 26
-const BUBBLE_Y = (LANE_H - BUBBLE_H) / 2
+const BUBBLE_Y = (LANE_H - BUBBLE_H) / 2   // 2
 const BUBBLE_SIZE = 13
 /** Room left of the bubble for its tail, which points to Clawd. */
 const BUBBLE_TAIL = 8
@@ -537,8 +537,8 @@ export function bubbleArt(from: string, to: string, room: number): { source: str
 
 /**
  * A button drawn as pixels, the bubble's height: the cockpit gray of the bubble, dark text, the same stepped border. It
- * is a whole number of character cells wide and a lane tall, so the real Button laid over it (blank, clipped to the same
- * cells) covers exactly it, plus the few pixels of margin above and below that belong to the lane.
+ * is a whole number of character cells wide and a lane tall, so the real Button laid over it (blank, two rows tall, clipped
+ * to the drawing's box) covers exactly it.
  */
 export function pillSvg(label: string): { source: string; width: number; height: number; cols: number } {
   const size = 12
@@ -562,8 +562,9 @@ export function bandParts(width: number, m: Model, mascot: { markup: string; wid
   const gap = mascot.width > 0 ? 24 : 0
   const bodyW = Math.max(200, width - mascot.width - gap)
   const body = bandBody(bodyW, m)
-  const height = Math.max(MIN_ROW, body.height + 2)
-  const top = Math.max(0, Math.round((height - body.height) / 2) - 3)
+  // The meters' own height: label, bar and the small print under it, nothing more (the bubble's lane is under it, not in it).
+  const height = METERS_H
+  const top = 0
   return {
     mascot: mascot.width > 0 ? { source: wrapSvg(mascot.width, mascot.height, mascot.markup), width: mascot.width, height: mascot.height } : null,
     meters: { source: wrapSvg(bodyW, height, `<g transform="translate(0 ${top})">${body.out}</g>`), width: bodyW, height },
@@ -643,6 +644,9 @@ export function bandSvg(width: number, m: Model): { source: string; width: numbe
   const { out, height } = bandBody(width, m)
   return { source: wrapSvg(width, height, out), width, height }
 }
+
+/** The meters' drawing in the band: labels, bars and the small print line. */
+export const METERS_H = 42
 
 /** The shortest the row gets, so the small mascot or none still leaves room for a label, a bar and a value. */
 export const MIN_ROW = 46

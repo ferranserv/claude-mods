@@ -33,7 +33,7 @@ import {
   windowMinutes,
 } from './lib'
 import type { ActionId, Alert, Model, Thresholds } from './lib'
-import { COFFEE_AFTER_MS, FLEET_MS, HOLD_MS, START_MS, TOOL_LINGER_MS, bubbleFor, clockOf, pickState, rank } from './mood'
+import { COFFEE_AFTER_MS, FLEET_MS, HOLD_MS, START_MS, TOOL_LINGER_MS, bubbleFor, clockOf, hoverHint, pickState, rank } from './mood'
 import type { Bubble, Fleet, ToolKind } from './mood'
 import {
   WRITE_TOOLS,
@@ -1096,7 +1096,8 @@ async function snapshot($: EngineInterface, propsWorking: boolean): Promise<Snap
   if (!speech && !isDemo && isSettled) speech = await standing()
   // What his pose is about, for when the bubble is gone: hovering over him says it again (only while the pointer is there).
   const aboutBubble = said && (said.alertId === undefined || isDemo || alerts.some(a => a.id === said.alertId)) ? said : null
-  const hover: Speech | null = speech || !isSettled ? null : aboutBubble ? speechOf(aboutBubble) : isDemo ? null : await standing()
+  const hint = hoverHint(state)
+  const hover: Speech | null = speech || !isSettled ? null : aboutBubble ? speechOf(aboutBubble) : isDemo ? null : (await standing()) ?? (hint ? { text: hint, acts: [] } : null)
   if (!isDemo && speech && speech.text !== mood.lastLogged) remember(now, speech.text)
   mood.shownAlert = isDemo ? null : (speech?.alertId ?? null)
   // The menu belongs to the bubble it opened from: when there is none, it closes.
@@ -1169,9 +1170,9 @@ function artButton(c: Comps, label: string, key: string, onPress: () => void) {
   const art = pillSvg(label)
   return el(
     c.Box,
-    { key: `${key}-wrap`, position: 'relative', width: art.cols, height: LANE_H / CELL.h, overflow: 'hidden', flexShrink: 0 },
+    { key: `${key}-wrap`, position: 'relative', width: art.cols, overflow: 'hidden', flexShrink: 0 },
     el(c.Svg as never, { key: 'art', source: art.source, alt: label, width: art.width, height: art.height }),
-    el(c.Box, { key: 'hit', position: 'absolute', top: 0, left: 0 }, el(c.Button, { key, plain: true, onPress }, NBSP.repeat(art.cols * 2))),
+    el(c.Box, { key: 'hit', position: 'absolute', top: 0, left: 0, height: Math.ceil(LANE_H / CELL.h) }, el(c.Button, { key, plain: true, onPress }, NBSP.repeat(art.cols * 2))),
   )
 }
 
@@ -1289,15 +1290,16 @@ function bubbleLane($: EngineInterface, s: Snap, c: Comps, Svg: unknown, fx: Fx,
   if (last && bub.text === '' && last.until <= s.now) bub.layers = [] // closed: nothing is left drawn
   const buttons = s.speech ? [...(first ? [actButton(first, c, fx, surface)] : []), ...(hasMore ? [moreButton(s, c, fx)] : [])] : []
   const cols = (px: number) => Math.floor(px / CELL.w)
-  const rows = LANE_H / CELL.h
   const zone = el(
     c.Box,
-    { key: 'zone', position: 'relative', width: cols(room), height: rows, flexShrink: 0 },
+    { key: 'zone', position: 'relative', width: cols(room), flexShrink: 0 },
+    // A blank drawing that holds the lane's height (the bubbles are laid over it), so the lane is its height in px, not in rows.
+    el(Svg, { key: 'space', source: `<svg xmlns="http://www.w3.org/2000/svg" width="${cols(room) * CELL.w}" height="${LANE_H}"/>`, alt: 'bubble space', width: cols(room) * CELL.w, height: LANE_H }),
     ...bub.layers.map(l => el(c.Box, { key: l.key, position: 'absolute', top: 0, left: 0 }, el(Svg, { key: 'art', source: l.art.source, alt: text, isInteractive: true, width: l.art.width, height: l.art.height }))),
     ...hoverCard(s, c, Svg, fx, room, surface),
   )
   return [
-    el(c.Box, { key: 'lane', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: cols(metersPx), height: rows }, zone, el(c.Box, { key: 'buttons', flexDirection: 'row', alignItems: 'center', gap: 1, flexShrink: 0 }, ...buttons)),
+    el(c.Box, { key: 'lane', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: cols(metersPx) }, zone, el(c.Box, { key: 'buttons', flexDirection: 'row', alignItems: 'center', gap: 1, flexShrink: 0 }, ...buttons)),
     ...menuRow(s, c, fx, surface, 0),
   ]
 }

@@ -38,6 +38,7 @@ const MINI = {
   'hat-hard': ['.EEE.', 'EEEEE'], 'hat-fedora': ['.XXX.', 'XXXXX'], 'hat-wizard': ['..n..', '.nnn.', 'NNNNN'],
   wrench: ['ggg', '.x.', '.x.'], wand: ['..s', '.w.', 'w..'], glass: ['ggg', 'gig', 'ggg', '..X'], browser: ['GGGG', 'ybbb', 'ybbb'],
   thing: ['ggg', 'ggg'],
+  palette: ['.KKK.', 'KKKKK', 'KhKqK', '.KKK.'], brush: ['..h', '.x.', 'x..'],
 };
 const SPIN = [[0, -3], [2, -2], [3, 0], [2, 2], [0, 3], [-2, 2], [-3, 0], [-2, -2]];
 

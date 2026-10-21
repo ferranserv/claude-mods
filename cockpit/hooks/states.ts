@@ -129,6 +129,11 @@ const OOPS: Pose = { eyes: 'x', mouth: 'o', bang: 1, bangX: OX + 21 }
 const HAT: Pose = { hat: 'hard', wrench: 1, armR: 'up', mouth: 'smile', eyes: 'open' }
 const READ: Pose = { glasses: 1, book: 1, stack: 1, look: 'down', armL: 'hold', armR: 'hold' }
 export const MOVES: Partial<Record<string, Move>> = {
+  // The painter and the other kinds of work: the brush and the palette are put away (or fetched) by hand, the moustache is the last to go.
+  'creating>building': { fd: 0.2, frames: [F('creating'), { stache: 1, palette: 1, brush: 0, look: 'down', eyes: 'open', armL: 'half', armR: 'half' }, { stache: 1, look: 'down', eyes: 'open', mouth: 'smile' }, { ...HAT }] },
+  'building>creating': { fd: 0.2, frames: [{ ...HAT }, { hat: 'hard', look: 'down', armR: 'half' }, { look: 'right', eyes: 'open', mouth: 'smile' }, { stache: 1, palette: 1, brush: 0, look: 'right', eyes: 'open', armL: 'half', armR: 'half' }, F('creating')] },
+  'creating>typing': { fd: 0.18, frames: [F('creating'), { stache: 1, palette: 1, brush: 0, look: 'down', eyes: 'open', armL: 'half', armR: 'half' }, { look: 'down', eyes: 'half', mouth: 'focus' }, { ...LAPTOP }] },
+  'typing>creating': { fd: 0.18, frames: [{ ...LAPTOP }, { look: 'down', eyes: 'half', mouth: 'focus' }, { stache: 1, palette: 1, brush: 0, look: 'right', eyes: 'open', armL: 'half', armR: 'half' }, F('creating')] },
   'idle>thinking': { fd: 0.18, frames: [{ ...SUN }, { eyes: 'wide', armR: 'up', mouth: 'open' }, { ...MUSE }] },
   'thinking>typing': { fd: 0.15, frames: [{ ...MUSE }, { laptop: 1, look: 'down', eyes: 'half', armR: 'chin' }, { ...LAPTOP }] },
   'typing>building': { fd: 0.2, frames: [{ ...LAPTOP }, { hat: 'hard', look: 'down', armR: 'up', mouth: 'smile', eyes: 'open' }, { ...HAT }] },
@@ -193,7 +198,7 @@ const RISE: Pose[] = [
 ]
 
 /** Props he wears or holds: when one goes or comes, his hand takes it or fetches it. */
-const HELD = ['shades', 'hat', 'glasses', 'laptop', 'book', 'stack', 'scroll', 'clipboard', 'cup', 'flask', 'glass', 'browser', 'bell', 'wrench', 'paper', 'bulb', 'wand']
+const HELD = ['brush', 'palette', 'shades', 'hat', 'glasses', 'laptop', 'book', 'stack', 'scroll', 'clipboard', 'cup', 'flask', 'glass', 'browser', 'bell', 'wrench', 'paper', 'bulb', 'wand']
 /** The drawing of a prop in his hand: a hat is told apart by its kind (hard hat, fedora, wizard hat). */
 const carried = (k: string, p: Pose): string => (k === 'hat' ? `hat-${p.hat}` : k)
 const without = (p: Pose, ks: string[]): Pose => {
