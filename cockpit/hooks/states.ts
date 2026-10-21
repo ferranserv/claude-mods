@@ -88,25 +88,44 @@ export const MOVES: Partial<Record<string, Move>> = {
   'walk>idle': { fd: 0.2, frames: [{ mouth: 'smile' }, { ...SUN }] },
 }
 
-/** How long a move plays, in ms; 0 when the pair has none. */
-export function moveMs(from: StateId, to: StateId): number {
+const NEUTRAL: Pose = { eyes: 'blink', mouth: 'smile' }
+
+/**
+ * The move between two states: the hand-drawn one when there is one, otherwise a morph. The morph drops what
+ * he holds (a bare, blinking Clawd) and picks up the next thing, which works for any pair because every state
+ * starts from the same neutral pose. Null only when nothing changes.
+ */
+function moveOf(from: StateId, to: StateId): (Move & { w: number }) | null {
+  if (from === to) return null
   const m = MOVES[`${from}>${to}`]
+  if (m) return { ...m, w: 34 }
+  const a = STATES[from]
+  const b = STATES[to]
+  return { fd: 0.12, w: Math.max(a.w ?? 34, b.w ?? 34), frames: [a.frames[0] ?? {}, { ...NEUTRAL }, b.frames[0] ?? {}] }
+}
+
+/** How long a move plays, in ms; 0 when nothing changes. */
+export function moveMs(from: StateId, to: StateId): number {
+  const m = moveOf(from, to)
   return m ? Math.round(m.frames.length * m.fd * 1000) : 0
 }
 
 const moveCache = new Map<string, Mascot>()
 
-/** The markup of one move at 2x (or 1x for the small size), or null when the pair has none. */
+/** The markup of one move at 2x (or 1x for the small size), or null when nothing changes. */
 export function moveMarkup(from: StateId, to: StateId, scale: 1 | 2 = 2): Mascot | null {
   const key = `${from}>${to}@${scale}`
   const hit = moveCache.get(key)
   if (hit) return hit
-  const m = MOVES[`${from}>${to}`]
+  const m = moveOf(from, to)
   if (!m) return null
-  const made = { markup: renderOnce(m.frames, m.fd, 34, scale), width: 34 * scale, height: 28 * scale }
+  const made = { markup: renderOnce(m.frames, m.fd, m.w, scale), width: m.w * scale, height: 28 * scale }
   moveCache.set(key, made)
   return made
 }
+
+/** The frames and canvas width of a move, for checking that it fits. */
+export const moveFrames = (from: StateId, to: StateId): { frames: Pose[]; w: number } | null => moveOf(from, to)
 
 const cache = new Map<string, Mascot>()
 
