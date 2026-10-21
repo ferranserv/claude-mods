@@ -244,7 +244,7 @@ describe('bandSvg', () => {
     const slots = trackRects.slice(2)
     const letters = tags(source, 'text')
       .map(t => ({ tag: t, body: source.split(t)[1]?.split('</text>')[0] ?? '' }))
-      .filter(x => x.tag.includes('font-size="9"') && x.tag.includes('text-anchor="middle"'))
+      .filter(x => x.tag.includes('font-size="10"') && x.tag.includes('text-anchor="middle"'))
     expect(letters.map(l => l.body)).toEqual([...DAYS])
     slots.forEach((slot, i) => {
       const center = attr(slot, 'x') + attr(slot, 'width') / 2

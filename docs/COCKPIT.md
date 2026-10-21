@@ -79,7 +79,7 @@ Checked against the code (0.11.0). "Resets by itself" means no new measurement o
 | "Needs your OK" | immediately when you answer |
 | One with a button (warnings) | you click its button or send a message; or its warning ends by itself. After you answer it stays quiet until the warning ends and comes back. The button is a real button next to the bubble, not a click area over a drawing |
 | `/cockpit demo <state>` (one state, with a button) | you click the button, send a message or `/cockpit demo off`. A tour of every state shows each bubble with its state for 4 s and leaves nothing pending |
-| Any other | about 9 s after its state ends |
+| Any other | about 12 s after its state ends |
 
 
 ## 0.13.0: tokens and accounting
@@ -91,3 +91,22 @@ Checked against the code (0.11.0). "Resets by itself" means no new measurement o
 - **Compact** button on the context warning.
 - **Turn log**: one JSON line per finished turn in `~/.claude/cockpit-log/<session>.jsonl` (option `turnLog`); `python3 tools/cockpit-log.py` summarises it.
 - While a bubble speaks, the context warning's own lines under the bar are left out, so the band keeps its height.
+
+## 0.14.0: one channel for messages
+
+The bubble is the one place the cockpit talks to you. What each thing used to do and does now:
+
+| Event | Before | Now |
+|---|---|---|
+| Handoff, fresh, compact, enhance: busy, empty, failed | toast | bubble (8 s, over every state but the raised hand) |
+| Enhance and handoff running | status line + toast + pose | the writing pose and its bubble |
+| Enhance done | toast + bubble | the wand bubble ("Draft enhanced. ↩ restores yours.") |
+| Handoff done | toast + bubble | the love bubble ("Handoff ready in the prompt box...") |
+| Cache going cold | toast + OS notification + bubble | OS notification (for when the window is not focused) + hourglass bubble |
+| Saver routed a step | a line under the band + coins bubble | the coins bubble ("Haiku answered that · saved $x today"); the line is in the open band only |
+| Preflight, collapsed | first finding + "+N more" row + Hide | the first finding with "(+N more)" in its own line, then Hide |
+| Context warning under the bar | always | left out while a bubble says it (the row keeps its height) |
+
+Kept as rows on purpose: preflight findings and the notices that carry a command to copy or several buttons (worktree ready, committed + undo hint). A bubble has one button and one line. With the side panel open the band is hidden, so a message also goes to a toast there.
+
+`/cockpit log` lists the last ten things the bubble said (with the longer form of each message and the last handoff brief's path), since a bubble fades. Legend text is 10 px (was 9).

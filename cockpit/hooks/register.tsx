@@ -142,6 +142,9 @@ const mood = {
   lastSaid: null as string | null, // what the bubble said last, so it can fade out in the same drawing
   draftTurn: false, // the turn is a /handoff: Claude writes the brief as text, with no tool to show it
   askAt: 0, // when a permission ask was seen; it only counts if nothing has moved on a moment later
+  msg: null as { text: string; until: number } | null, // a message to you (the one channel: the bubble), over everything but the raised hand
+  history: [] as string[], // the last things the bubble said, for /cockpit log
+  lastLogged: '', // the text last added to the history
   askId: '', // the call that ask is for: only that call starting running again, or ending, settles it
   drawn: null as { id: StateId; since: number } | null, // what is on screen, and since when
   move: null as { from: StateId; to: StateId } | null, // the state he left, so the drawing can play the move into the one he is in
@@ -151,7 +154,7 @@ let bubbleMode: 'float' | 'inline' = 'float'
 /** A permission ask must stay open this long before Clawd raises a hand: a rule or the mode often settles it first. Set by the askSeconds option. */
 let askMs = 5000
 /** How long a bubble stays after its state has ended. */
-const BUBBLE_LINGER_MS = 9000
+const BUBBLE_LINGER_MS = 12_000
 
 /** Clawd's drawing: the move from the state he left and the state's own loop, in one drawing (see enterMarkup). */
 function mascotFor(state: StateId, clock: string, move: { from: StateId; to: StateId } | null, scale: 1 | 2) {
@@ -169,6 +172,27 @@ function mascotFor(state: StateId, clock: string, move: { from: StateId; to: Sta
 function poke($: EngineInterface, ms = 0): void {
   $.ui.invalidate('ui.render')
   if (ms > 0) $.clock.after(ms + 80, () => $.ui.invalidate('ui.render'))
+}
+
+/** How long a message stays in the bubble. */
+const MSG_MS = 8000
+
+function remember(now: number, text: string): void {
+  mood.lastLogged = text
+  mood.history.push(`${clockOf(new Date(now).toISOString())} ${text}`)
+  if (mood.history.length > 10) mood.history.shift()
+}
+
+/**
+ * Says something to you: in the bubble, the one channel for messages. `detail` is the longer form kept for /cockpit log.
+ * A side pane hides the band, so there it goes to a toast as well.
+ */
+async function tell($: EngineInterface, text: string, detail = text): Promise<void> {
+  const now = await $.clock.now()
+  mood.msg = { text, until: now + MSG_MS }
+  remember(now, detail)
+  poke($, MSG_MS)
+  if (await read($, isSide)) $.ui.toast(text)
 }
 
 async function flash($: EngineInterface, id: Fleet): Promise<void> {
@@ -274,11 +298,10 @@ async function pulse($: EngineInterface, notifyMin: number, stepMin: number) {
     const mins = Math.max(1, Math.round(v.leftMs / 60_000))
     const cost = v.warmUsd !== null && v.coldUsd !== null ? ` Next message: ${money(v.warmUsd)} warm, ${money(v.coldUsd)} after.` : ''
     const text = `Prompt cache goes cold in ~${mins} min.${cost}`
-    $.ui.toast(text)
     try {
       await $.ui.notify(text, { title: 'Cockpit' })
     } catch {
-      // No terminal to notify (desktop host): the toast above is all there is.
+      // No terminal to notify (desktop host): the hourglass and its bubble are the warning.
     }
   }
 }
@@ -336,7 +359,7 @@ async function handoff($: EngineInterface, mode: HandoffMode) {
   isHandoffRunning = true
   try {
     if (await read($, isBusy)) {
-      $.ui.toast('Claude is working. Handoff waits for the turn to end.')
+      await tell($, 'Claude is working. Try again after the turn.')
       return
     }
     if (!pasteOnly) {
@@ -347,7 +370,6 @@ async function handoff($: EngineInterface, mode: HandoffMode) {
     let savedAt = ''
     let brief = pasteOnly ? (((await $.store.get('lastBrief')) as string | undefined) ?? '') : ''
     if (!pasteOnly) {
-      $.ui.status('writing handoff…')
       const c = await read($, cache)
       const now = await $.clock.now()
       // Warm cache: the fork reads the whole transcript from the cache, nearly free. Cold: re-caching it
@@ -360,14 +382,14 @@ async function handoff($: EngineInterface, mode: HandoffMode) {
         const rows = await $.session.messages()
         const tail = Array.isArray(rows) ? transcriptTail(rows, 60_000) : ''
         if (tail === '') {
-          $.ui.toast('Nothing to hand off yet.')
+          await tell($, 'Nothing to hand off yet.')
           return
         }
         const r = await $.model.complete({ model: 'haiku', prompt: coldPrompt(tail), maxTokens: 1200, effort: 'low', timeoutMs: 60_000 })
         if (r.isAnswered) brief = r.text.trim()
       }
       if (brief === '') {
-        $.ui.toast('Could not write the handoff brief. The session is untouched.')
+        await tell($, 'Could not write the brief. Session untouched.')
         return
       }
       await $.store.set('lastBrief', brief)
@@ -376,7 +398,7 @@ async function handoff($: EngineInterface, mode: HandoffMode) {
       if (savedAt !== '') await $.store.set('lastBriefPath', savedAt)
     }
     if (brief === '') {
-      $.ui.toast('No handoff brief saved yet.')
+      await tell($, 'No handoff brief saved yet.')
       return
     }
 
@@ -393,7 +415,7 @@ async function handoff($: EngineInterface, mode: HandoffMode) {
         isCopied = false
       }
       await safe(() => flash($, 'love'))
-      $.ui.toast(`Handoff brief ${isCopied ? 'copied and ' : ''}placed in the prompt box. Your session is unchanged.${where}`)
+      remember(await $.clock.now(), `Handoff brief ${isCopied ? 'copied and ' : ''}placed in the prompt box. Your session is unchanged.${where}`)
       return
     }
 
@@ -407,20 +429,20 @@ async function handoff($: EngineInterface, mode: HandoffMode) {
       isPasted = (await $.prompt.read()).text === brief
     }
     if (isPasted) await safe(() => flash($, 'love'))
-    $.ui.toast(isPasted ? `Handoff brief is in the prompt box: review, then Enter.${where}` : `The brief could not be pasted. /newsession paste retries.${where}`)
+    if (isPasted) remember(await $.clock.now(), `Handoff brief is in the prompt box: review, then Enter.${where}`)
+    else await tell($, 'Brief not pasted. /newsession paste retries.', `The brief could not be pasted. /newsession paste retries.${where}`)
   } catch {
-    $.ui.toast('Handoff failed. Nothing was cleared unless the session looks new.')
+    await tell($, 'Handoff failed. Check the session first.', 'Handoff failed. Nothing was cleared unless the session looks new.')
   } finally {
     isHandoffRunning = false
     mood.writing = false
     poke($)
-    $.ui.status(undefined)
   }
 }
 
 async function fresh($: EngineInterface) {
   if (await read($, isBusy)) {
-    $.ui.toast('Claude is working. Wait for the turn to end.')
+    await tell($, 'Claude is working. Wait for the turn to end.')
     return
   }
   await $.command.run({ command: 'clear' })
@@ -429,14 +451,14 @@ async function fresh($: EngineInterface) {
 /** Compacts this session now, the lighter answer to a full context (the same as typing /compact). */
 async function compactNow($: EngineInterface) {
   if (await read($, isBusy)) {
-    $.ui.toast('Claude is working. Compact waits for the turn to end.')
+    await tell($, 'Claude is working. Compact waits for the turn.')
     return
   }
   try {
     const r = await $.session.compact()
-    if ('skip' in r && r.skip) $.ui.toast(`Not compacted: ${r.skip}`)
+    if ('skip' in r && r.skip) await tell($, 'Not compacted.', `Not compacted: ${r.skip}`)
   } catch {
-    $.ui.toast('Could not compact. Type /compact instead.')
+    await tell($, 'Could not compact. Type /compact.')
   }
 }
 
@@ -828,13 +850,12 @@ async function enhance($: EngineInterface, cfg: Cfg, given?: string): Promise<st
   try {
     const draft = (given ?? (await $.prompt.read()).text).trim()
     if (draft === '') {
-      $.ui.toast('Type a draft first, then Enhance.')
+      await tell($, 'Type a draft first, then Enhance.')
       return 'Nothing to enhance.'
     }
     await patch($, { isBusy: true })
     mood.writing = true
     poke($)
-    $.ui.status(`${WAND} enhancing…`)
 
     const [skills, project] = await Promise.all([collectSkills($, draft, cfg.maxSkills), collectProject($)])
     const r = await $.model.complete({
@@ -846,28 +867,26 @@ async function enhance($: EngineInterface, cfg: Cfg, given?: string): Promise<st
       timeoutMs: 60000,
     })
     if (!r.isAnswered) {
-      $.ui.toast(`Enhance failed (${r.reason}). Your draft is untouched.`)
+      await tell($, 'Enhance failed. Draft untouched.', `Enhance failed (${r.reason}). Your draft is untouched.`)
       return `Enhance failed: ${r.reason}.`
     }
 
     const filled = await $.prompt.fill({ text: cleanOutput(r.text), mode: 'replace' })
     if (!filled.isFilled) {
-      $.ui.toast('Enhanced, but the prompt box is busy. Your draft is untouched.')
+      await tell($, 'Prompt box busy. Draft untouched.', 'Enhanced, but the prompt box is busy. Your draft is untouched.')
       return 'Prompt box unavailable.'
     }
     await patch($, { original: draft, hasDraft: true })
     lastHasDraft = true
     await safe(() => flash($, 'wand'))
-    $.ui.toast('Enhanced. Edit it, then press Enter. ↩ restores your draft.')
     return 'Enhanced draft placed in the prompt box.'
   } catch (err) {
-    $.ui.toast('Enhance failed. Your draft is untouched.')
+    await tell($, 'Enhance failed. Draft untouched.')
     return 'Enhance failed.'
   } finally {
     isRunning = false
     mood.writing = false
     poke($)
-    $.ui.status(undefined)
     await patch($, { isBusy: false })
   }
 }
@@ -1006,6 +1025,9 @@ async function snapshot($: EngineInterface, propsWorking: boolean): Promise<Snap
       else speech = null
     }
   }
+  // A message to you speaks over everything but the raised hand (it is the answer to something you just did).
+  if (!isDemo && state !== 'hand' && mood.msg && mood.msg.until > now) speech = { text: mood.msg.text }
+  if (!isDemo && speech && speech.text !== mood.lastLogged) remember(now, speech.text)
   mood.shownAlert = isDemo ? null : (speech?.alertId ?? null)
   return {
     m,
@@ -1080,6 +1102,7 @@ function dismissBubble(): void {
   if (mood.shownAlert && !mood.dismissed.includes(mood.shownAlert)) mood.dismissed.push(mood.shownAlert)
   mood.sticky = null
   mood.linger = null
+  mood.msg = null
 }
 
 /** One action button; `short` is the compact label used in Clawd's speech bubble. */
@@ -1115,12 +1138,12 @@ function bubbleRow(b: Bubble, c: Comps, fx: Fx, isWorking: boolean) {
 const files = (n: number) => `${n} file${n === 1 ? '' : 's'}`
 
 /** One preflight finding with its buttons (the same buttons the standalone mod had). */
-function adviceRow(a: Advice, ask: string | null, c: Comps, fx: Fx) {
+function adviceRow(a: Advice, ask: string | null, c: Comps, fx: Fx, more = 0) {
   const isWarn = a.kind !== 'peer-working'
   const id = `${a.kind}-${'peerId' in a ? a.peerId : ''}`
   const asking = a.kind === 'peer-done' && ask === a.peerId
   const items: unknown[] = [
-    el(c.Text, { key: 't', color: isWarn ? COLORS.warn : COLORS.dim }, asking && a.kind === 'peer-done' ? `Commit ${files(a.take)} on ${a.branch}? Not pushed.` : `● ${label(a)}`),
+    el(c.Text, { key: 't', color: isWarn ? COLORS.warn : COLORS.dim }, asking && a.kind === 'peer-done' ? `Commit ${files(a.take)} on ${a.branch}? Not pushed.` : `● ${label(a)}${more > 0 ? ` (+${more} more)` : ''}`),
   ]
   if (a.kind === 'shared-folder' || a.kind === 'main') items.push(pill(c, '⇄ New worktree', { key: `wt-${a.kind}`, onPress: () => fx.newWorktree() }))
   if (a.kind === 'dirty') items.push(pill(c, a.onDefault ? '✓ Commit to new branch' : '✓ Commit checkpoint', { key: 'cp', onPress: () => fx.checkpoint(a.onDefault) }))
@@ -1188,13 +1211,13 @@ function details(s: Snap, c: Comps, fx: Fx, surface: string) {
   if (s.isOpen) for (const a of s.alerts) rows.push(alertRow(a, c, fx, s.isWorking))
   if (s.note) rows.push(noticeRow(s.note, c, fx, surface))
   else if (!s.isWorking) {
+    // Collapsed: the first finding only, with the count of the others in its own line; the rest wait in the open band.
     const list = s.isOpen ? s.advice : s.advice.slice(0, 1)
-    for (const a of list) rows.push(adviceRow(a, s.ask, c, fx))
-    if (!s.isOpen && s.advice.length > 1) rows.push(el(c.Text, { key: 'more', color: COLORS.dim }, `+${s.advice.length - 1} more`))
+    for (const a of list) rows.push(adviceRow(a, s.ask, c, fx, !s.isOpen && s.advice.length > 1 ? s.advice.length - 1 : 0))
     if (list.length > 0) rows.push(pill(c, '✕ Hide', { key: 'hide', onPress: () => fx.hideAdvice() }))
   }
-  if (s.saver.isStripShown && (s.isOpen || s.saver.lastRouted)) rows.push(saverRow(s, c, fx))
-  else if (s.isOpen) rows.push(saverRow(s, c, fx))
+  // The saver's own line is for the open band; when it routes a step the bubble says so and fades.
+  if (s.isOpen) rows.push(saverRow(s, c, fx))
   return rows
 }
 
@@ -1314,7 +1337,7 @@ async function startEnhancer($: EngineInterface): Promise<void> {
 }
 
 async function startBand($: EngineInterface): Promise<void> {
-  await tryRegister($, { name: 'cockpit', description: 'The band above the prompt: /cockpit open, close or auto (open when something needs you)', argumentHint: 'open|close|auto|mascot|bubble|demo' })
+  await tryRegister($, { name: 'cockpit', description: 'The band above the prompt: /cockpit open, close or auto (open when something needs you)', argumentHint: 'open|close|auto|mascot|bubble|log|demo' })
   if ((await $.store.get('pinnedOpen')) === true) await update($, pinnedOpen, () => true)
   const storedBubble = await $.store.get('bubbleMode')
   if (storedBubble === 'float' || storedBubble === 'inline') bubbleMode = storedBubble
@@ -1722,6 +1745,11 @@ export const register: Register = (on, options) => {
       void demoLoop($, [...ids])
       return { text: `Showing ${ids.length === 1 ? ids[0] : `all ${ids.length} states`}, 4 seconds each. /cockpit demo off stops it.` }
     }
+    if (arg === 'log') {
+      const path = String((await $.store.get('lastBriefPath')) ?? '')
+      const lines = mood.history.length > 0 ? mood.history.join('\n') : 'Nothing said yet.'
+      return { text: `${lines}${path !== '' ? `\nLast handoff brief: ${path}` : ''}` }
+    }
     if (arg === 'bubble' || arg.startsWith('bubble ')) {
       const wanted = arg.slice(6).trim()
       if (wanted !== 'float' && wanted !== 'inline') return { text: `The speech bubble is ${bubbleMode}. Use /cockpit bubble float (a pixel bubble above Clawd) or inline (a text row under the band).` }
@@ -1742,7 +1770,7 @@ export const register: Register = (on, options) => {
       await setView($, arg)
       return { text: arg === 'open' ? 'Cockpit kept open.' : arg === 'close' ? 'Cockpit collapsed. /cockpit auto lets it open by itself again.' : 'Cockpit opens by itself when something needs you.' }
     }
-    return { text: `Cockpit is ${(await read($, pinnedOpen)) ? 'pinned open' : 'automatic'}. Use /cockpit open, close or auto, /cockpit mascot on, small or off, /cockpit bubble float or inline, or /cockpit demo [state] to see Clawd's states.` }
+    return { text: `Cockpit is ${(await read($, pinnedOpen)) ? 'pinned open' : 'automatic'}. Use /cockpit open, close or auto, /cockpit mascot on, small or off, /cockpit bubble float or inline, /cockpit log for what the bubble said lately, or /cockpit demo [state] to see Clawd's states.` }
   })
 
   // The person closed the side panel with its own close mark: remember it, or the next session reopens it.
