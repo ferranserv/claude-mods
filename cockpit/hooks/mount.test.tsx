@@ -40,13 +40,15 @@ test('desktop band: SVG with the three meters, filled from measurements', async 
   world(on)
 
   const empty = await $.ui.mount(band('desktop'))
-  const svg0 = await empty.find({ type: 'Svg' })
+  const svgs0 = await empty.findAll({ type: 'Svg' })
+  expect(svgs0.length).toBeGreaterThanOrEqual(2) // Clawd is a drawing of his own: a new pose never reloads the meters
+  const svg0 = svgs0.find(v => String((v as { props?: { source?: string } }).props?.source ?? '').includes('Context'))
   expect(svg0).toBeDefined()
   await empty.unmount()
 
   await $.session.measure(measure(200_000, 40, 35) as never)
   const ui = await $.ui.mount(band('desktop'))
-  const svg = await ui.find({ type: 'Svg' })
+  const svg = (await ui.findAll({ type: 'Svg' })).find(v => String((v as { props?: { source?: string } }).props?.source ?? '').includes('Context'))
   expect(svg).toBeDefined()
   const source = String((svg as { props?: { source?: string } } | undefined)?.props?.source ?? '')
   expect(source).toContain('20%')
@@ -57,14 +59,10 @@ test('desktop band: SVG with the three meters, filled from measurements', async 
   expect(props?.width).toBeGreaterThan(300)
   expect(props?.height).toBeGreaterThan(30)
   expect(props?.height).toBeLessThan(120)
-  // Calm: the row is collapsed and keeps the small print out of the drawing.
-  expect(source).not.toContain('Wed 25% under')
+  // The meters are always the whole story: the weekly pace is there when the window is wide enough.
   await ui.unmount()
-
-  // The arrow (or /cockpit open) shows the whole context whenever you want it.
-  await $.command.run({ command: 'cockpit', args: 'open' } as never)
   const open = await $.ui.mount(band('desktop', { bodyColumns: 160 }))
-  const full = String(((await open.find({ type: 'Svg' })) as { props?: { source?: string } } | undefined)?.props?.source ?? '')
+  const full = String(((await open.findAll({ type: 'Svg' })).find(v => String((v as { props?: { source?: string } }).props?.source ?? '').includes('Context')) as { props?: { source?: string } } | undefined)?.props?.source ?? '')
   expect(full).toContain('Wed 25% under')
   await open.unmount()
 })

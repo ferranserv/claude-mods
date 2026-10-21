@@ -124,3 +124,18 @@ Report anything off in plain words ("the palm tree overlaps", "no animation", "a
 | 76 | `/cockpit demo` (every state, 4 s each) | Each state and its bubble leave together; nothing stays after the tour | |
 | 77 | `/cockpit demo detective`, then idle | The hat is carried in a brown fedora, not a yellow hard hat | |
 
+
+
+## 0.15.0: one row, one bubble (older rows above that mention the arrow, /cockpit open|close|auto, the saver line or `/cockpit bubble` no longer apply)
+
+| # | Do | Expect | OK? |
+|---|---|---|---|
+| 80 | Look at the band for a minute while Claude works and changes pose | The meters never flicker or reload; only Clawd changes | |
+| 81 | `/meters warn 5` and wait for the tipsy pose | A bubble row under the meters (never over a number) with a gray **Handoff** button of the same gray as the bubble, and a **…** | |
+| 82 | Click **…** | A row with Compact, Copy brief, Fresh, same gray. Each one works; the row closes | |
+| 83 | `/cockpit demo cold`, then `/cockpit demo fire` | The old words are deleted letter by letter, the bubble resizes, the new words are typed. No pop | |
+| 84 | Narrow the window and trigger a long message (cold cache) | Two lines, or an ellipsis; never text running past the bubble | |
+| 85 | Click the very edge of a gray button, and the space beside it | The edge clicks; the space beside does nothing | |
+| 86 | In a git repo with uncommitted files | One bubble with the first finding and its button; **…** lists the others and Hide all | |
+| 87 | `/preflight` actions: New worktree | A bubble "Worktree ready" with **Switch**; **…** has Copy path and OK | |
+| 88 | Let Saver route an easy prompt to Haiku | A bubble "Haiku answered that · saved $x today"; no saver line anywhere | |

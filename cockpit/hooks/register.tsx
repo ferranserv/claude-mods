@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
-import type { Advice, Cache, EnhancerState, Fill, Limit, Notice, Saved, StripMode } from '../types'
+import type { Advice, Cache, EnhancerState, Fill, Limit, Notice, Saved } from '../types'
 import { bandKey, stack } from './bands'
 import { SYSTEM, SYSTEM_LEAN, buildPrompt, cleanOutput, clip, matchesChord as matchesEnhancerChord, parseChord as parseEnhancerChord, pickSkills } from './enhancer-logic'
 import type { SkillInfo } from './enhancer-logic'
@@ -13,13 +13,12 @@ import {
   allottedThrough,
   alertsOf,
   altText,
-  attentionOf,
   bandWidth,
   cacheView,
+  CELL,
   clockText,
   C,
-  bubbleSvg,
-  cockpitSvg,
+  bandParts,
   learnWindow,
   line,
   model,
@@ -27,6 +26,8 @@ import {
   priceOf,
   sideSvg,
   sideWidth,
+  pillSvg,
+  speechSvg,
   wandSvg,
   windowMinutes,
 } from './lib'
@@ -51,7 +52,7 @@ import {
   worktreePath,
 } from './preflight-logic'
 import type { Change, Facts, Peer, Phase, Stat } from './preflight-logic'
-import { COLOR, CONTEXT_LIMIT, HAIKU_ID, dayKey, isStripShown, labelLocally, parseMode, realSaving, shortName } from './saver-logic'
+import { CONTEXT_LIMIT, HAIKU_ID, dayKey, labelLocally, realSaving } from './saver-logic'
 import type { Level } from './saver-logic'
 import { logPath, turnRow, withRow } from './turnlog'
 import { STATES, STATE_IDS, enterMarkup, stateMarkup } from './states'
@@ -81,9 +82,7 @@ const isBusy = atom({ plugin: 'cockpit', key: 'isBusy' } as const, false)
 // The context warning levels in force: the options, unless /meters warn|red|tokens changed them.
 const lim = atom({ plugin: 'cockpit', key: 'lim' } as const, DEFAULT_LIMITS as Thresholds)
 const saverOn = atom({ plugin: 'cockpit', key: 'saverOn' } as const, true)
-const saverLast = atom({ plugin: 'cockpit', key: 'saverLast' } as const, null as string | null)
 const saverSaved = atom({ plugin: 'cockpit', key: 'saverSaved' } as const, { day: '', usd: 0 } as Saved)
-const stripMode = atom({ plugin: 'cockpit', key: 'stripMode' } as const, 'active' as StripMode)
 const lastRouted = atom({ plugin: 'cockpit', key: 'lastRouted' } as const, false)
 const preflightOn = atom({ plugin: 'cockpit', key: 'preflightOn' } as const, true)
 const advice = atom({ plugin: 'cockpit', key: 'advice' } as const, [] as Advice[])
@@ -91,8 +90,8 @@ const isDismissed = atom({ plugin: 'cockpit', key: 'isDismissed' } as const, fal
 const pending = atom({ plugin: 'cockpit', key: 'pending' } as const, null as string | null)
 const notice = atom({ plugin: 'cockpit', key: 'notice' } as const, null as Notice | null)
 const stateAtom = atom({ plugin: 'cockpit', key: 'enhancer' } as const, { hasDraft: false, isBusy: false, original: '' } as EnhancerState)
-const pinnedOpen = atom({ plugin: 'cockpit', key: 'pinnedOpen' } as const, false)
-const snooze = atom({ plugin: 'cockpit', key: 'snooze' } as const, 0)
+// Whether the "…" menu under the bubble is open.
+const menuState = atom({ plugin: 'cockpit', key: 'menu' } as const, false)
 
 // ---- options, read once when the plugin loads
 let defaults: Thresholds = DEFAULT_LIMITS
@@ -139,9 +138,9 @@ const mood = {
   dismissed: [] as string[], // warnings whose bubble you answered; quiet until the warning ends and comes back
   shownAlert: null as string | null, // the warning the bubble on screen stands for
   resetAt: 0, // the next limit reset a redraw is already booked for
-  lastSaid: null as string | null, // what the bubble said last, so it can fade out in the same drawing
   draftTurn: false, // the turn is a /handoff: Claude writes the brief as text, with no tool to show it
   askAt: 0, // when a permission ask was seen; it only counts if nothing has moved on a moment later
+  art: null as { text: string; prev: string | undefined; room: number; art: ReturnType<typeof speechSvg> } | null, // the bubble's drawing, kept while its words stand so it is never replaced (a replaced drawing blinks)
   msg: null as { text: string; until: number } | null, // a message to you (the one channel: the bubble), over everything but the raised hand
   history: [] as string[], // the last things the bubble said, for /cockpit log
   lastLogged: '', // the text last added to the history
@@ -149,8 +148,6 @@ const mood = {
   drawn: null as { id: StateId; since: number } | null, // what is on screen, and since when
   move: null as { from: StateId; to: StateId } | null, // the state he left, so the drawing can play the move into the one he is in
 }
-// Where the speech bubble is drawn: float (a pixel bubble in a row above the band, tail to Clawd) or inline (a text row under the band).
-let bubbleMode: 'float' | 'inline' = 'float'
 /** A permission ask must stay open this long before Clawd raises a hand: a rule or the mode often settles it first. Set by the askSeconds option. */
 let askMs = 5000
 /** How long a bubble stays after its state has ended. */
@@ -893,27 +890,76 @@ async function undo($: EngineInterface) {
 
 // ======================= the band =======================
 
-const COLORS = { warn: '#d97706', ok: '#16a34a', dim: '#8b949e', alert: '#FF453A' }
+/** What a button in the bubble or its menu can do. */
+type ActId = ActionId | 'worktree' | 'checkpoint' | 'askCommit' | 'noCommit' | 'commitPeer' | 'hide' | 'switch' | 'copyPath' | 'copyUndo' | 'ok'
+type ActRef = { id: ActId; label: string; arg?: string | boolean }
+/** What Clawd says: the words, the warning it stands for, and its buttons: the first is the bubble's own, the rest are in its menu. */
+type Speech = { text: string; alertId?: string; acts: ActRef[] }
 
 type Snap = {
   m: Model
   now: number
-  attention: 0 | 1 | 2
-  isOpen: boolean
   isWorking: boolean
-  alerts: Alert[]
-  saver: { isOn: boolean; last: string | null; usd: number; isStripShown: boolean; lastRouted: boolean }
-  advice: Advice[]
-  note: Notice | null
-  ask: string | null
   enh: EnhancerState
   state: StateId
-  bubble: Bubble | null
+  speech: Speech | null
+  menuOpen: boolean
   clock: string
   mascot: { markup: string; width: number; height: number }
 }
 
-/** Reads every feature's state once and decides what is shown and whether the band is open. */
+/** What each answer to a warning is called. */
+const ACTION_LABELS: Record<ActionId, string> = { handoff: 'Handoff', copy: 'Copy brief', fresh: 'Fresh', saverOn: 'Saver on', compact: 'Compact' }
+
+const files = (n: number) => `${n} file${n === 1 ? '' : 's'}`
+
+/** One preflight finding as words and its one action (none for a session still working). */
+function adviceAct(a: Advice, ask: string | null): { text: string; act: ActRef | null } {
+  if (a.kind === 'main' || a.kind === 'shared-folder') return { text: label(a), act: { id: 'worktree', label: 'New worktree' } }
+  if (a.kind === 'dirty') return { text: label(a), act: { id: 'checkpoint', arg: a.onDefault, label: a.onDefault ? 'Commit to new branch' : 'Commit checkpoint' } }
+  if (a.kind === 'peer-done' && a.take > 0) {
+    if (ask === a.peerId) return { text: `Commit ${files(a.take)} on ${a.branch}? Not pushed.`, act: { id: 'commitPeer', arg: a.peerId, label: 'Yes, commit' } }
+    return { text: label(a), act: { id: 'askCommit', arg: a.peerId, label: 'Commit its files' } }
+  }
+  return { text: label(a), act: null }
+}
+
+/** A few words for a finding that sits in the menu behind the one the bubble shows. */
+function adviceName(a: Advice): string {
+  if (a.kind === 'main') return 'on main'
+  if (a.kind === 'shared-folder') return 'shared folder'
+  if (a.kind === 'dirty') return `${a.count} changed`
+  return `session ${short(a.peerId)} ${a.kind === 'peer-done' ? 'done' : 'working'}`
+}
+
+/** The preflight findings as one bubble: the one to act on first, the others and Hide in the menu. */
+function adviceSpeech(rows: Advice[], ask: string | null): Speech {
+  const all = rows.map(a => ({ a, ...adviceAct(a, ask) }))
+  const ordered = [...all.filter(x => x.act !== null), ...all.filter(x => x.act === null)]
+  const head = ordered[0]
+  const acts: ActRef[] = []
+  if (head?.act) acts.push(head.act)
+  if (head && ask !== null && head.act?.id === 'commitPeer') acts.push({ id: 'noCommit', label: 'No' })
+  for (const x of ordered.slice(1)) if (x.act) acts.push({ ...x.act, label: `${x.act.label} (${adviceName(x.a)})` })
+  acts.push({ id: 'hide', label: 'Hide all' })
+  const more = ordered.length > 1 ? ` (+${ordered.length - 1})` : ''
+  return { text: `${head?.text ?? ''}${more}`, acts }
+}
+
+/** A notice as one bubble: the sentence, then OK (or Switch for a new worktree); path and undo command are in the menu. */
+function noticeSpeech(n: Notice): Speech {
+  const at = n.text.indexOf(' Undo: ')
+  const undo = at >= 0 ? n.text.slice(at + 7).trim() : ''
+  let text = (at >= 0 ? n.text.slice(0, at) : n.text).trim()
+  if (text.length > 70) text = text.split(/(?<=\.)\s/)[0] ?? text
+  const acts: ActRef[] = []
+  if (n.text.startsWith('Worktree ready')) acts.push({ id: 'switch', label: 'Switch' }, { id: 'copyPath', label: 'Copy path' }, { id: 'ok', label: 'OK' })
+  else acts.push({ id: 'ok', label: 'OK' })
+  if (undo !== '') acts.push({ id: 'copyUndo', arg: undo, label: 'Copy undo command' })
+  return { text: `${n.isError ? '! ' : ''}${text}`, acts }
+}
+
+/** Reads every feature's state once and decides what Clawd does and says. */
 async function snapshot($: EngineInterface, propsWorking: boolean): Promise<Snap> {
   const now = await $.clock.now()
   const m = model({
@@ -926,14 +972,10 @@ async function snapshot($: EngineInterface, propsWorking: boolean): Promise<Snap
   const isOn = await read($, saverOn)
   const rows = (await read($, isDismissed)) ? [] : await read($, advice)
   const note = await read($, notice)
-  const attention = attentionOf(m, rows.length > 0, now)
-  const pinned = await read($, pinnedOpen)
-  const snoozed = await read($, snooze)
   const isWorking = propsWorking || (await read($, isBusy))
   const today = new Date(now)
   const day = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
   const saved = await read($, saverSaved)
-  const routed = await read($, lastRouted)
   const clock = clockOf((await read($, limits)).find(l => l.kind === 'five_hour')?.resetsAt)
   const weekRoom = allottedThrough(now) - m.week.used
   const alerts = alertsOf(m, { saverOn: isOn, now })
@@ -946,6 +988,7 @@ async function snapshot($: EngineInterface, propsWorking: boolean): Promise<Snap
   // A bubble waiting for a decision ends by itself when its warning does (the limit reset, the context was cleared).
   mood.dismissed = mood.dismissed.filter(id => alerts.some(a => a.id === id)) // a warning that ended may speak again when it returns
   if (mood.sticky?.bubble.alertId !== undefined && !alerts.some(a => a.id === mood.sticky?.bubble.alertId)) mood.sticky = null
+  if (mood.linger?.bubble.alertId !== undefined && !alerts.some(a => a.id === mood.linger?.bubble.alertId)) mood.linger = null
   const isDemo = mood.demo !== null && mood.demo.until > now
   const picked: StateId =
     mood.demo && mood.demo.until > now
@@ -993,11 +1036,12 @@ async function snapshot($: EngineInterface, propsWorking: boolean): Promise<Snap
     savedUsd: usd > 0 ? money(usd) : '',
     hasAdvice: rows.length > 0,
   })
-  const bubble = said && said.alertId !== undefined && mood.dismissed.includes(said.alertId) ? null : said
+  // A bubble that stands for a warning is only said while the warning stands (a pose held a few seconds after it ended says nothing).
+  const bubble = said && said.alertId !== undefined && (mood.dismissed.includes(said.alertId) || (!isDemo && !alerts.some(a => a.id === said.alertId))) ? null : said
 
   // A bubble that asks for a decision stays until you click its button or send something else; any other lingers a while
   // after its state ends. The raised hand never lingers: it goes the moment you answer.
-  let speech: Bubble | null = bubble
+  let spoken: Bubble | null = bubble
   if (isDemo) {
     // A demo shows the state with its own bubble and takes both away together; it leaves nothing pending behind. One
     // state shown alone with a button waits for you to answer it, like the real one.
@@ -1012,58 +1056,46 @@ async function snapshot($: EngineInterface, propsWorking: boolean): Promise<Snap
     // speaks first; a pending decision or a lingering bubble only speaks when its state outranks the one shown.
     const outranks = (from: StateId) => rank(from) < rank(state)
     if (!bubble) {
-      if (mood.sticky && outranks(mood.sticky.state)) speech = mood.sticky.bubble
-      else if (mood.linger && mood.linger.until > now && outranks(mood.linger.state)) speech = mood.linger.bubble
-      else speech = null
+      if (mood.sticky && outranks(mood.sticky.state)) spoken = mood.sticky.bubble
+      else if (mood.linger && mood.linger.until > now && outranks(mood.linger.state)) spoken = mood.linger.bubble
+      else spoken = null
     }
   }
   // A message to you speaks over everything but the raised hand (it is the answer to something you just did).
-  if (!isDemo && state !== 'hand' && mood.msg && mood.msg.until > now) speech = { text: mood.msg.text }
+  if (!isDemo && state !== 'hand' && mood.msg && mood.msg.until > now) spoken = { text: mood.msg.text }
+
+  // The state's own bubble first; then, when Clawd is only on the case (a notice to read, findings to act on), those.
+  const alert = spoken?.alertId !== undefined ? alerts.find(a => a.id === spoken?.alertId) : undefined
+  const ids: ActionId[] = spoken?.action ? [spoken.action, ...(alert?.actions ?? []).filter(id => id !== spoken?.action)] : []
+  let speech: Speech | null = spoken
+    ? { text: spoken.text, alertId: spoken.alertId, acts: ids.filter(id => !(isWorking && id !== 'saverOn')).map(id => ({ id, label: ACTION_LABELS[id] })) }
+    : null
+  if (!speech && !isDemo) {
+    if (state === 'talk' && note) speech = noticeSpeech(note)
+    else if (state === 'detective' && rows.length > 0 && !isWorking) speech = adviceSpeech(rows, await read($, pending))
+  }
   if (!isDemo && speech && speech.text !== mood.lastLogged) remember(now, speech.text)
   mood.shownAlert = isDemo ? null : (speech?.alertId ?? null)
+  // The menu belongs to the bubble it opened from: when there is none, it closes.
+  const menuOpen = await read($, menuState)
+  if (menuOpen && (!speech || speech.acts.length < 2)) $.clock.after(0, () => void update($, menuState, () => false))
   return {
     m,
     now,
-    attention,
-    isOpen: pinned || attention > snoozed,
     isWorking,
-    alerts,
-    saver: { isOn, last: await read($, saverLast), usd: saved.day === day ? Math.max(0, saved.usd) : 0, isStripShown: isStripShown(await read($, stripMode), isOn, routed), lastRouted: routed },
-    advice: rows,
-    note,
-    ask: await read($, pending),
     enh: await read($, stateAtom),
     state,
-    bubble: speech,
+    speech,
+    menuOpen: menuOpen && speech !== null && speech.acts.length > 1,
     clock,
     mascot: mascotMode === 'off' ? { markup: '', width: 0, height: 0 } : mascotFor(state, clock, mood.move, mascotMode === 'small' ? 1 : 2),
   }
 }
 
-/** The arrow: open stays open until pressed; pressed while open it collapses until the alert level climbs. */
-async function toggle($: EngineInterface, wasOpen: boolean, attention: number): Promise<void> {
-  if (wasOpen) {
-    await update($, pinnedOpen, () => false)
-    await update($, snooze, () => attention)
-    await $.store.set('pinnedOpen', false)
-  } else {
-    await update($, pinnedOpen, () => true)
-    await $.store.set('pinnedOpen', true)
-  }
-}
-
-async function setView($: EngineInterface, value: 'open' | 'close' | 'auto'): Promise<void> {
-  await update($, pinnedOpen, () => value === 'open')
-  // Closed holds at the top level: nothing short of /cockpit auto (or the arrow) brings it back by itself.
-  await update($, snooze, () => (value === 'close' ? 2 : 0))
-  await $.store.set('pinnedOpen', value === 'open')
-}
-
 type Comps = { Box: never; Text: never; Button: never; Svg?: never }
 const el = (type: unknown, props: Record<string, unknown>, ...children: unknown[]) => h(type as never, props as never, ...(children as never[])) as never
 
-/** One alert: its words and the buttons that answer it. Handoff and fresh wait while Claude works. */
-const NBSP = '\u00A0'
+const NBSP = ' '
 
 /**
  * A button in the cockpit gray with dark text, the same as the speech bubble, whatever the app's own button style is.
@@ -1073,16 +1105,6 @@ const NBSP = '\u00A0'
 function pill(c: Comps, label: string, props: Record<string, unknown>, fill: { color: string; backgroundColor: string } = { color: '#1b1a19', backgroundColor: C.gray }) {
   const text = label.replace(/^[^\p{L}\p{N}]+/u, '')
   return el(c.Button, { plain: true, ...props }, el(c.Text, fill, `${NBSP}${text}${NBSP}`))
-}
-
-/** What each answer to a warning is called, and what pressing it does. */
-const ACTION_LABELS: Record<string, string> = { handoff: 'Handoff', copy: 'Copy brief', fresh: 'Fresh', saverOn: 'Saver on', compact: 'Compact' }
-function runAction(id: ActionId, fx: Fx): void {
-  if (id === 'handoff') fx.handoff('full')
-  else if (id === 'copy') fx.handoff('brief')
-  else if (id === 'fresh') fx.fresh()
-  else if (id === 'compact') fx.compact()
-  else fx.saver(true)
 }
 
 /** Pressing a button, or sending something else, is the decision a bubble was waiting for. */
@@ -1097,86 +1119,77 @@ function dismissBubble(): void {
   mood.msg = null
 }
 
-/** One action button; `short` is the compact label used in Clawd's speech bubble. */
-function actionButton(id: ActionId, c: Comps, fx: Fx, short: boolean) {
-  const go = () => {
-    if (short) dismissBubble()
-    runAction(id, fx)
-  }
-  return pill(c, ACTION_LABELS[id] ?? id, { key: id === 'saverOn' ? 'saver' : id, onPress: go })
+/** What pressing a button does. */
+function runAct(a: ActRef, fx: Fx, surface: string): void {
+  if (a.id === 'handoff') fx.handoff('full')
+  else if (a.id === 'copy') fx.handoff('brief')
+  else if (a.id === 'fresh') fx.fresh()
+  else if (a.id === 'compact') fx.compact()
+  else if (a.id === 'saverOn') fx.saver(true)
+  else if (a.id === 'worktree') fx.newWorktree()
+  else if (a.id === 'checkpoint') fx.checkpoint(a.arg === true)
+  else if (a.id === 'askCommit') fx.askCommit(String(a.arg))
+  else if (a.id === 'noCommit') fx.askCommit(null)
+  else if (a.id === 'commitPeer') fx.commitPeer(String(a.arg))
+  else if (a.id === 'hide') fx.hideAdvice()
+  else if (a.id === 'switch') fx.switchInto()
+  else if (a.id === 'copyPath') fx.copyWorktree(surface)
+  else if (a.id === 'copyUndo') fx.copyText(String(a.arg), surface)
+  else fx.dismissNotice()
 }
 
-/** One alert: its words and the buttons that answer it. Handoff and fresh wait while Claude works. */
-function alertRow(a: Alert, c: Comps, fx: Fx, isWorking: boolean) {
-  const tone = a.tone === 'alert' ? COLORS.alert : COLORS.warn
-  const wanted = a.actions.filter(id => !(isWorking && id !== 'saverOn'))
-  return el(c.Box, { key: `alert-${a.id}`, flexDirection: 'row', alignItems: 'center', gap: 1, flexWrap: 'wrap' }, el(c.Text, { key: 't', color: tone }, `● ${a.text}`), ...wanted.map(id => actionButton(id, c, fx, false)))
-}
-
-/** On the terminal the speech bubble is a line of text above the band (the desktop draws it as pixels inside the band). */
-function bubbleFloat(b: Bubble, c: Comps, fx: Fx, isWorking: boolean) {
-  const items: unknown[] = [el(c.Text, { key: 't' }, b.text)]
-  if (b.action && !(isWorking && b.action !== 'saverOn')) items.push(actionButton(b.action, c, fx, true))
-  return el(c.Box, { key: 'bubble', flexDirection: 'row', alignItems: 'center', gap: 1, paddingLeft: 3 }, ...items)
-}
-
-/** Clawd's speech bubble: what he is reacting to, and the button that answers it when there is one. */
-function bubbleRow(b: Bubble, c: Comps, fx: Fx, isWorking: boolean) {
-  const items: unknown[] = [el(c.Text, { key: 'tail', dimColor: true }, '◂'), el(c.Text, { key: 't' }, b.text)]
-  if (b.action && !(isWorking && b.action !== 'saverOn')) items.push(actionButton(b.action, c, fx, true))
-  return el(c.Box, { key: 'bubble', flexDirection: 'row', alignItems: 'center', gap: 1, flexWrap: 'wrap' }, ...items)
-}
-
-const files = (n: number) => `${n} file${n === 1 ? '' : 's'}`
-
-/** One preflight finding with its buttons (the same buttons the standalone mod had). */
-function adviceRow(a: Advice, ask: string | null, c: Comps, fx: Fx, more = 0) {
-  const isWarn = a.kind !== 'peer-working'
-  const id = `${a.kind}-${'peerId' in a ? a.peerId : ''}`
-  const asking = a.kind === 'peer-done' && ask === a.peerId
-  const items: unknown[] = [
-    el(c.Text, { key: 't', color: isWarn ? COLORS.warn : COLORS.dim }, asking && a.kind === 'peer-done' ? `Commit ${files(a.take)} on ${a.branch}? Not pushed.` : `● ${label(a)}${more > 0 ? ` (+${more} more)` : ''}`),
-  ]
-  if (a.kind === 'shared-folder' || a.kind === 'main') items.push(pill(c, '⇄ New worktree', { key: `wt-${a.kind}`, onPress: () => fx.newWorktree() }))
-  if (a.kind === 'dirty') items.push(pill(c, a.onDefault ? '✓ Commit to new branch' : '✓ Commit checkpoint', { key: 'cp', onPress: () => fx.checkpoint(a.onDefault) }))
-  if (a.kind === 'peer-done' && a.take > 0) {
-    if (asking) {
-      items.push(pill(c, '✓ Yes, commit', { key: 'yes', onPress: () => fx.commitPeer(a.peerId) }))
-      items.push(pill(c, '✕ No', { key: 'no', onPress: () => fx.askCommit(null) }))
-    } else {
-      items.push(pill(c, '✓ Commit its files', { key: 'ask', onPress: () => fx.askCommit(a.peerId) }))
-    }
-  }
-  return el(c.Box, { key: id, flexDirection: 'row', alignItems: 'center', gap: 1, flexWrap: 'wrap' }, ...items)
-}
-
-function noticeRow(n: Notice, c: Comps, fx: Fx, surface: string) {
-  const items: unknown[] = [el(c.Text, { key: 'note', color: n.isError ? COLORS.warn : COLORS.ok }, `${n.isError ? '! ' : '✓ '}${n.text}`)]
-  if (n.text.startsWith('Worktree ready')) {
-    items.push(pill(c, '➜ Switch', { key: 'sw', onPress: () => fx.switchInto() }))
-    items.push(pill(c, '❐ Copy path', { key: 'copy', onPress: () => fx.copyWorktree(surface) }))
-  }
-  items.push(pill(c, '✓ OK', { key: 'ok', onPress: () => fx.dismissNotice() }))
-  return el(c.Box, { key: 'notice', flexDirection: 'row', alignItems: 'center', gap: 1, flexWrap: 'wrap' }, ...items)
-}
-
-/** The saver line: only while it routed the last answer to Haiku in the collapsed band, always when open. */
-function saverRow(s: Snap, c: Comps, fx: Fx) {
-  const dim = s.saver.isOn ? COLOR.dim : COLOR.track
+/**
+ * A button drawn as pixels (the bubble's gray, dark text) with the real Button laid over it, blank, in a box of the same
+ * whole cells with the overflow cut: the click area is the drawing and cannot cover anything beside it.
+ */
+function artButton(c: Comps, label: string, key: string, onPress: () => void) {
+  const art = pillSvg(label)
   return el(
     c.Box,
-    { key: 'saver', flexDirection: 'row', alignItems: 'center', gap: 1, flexWrap: 'wrap' },
-    el(c.Text, { key: 'dot', color: s.saver.isOn ? COLOR.green : COLOR.track }, '●'),
-    el(c.Text, { key: 't', color: dim }, `Saver ${s.saver.isOn ? 'on' : 'off'}  |  answered by ${s.saver.last ? shortName(s.saver.last) : '-'}  |  saved today ${money(s.saver.usd)}`),
-    pill(c, s.saver.isOn ? '⚡ Saver off' : '⚡ Saver on', { key: 'saver-toggle', onPress: () => fx.saver(!s.saver.isOn) }),
+    { key: `${key}-wrap`, position: 'relative', width: art.cols, height: 1, overflow: 'hidden' },
+    el(c.Svg as never, { key: 'art', source: art.source, alt: label, width: art.width, height: art.height }),
+    el(c.Box, { key: 'hit', position: 'absolute', top: 0, left: 0 }, el(c.Button, { key, plain: true, onPress }, NBSP.repeat(art.cols * 2))),
   )
 }
 
-/** The wand as a text glyph with the text-presentation selector (U+FE0E), drawn white: a font outline, not the colour emoji. A Button takes only strings and Text, never an Svg. */
-const WAND = '\u{1FA84}\uFE0E'
+/** One button of a bubble or its menu: pressing it answers the bubble and closes the menu. */
+function actButton(a: ActRef, c: Comps, fx: Fx, surface: string) {
+  const key = a.id === 'saverOn' ? 'saver' : a.arg !== undefined && typeof a.arg === 'string' ? `${a.id}-${a.arg}` : a.id
+  const go = () => {
+    dismissBubble()
+    fx.menu(false)
+    runAct(a, fx, surface)
+  }
+  return c.Svg ? artButton(c, a.label, key, go) : pill(c, a.label, { key, onPress: go })
+}
 
-/** The small controls at the right of the row: enhance, undo, and the arrow. */
-function controls(s: Snap, c: Comps, fx: Fx, onToggle: () => void, Svg: unknown = null) {
+/** The "…" that opens the menu of the bubble's other buttons. */
+function moreButton(s: Snap, c: Comps, fx: Fx) {
+  const go = () => fx.menu(!s.menuOpen)
+  return c.Svg ? artButton(c, '…', 'more', go) : pill(c, '…', { key: 'more', onPress: go })
+}
+
+/** The bubble's other buttons, in a row under it, while the menu is open. */
+function menuRow(s: Snap, c: Comps, fx: Fx, surface: string, indent: number) {
+  if (!s.menuOpen || !s.speech) return []
+  return [el(c.Box, { key: 'menu', flexDirection: 'row', alignItems: 'center', gap: 1, flexWrap: 'wrap', paddingLeft: indent }, ...s.speech.acts.slice(1).map(a => actButton(a, c, fx, surface)))]
+}
+
+/** On the terminal and in the side panel the bubble is a line of text with its buttons (the desktop band draws pixels). */
+function speechText(s: Snap, c: Comps, fx: Fx, surface: string) {
+  if (!s.speech) return []
+  const first = s.speech.acts[0]
+  const items: unknown[] = [el(c.Text, { key: 't' }, s.speech.text)]
+  if (first) items.push(actButton(first, c, fx, surface))
+  if (s.speech.acts.length > 1) items.push(moreButton(s, c, fx))
+  return [el(c.Box, { key: 'bubble', flexDirection: 'row', alignItems: 'center', gap: 1, flexWrap: 'wrap', paddingLeft: 3 }, ...items), ...menuRow(s, c, fx, surface, 3)]
+}
+
+/** The wand as a text glyph with the text-presentation selector (U+FE0E), drawn white: a font outline, not the colour emoji. A Button takes only strings and Text, never an Svg. */
+const WAND = '\u{1FA84}︎'
+
+/** The small controls at the right of the row: enhance and undo. */
+function controls(s: Snap, c: Comps, fx: Fx, Svg: unknown = null) {
   const tip = (text: string) => el(c.Box, { position: 'absolute', top: -1, right: 0, display: 'none', hover: { display: 'flex' } }, el(c.Text, { dimColor: true }, text))
   const items: unknown[] = []
   if (s.enh.isBusy) items.push(el(c.Text, { key: 'busy', dimColor: true }, `${WAND} enhancing…`))
@@ -1187,30 +1200,11 @@ function controls(s: Snap, c: Comps, fx: Fx, onToggle: () => void, Svg: unknown 
       // A Button cannot hold a drawing: the flat white wand is an Svg, with a plain button of blank text laid over it.
       const wand = wandSvg(!s.enh.hasDraft)
       items.push(
-        el(c.Box, { key: 'enhance-wrap', position: 'relative' }, el(Svg as never, { key: 'wand', source: wand.source, alt: 'Enhance my draft', width: wand.width, height: wand.height }), el(c.Box, { key: 'wand-hit', position: 'absolute', top: 0, left: 0 }, el(c.Button, { key: 'enhance', plain: true, onPress: () => fx.enhance() }, '\u00A0\u00A0\u00A0')), tip(tipText)),
+        el(c.Box, { key: 'enhance-wrap', position: 'relative' }, el(Svg as never, { key: 'wand', source: wand.source, alt: 'Enhance my draft', width: wand.width, height: wand.height }), el(c.Box, { key: 'wand-hit', position: 'absolute', top: 0, left: 0 }, el(c.Button, { key: 'enhance', plain: true, onPress: () => fx.enhance() }, '   ')), tip(tipText)),
       )
     } else items.push(el(c.Box, { key: 'enhance-wrap' }, el(c.Button, { key: 'enhance', dimColor: !s.enh.hasDraft, onPress: () => fx.enhance() }, el(c.Text, { color: 'white' }, WAND)), tip(tipText)))
   }
-  items.push(el(c.Box, { key: 'toggle-wrap' }, el(c.Button, { key: 'toggle', plain: true, dimColor: true, onPress: onToggle }, s.isOpen ? '▴' : '▾'), tip(s.isOpen ? 'Hide details' : 'Show details')))
   return el(c.Box, { key: 'controls', flexDirection: 'row', alignItems: 'center', gap: 2, paddingX: 1 }, ...items)
-}
-
-/** What sits under the main row: alerts, preflight, notice, saver. Collapsed shows only what needs you. */
-function details(s: Snap, c: Comps, fx: Fx, surface: string) {
-  const rows: unknown[] = []
-  // An open band already shows the alert the bubble stands for, with its buttons: say it once.
-  if (bubbleMode === 'inline' && s.bubble && !(s.isOpen && s.bubble.alertId !== undefined && s.alerts.some(a => a.id === s.bubble?.alertId))) rows.push(bubbleRow(s.bubble, c, fx, s.isWorking))
-  if (s.isOpen) for (const a of s.alerts) rows.push(alertRow(a, c, fx, s.isWorking))
-  if (s.note) rows.push(noticeRow(s.note, c, fx, surface))
-  else if (!s.isWorking) {
-    // Collapsed: the first finding only, with the count of the others in its own line; the rest wait in the open band.
-    const list = s.isOpen ? s.advice : s.advice.slice(0, 1)
-    for (const a of list) rows.push(adviceRow(a, s.ask, c, fx, !s.isOpen && s.advice.length > 1 ? s.advice.length - 1 : 0))
-    if (list.length > 0) rows.push(pill(c, '✕ Hide', { key: 'hide', onPress: () => fx.hideAdvice() }))
-  }
-  // The saver's own line is for the open band; when it routes a step the bubble says so and fades.
-  if (s.isOpen) rows.push(saverRow(s, c, fx))
-  return rows
 }
 
 
@@ -1226,11 +1220,13 @@ type Fx = {
   newWorktree: () => void
   switchInto: () => void
   copyWorktree: (surface: string) => void
+  copyText: (text: string, surface: string) => void
   checkpoint: (onDefault: boolean) => void
   askCommit: (peerId: string | null) => void
   commitPeer: (peerId: string) => void
   hideAdvice: () => void
   dismissNotice: () => void
+  menu: (open: boolean) => void
 }
 
 /** What the band's buttons do; every one passes `$` only to a function declared above. */
@@ -1250,11 +1246,13 @@ function makeFx($: EngineInterface): Fx {
     newWorktree: then(() => newWorktree($, S.selfId)),
     switchInto: () => void switchInto($),
     copyWorktree: surface => void $.store.get('lastWorktree').then(p => $.ui.copy({ text: String(p ?? ''), surface: surface as never })),
+    copyText: (text, surface) => void $.ui.copy({ text, surface: surface as never }),
     checkpoint: onDefault => then(() => checkpoint($, onDefault))(),
     askCommit: peerId => void update($, pending, () => peerId),
     commitPeer: peerId => then(() => commitPeer($, peerId))(),
     hideAdvice: () => void update($, isDismissed, () => true),
     dismissNotice: () => void update($, notice, () => null),
+    menu: open => void update($, menuState, () => open),
   }
 }
 
@@ -1308,8 +1306,6 @@ async function startSaver($: EngineInterface): Promise<void> {
   await tryRegister($, { name: 'saver', description: 'Route easy prompts to Haiku 5.5: /saver on or /saver off', argumentHint: 'on|off' })
   const storedOn = await $.store.get('saverOn')
   if (typeof storedOn === 'boolean') await update($, saverOn, () => storedOn)
-  const storedMode = parseMode(await $.store.get('stripMode'))
-  if (storedMode) await update($, stripMode, () => storedMode)
   const storedSaved = (await $.store.get('saved')) as Saved | undefined
   if (storedSaved && typeof storedSaved.usd === 'number') await update($, saverSaved, () => storedSaved)
 }
@@ -1329,10 +1325,7 @@ async function startEnhancer($: EngineInterface): Promise<void> {
 }
 
 async function startBand($: EngineInterface): Promise<void> {
-  await tryRegister($, { name: 'cockpit', description: 'The band above the prompt: /cockpit open, close or auto (open when something needs you)', argumentHint: 'open|close|auto|mascot|bubble|log|demo' })
-  if ((await $.store.get('pinnedOpen')) === true) await update($, pinnedOpen, () => true)
-  const storedBubble = await $.store.get('bubbleMode')
-  if (storedBubble === 'float' || storedBubble === 'inline') bubbleMode = storedBubble
+  await tryRegister($, { name: 'cockpit', description: 'The band above the prompt: /cockpit mascot, log or demo', argumentHint: 'mascot|log|demo' })
   const storedMascot = await $.store.get('mascot')
   if (storedMascot === 'normal' || storedMascot === 'small' || storedMascot === 'off') mascotMode = storedMascot
   mood.walkUntil = (await $.clock.now()) + START_MS
@@ -1502,7 +1495,6 @@ export const register: Register = (on, options) => {
     await safe(async () => {
       await update($, lastRouted, () => isHaiku)
       if (isHaiku) await flash($, 'coins')
-      await update($, saverLast, () => response.usage?.model ?? (isHaiku ? HAIKU_ID : e.model))
       const mainPrice = priceOf(e.model)
       if (isHaiku && response.usage && mainPrice) {
         const gain = realSaving(mainPrice, response.usage, mainWarm)
@@ -1538,7 +1530,7 @@ export const register: Register = (on, options) => {
       await $.store.set('cacheDetected', ttl)
     }
     // The prompt cache belongs to a model: after a switch the new model starts with none, whatever the countdown said.
-    if (e.source !== 'resume') await patchCache($, c => ({ ...c, lastAt: 0, lastEndAt: 0, notifiedAt: 0 }))
+    await patchCache($, c => ({ ...c, lastAt: 0, lastEndAt: 0, notifiedAt: 0 }))
     return next(e)
   }).catch(($, e, next) => next(e))
 
@@ -1687,15 +1679,8 @@ export const register: Register = (on, options) => {
       return { text: `saver ${arg}` }
     }
     if (arg === 'why') return { text: why }
-    if (arg.startsWith('strip')) {
-      const wanted = parseMode(arg.slice(5).trim())
-      if (!wanted) return { text: 'Use /saver strip active (only when it just routed to Haiku), /saver strip on (whenever saver is on) or /saver strip always.' }
-      await $.store.set('stripMode', wanted)
-      await update($, stripMode, () => wanted)
-      return { text: `The saver line now shows: ${wanted === 'active' ? 'only when the last answer was routed to Haiku' : wanted === 'on' ? 'whenever saver is on' : 'always, even when off'}.` }
-    }
     const state = (await read($, saverOn)) ? 'on' : 'off'
-    return { text: `saver is ${state}; the line shows ${await read($, stripMode)}. Use /saver on, /saver off, /saver why or /saver strip active|on|always.` }
+    return { text: `saver is ${state}. When it routes a step to Haiku Clawd says so in the bubble. Use /saver on, /saver off or /saver why.` }
   })
 
   on('command.run', { command: 'preflight' }, async ($, e) => {
@@ -1738,14 +1723,6 @@ export const register: Register = (on, options) => {
       const lines = mood.history.length > 0 ? mood.history.join('\n') : 'Nothing said yet.'
       return { text: `${lines}${path !== '' ? `\nLast handoff brief: ${path}` : ''}` }
     }
-    if (arg === 'bubble' || arg.startsWith('bubble ')) {
-      const wanted = arg.slice(6).trim()
-      if (wanted !== 'float' && wanted !== 'inline') return { text: `The speech bubble is ${bubbleMode}. Use /cockpit bubble float (a pixel bubble above Clawd) or inline (a text row under the band).` }
-      bubbleMode = wanted
-      await $.store.set('bubbleMode', wanted)
-      poke($)
-      return { text: wanted === 'float' ? 'The speech bubble is a pixel bubble above Clawd.' : 'The speech bubble is a row under the band.' }
-    }
     if (arg === 'mascot' || arg.startsWith('mascot ')) {
       const wanted = arg.slice(6).trim()
       if (wanted !== 'on' && wanted !== 'normal' && wanted !== 'small' && wanted !== 'off') return { text: `Clawd is ${mascotMode === 'normal' ? 'full size' : mascotMode}. Use /cockpit mascot on, small or off.` }
@@ -1754,11 +1731,7 @@ export const register: Register = (on, options) => {
       poke($)
       return { text: mascotMode === 'off' ? 'Clawd is hidden. The speech bubble and the meters stay. /cockpit mascot on brings him back.' : mascotMode === 'small' ? 'Clawd is small.' : 'Clawd is full size.' }
     }
-    if (arg === 'open' || arg === 'close' || arg === 'auto') {
-      await setView($, arg)
-      return { text: arg === 'open' ? 'Cockpit kept open.' : arg === 'close' ? 'Cockpit collapsed. /cockpit auto lets it open by itself again.' : 'Cockpit opens by itself when something needs you.' }
-    }
-    return { text: `Cockpit is ${(await read($, pinnedOpen)) ? 'pinned open' : 'automatic'}. Use /cockpit open, close or auto, /cockpit mascot on, small or off, /cockpit bubble float or inline, /cockpit log for what the bubble said lately, or /cockpit demo [state] to see Clawd's states.` }
+    return { text: "The band is one row: the meters, always visible. Clawd's bubble carries every message and its buttons (a … opens the others). Use /cockpit mascot on, small or off, /cockpit log for what the bubble said lately, or /cockpit demo [state] to see Clawd's states." }
   })
 
   // The person closed the side panel with its own close mark: remember it, or the next session reopens it.
@@ -1795,40 +1768,52 @@ export const register: Register = (on, options) => {
       const c0 = { Box: B, Text: T } as unknown as Comps
       return stack(below, el(c0.Box, { key: bandKey('cockpit') }, el(c0.Text, { color: '#e2553f' }, `Cockpit could not draw: ${err instanceof Error ? err.message : String(err)}`)) as never, B)
     }
-    // A collapse only holds while the alert level stays where it was; once calm, forget it.
-    if (s.attention === 0 && (await read($, snooze)) !== 0) $.clock.after(0, () => void update($, snooze, () => 0))
-
     const { Box, Text, Button } = $.ui.resolve(e)
     const Draw = ($.ui.resolve(e) as { Svg?: unknown }).Svg
     const c = { Box, Text, Button, Svg: e.surface === 'terminal' ? undefined : Draw } as unknown as Comps
     const fx = makeFx($)
-    const onToggle = () => void toggle($, s.isOpen, s.attention)
 
-    const speaks = bubbleMode === 'float' && s.bubble !== null && !(s.isOpen && s.bubble.alertId !== undefined && s.alerts.some(a => a.id === s.bubble?.alertId))
     let row
+    let speech: unknown[] = []
     if (e.surface === 'terminal') {
-      row = el(c.Box, { key: 'row', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, el(c.Box, { key: 'meters' }, ...(mascotMode === 'off' ? [] : [el(c.Text, { key: 'face', dimColor: true }, `${STATES[s.state].face}  `)]), ...line(s.m).map((seg, i) => el(c.Text, { key: `s${i}`, color: seg.fill }, seg.t))), controls(s, c, fx, onToggle))
+      row = el(c.Box, { key: 'row', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, el(c.Box, { key: 'meters' }, ...(mascotMode === 'off' ? [] : [el(c.Text, { key: 'face', dimColor: true }, `${STATES[s.state].face}  `)]), ...line(s.m).map((seg, i) => el(c.Text, { key: `s${i}`, color: seg.fill }, seg.t))), controls(s, c, fx))
+      speech = speechText(s, c, fx, e.surface)
     } else {
       const Svg = ($.ui.resolve(e) as { Svg: unknown }).Svg
-      // The bubble is drawn inside the band's own drawing, over the meters: the band never grows for it.
-      const said = speaks && s.bubble ? s.bubble.text : null
-      // A bubble with a button is drawn apart from the band's drawing and laid out in a row with its real button: the
-      // click area is the button itself, never a guessed spot over a drawing.
-      const act = speaks && s.bubble?.action && !(s.isWorking && s.bubble.action !== 'saverOn') ? s.bubble.action : null
-      // When it has nothing to say it fades out of the same drawing (invisible) instead of being redrawn away.
-      if (said && !act) mood.lastSaid = said
-      else if (act) mood.lastSaid = null
-      const speech = said ? { text: said, phase: 'in' as const, apart: act !== null } : mood.lastSaid ? { text: mood.lastSaid, phase: 'out' as const } : null
-      const svg = cockpitSvg(Math.max(300, bandWidth(e.props.bodyColumns) - 90), s.m, s.mascot, speech)
-      const bb = svg.bubbleBox
-      const label = act ? (ACTION_LABELS[act] ?? act) : ''
-      const art = act && said && bb ? bubbleSvg(said, bb.w) : null
-      const apart = act && said && art && bb ? [el(c.Box, { key: 'bubble', position: 'absolute', top: Math.max(0, Math.floor((bb.y - 6) / 18)), left: Math.max(0, Math.floor((bb.x - 8) / 8)), flexDirection: 'row', alignItems: 'center' }, el(Svg, { key: 'bubble-art', source: art.source, alt: said, isInteractive: true, width: art.width, height: art.height }), pill(c, label, { key: act === 'saverOn' ? 'saver' : act, onPress: () => { dismissBubble(); runAction(act, fx) } }, { color: '#ece8e1', backgroundColor: '#2b2a28' }))] : []
-      // An interactive Svg is drawn in a frame of its own: give it its real size, or the frame is far taller than the drawing.
-      row = el(c.Box, { key: 'row', position: 'relative', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, el(Svg, { key: 'svg', source: svg.source, alt: `${STATES[s.state].label}. ${said ? `${said}. ` : ''}${altText(s.m)}`, isInteractive: true, width: svg.width, height: svg.height }), controls(s, c, fx, onToggle, Svg), ...apart)
+      const width = Math.max(300, bandWidth(e.props.bodyColumns) - 90)
+      // Clawd and the meters are two drawings: a new pose replaces only Clawd's, so the meters never reload (a replaced
+      // drawing blinks) and change only when a number does.
+      const parts = bandParts(width, s.m, s.mascot)
+      const drawn = el(
+        c.Box,
+        { key: 'art', flexDirection: 'row', alignItems: 'center', gap: 1 },
+        ...(parts.mascot ? [el(Svg, { key: 'mascot', source: parts.mascot.source, alt: `${STATES[s.state].label}${s.speech ? `. ${s.speech.text}` : ''}`, isInteractive: true, width: parts.mascot.width, height: parts.mascot.height })] : []),
+        el(Svg, { key: 'meters', source: parts.meters.source, alt: altText(s.m), width: parts.meters.width, height: parts.meters.height }),
+      )
+      row = el(c.Box, { key: 'row', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, drawn, controls(s, c, fx, Svg))
+      // The bubble is its own row under the meters, so no number is ever covered and the band keeps one height. Its
+      // buttons are real ones beside it; the "…" opens the rest in a row below.
+      if (s.speech) {
+        const first = s.speech.acts[0]
+        const indent = Math.max(0, Math.floor(s.mascot.width / CELL.w))
+        // What the buttons take, so the words get the rest of the row (they wrap to two lines, never run past the band).
+        const buttons = (first ? pillSvg(first.label).width + 4 : 0) + (s.speech.acts.length > 1 ? pillSvg('…').width + 4 : 0)
+        const room = bandWidth(e.props.bodyColumns) - indent * CELL.w - buttons - 24
+        // Kept while its words stand; new words give way to the old in the same drawing (resize, delete, type).
+        const text = s.speech.text
+        if (!mood.art || mood.art.text !== text || mood.art.room !== room) {
+          const prev = mood.art && mood.art.text !== text ? mood.art.text : mood.art?.prev
+          mood.art = { text, prev, room, art: speechSvg(text, room, prev) }
+        }
+        const art = mood.art.art
+        speech = [
+          el(c.Box, { key: 'bubble', flexDirection: 'row', alignItems: 'center', gap: 1, paddingLeft: indent }, el(Svg, { key: 'bubble-art', source: art.source, alt: text, isInteractive: true, width: art.width, height: art.height }), ...(first ? [actButton(first, c, fx, e.surface)] : []), ...(s.speech.acts.length > 1 ? [moreButton(s, c, fx)] : [])),
+          ...menuRow(s, c, fx, e.surface, indent),
+        ]
+      } else mood.art = null
     }
 
-    const mine = el(c.Box, { key: bandKey('cockpit'), flexDirection: 'column' }, ...(speaks && s.bubble && e.surface === 'terminal' ? [bubbleFloat(s.bubble, c, fx, s.isWorking)] : []), row, ...(details(s, c, fx, e.surface) as never[]))
+    const mine = el(c.Box, { key: bandKey('cockpit'), flexDirection: 'column' }, row, ...(speech as never[]))
     return stack(below, mine as never, Box)
   })
 
@@ -1838,17 +1823,29 @@ export const register: Register = (on, options) => {
     const Draw = ($.ui.resolve(e) as { Svg?: unknown }).Svg
     const c = { Box, Text, Button, Svg: e.surface === 'terminal' ? undefined : Draw } as unknown as Comps
     const fx = makeFx($)
-    const rows = details({ ...s, isOpen: true }, c, fx, e.surface)
+    const rows = speechText(s, c, fx, e.surface)
     if (e.surface === 'terminal') {
       return el(c.Box, { flexDirection: 'column' }, ...line(s.m, 6).map((seg, i) => el(c.Text, { key: `s${i}`, color: seg.fill }, seg.t)), ...(rows as never[]))
     }
     const { Svg } = $.ui.resolve(e)
     const dock = e.props.placement === 'dock'
-    const svg = dock ? sideSvg(sideWidth(e.props.bodyColumns), s.m) : cockpitSvg(bandWidth(e.props.bodyColumns), s.m, s.mascot)
+    let drawn
+    if (dock) {
+      const svg = sideSvg(sideWidth(e.props.bodyColumns), s.m)
+      drawn = el(Svg, { source: svg.source, alt: altText(s.m), width: svg.width, height: svg.height })
+    } else {
+      const parts = bandParts(bandWidth(e.props.bodyColumns), s.m, s.mascot)
+      drawn = el(
+        c.Box,
+        { flexDirection: 'row', alignItems: 'center', gap: 1 },
+        ...(parts.mascot ? [el(Svg, { key: 'mascot', source: parts.mascot.source, alt: STATES[s.state].label, isInteractive: true, width: parts.mascot.width, height: parts.mascot.height })] : []),
+        el(Svg, { key: 'meters', source: parts.meters.source, alt: altText(s.m), width: parts.meters.width, height: parts.meters.height }),
+      )
+    }
     return el(
       c.Box,
       { flexDirection: 'column' },
-      el(c.Box, { key: 'svg', justifyContent: 'center' }, dock ? el(Svg, { source: svg.source, alt: altText(s.m), width: svg.width, height: svg.height }) : el(Svg, { source: svg.source, alt: altText(s.m), isInteractive: true, width: svg.width, height: svg.height })),
+      el(c.Box, { key: 'svg', justifyContent: 'center' }, drawn),
       ...(rows as never[]),
     )
   })

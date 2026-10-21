@@ -82,17 +82,3 @@ export function dayKey(ms: number): string {
   const p = (n: number) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
 }
-
-export type StripMode = 'active' | 'on' | 'always'
-
-/**
- * When the strip shows: `active` (default) only while saver is on and routed the last answer to Haiku,
- * `on` whenever saver is on, `always` even when off.
- */
-export function isStripShown(mode: StripMode, isOn: boolean, lastRouted: boolean): boolean {
-  if (mode === 'always') return true
-  if (mode === 'on') return isOn
-  return isOn && lastRouted
-}
-
-export const parseMode = (v: unknown): StripMode | null => (v === 'active' || v === 'on' || v === 'always' ? v : null)

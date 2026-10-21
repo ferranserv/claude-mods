@@ -12,7 +12,6 @@ export type Cache = {
   fallback: number
 }
 export type Saved = { day: string; usd: number }
-export type StripMode = 'active' | 'on' | 'always'
 export type Notice = { text: string; isError: boolean }
 export type EnhancerState = { hasDraft: boolean; isBusy: boolean; original: string }
 export type Advice =
@@ -36,9 +35,7 @@ declare module 'claude-code' {
       lim: { warnPercent: number; redPercent: number; warnTokens: number }
       // saver
       saverOn: boolean
-      saverLast: string | null
       saverSaved: Saved
-      stripMode: StripMode
       lastRouted: boolean
       // preflight
       preflightOn: boolean
@@ -48,9 +45,8 @@ declare module 'claude-code' {
       notice: Notice | null
       // prompt enhancer
       enhancer: EnhancerState
-      // the band itself: pinned open by the arrow, and the alert level it was collapsed at
-      pinnedOpen: boolean
-      snooze: number
+      // whether the … menu under the bubble is open
+      menu: boolean
     }
   }
 }

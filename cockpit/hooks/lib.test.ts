@@ -6,8 +6,6 @@ import {
   allottedThrough,
   bandSvg,
   bandWidth,
-  cockpitSvg,
-  MIN_ROW,
   cacheView,
   cells,
   clockText,
@@ -521,12 +519,6 @@ describe('band with the cache meter', () => {
     expect(narrow).not.toContain('Next msg $')
   })
 
-  test('a long warning fits on the band whole when there is room', () => {
-    const wide = bandSvg(1200, model(withCache(data(55, 10, 10), warm)))
-    expect(wide.source).toContain('quality may start to slip')
-    expect(wide.source).not.toContain('…')
-  })
-
   test('side panel with the cache column has no NaN and five weekly slots', () => {
     const { source } = sideSvg(210, model(withCache(data(), warm)))
     expect(source).not.toContain('NaN')
@@ -538,16 +530,5 @@ describe('band with the cache meter', () => {
     const d = dividerSvg(600)
     expect(d.source.match(/<rect/g)?.length).toBe(1)
     expect(d.height).toBeGreaterThan(8)
-  })
-})
-
-describe('the band keeps its height while a bubble speaks', () => {
-  test('a context warning adds its own lines only when no bubble says it', () => {
-    const m = model({ fill: { tokens: 600_000, window: 1_000_000, percent: 60 }, limits: [], now: Date.now() })
-    const mascot = { markup: '', width: 68, height: 56 }
-    const quiet = cockpitSvg(700, m, mascot, { text: 'Context 60%', phase: 'in', apart: true })
-    const loud = cockpitSvg(700, m, mascot, null)
-    expect(quiet.height).toBeLessThanOrEqual(loud.height)
-    expect(quiet.height).toBe(Math.max(56, MIN_ROW))
   })
 })
