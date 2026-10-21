@@ -604,7 +604,9 @@ test('a permission prompt raises a hand until the call runs', async ($, on) => {
   await w.clock.advance(6000)
   await ($ as unknown as Do).tool.check({ tool: 'Bash', input: { command: 'rm -rf x' } })
   expect(await altOf($)).not.toContain('clipboard') // an ask settled at once by a rule shows nothing
-  await w.clock.advance(2000)
+  await w.clock.advance(1000)
+  expect(await altOf($)).not.toContain('clipboard') // still inside the 2.5 s it takes to be sure
+  await w.clock.advance(1600)
   expect(await altOf($)).toContain('clipboard')
   await ($ as unknown as Do).tool.call({ tool: 'Bash', command: 'ls' })
   expect(await altOf($)).not.toContain('clipboard')

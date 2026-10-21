@@ -1,6 +1,6 @@
 // Clawd's states: what each looks like (frames), how fast it plays, and the words that go with it.
 // The sheet in docs/mascot/clawd-sheet.html shows every one of them animated.
-import { renderFrames } from './sprite'
+import { renderFrames, renderOnce } from './sprite'
 import type { Pose } from './sprite'
 
 export type StateId =
@@ -62,10 +62,49 @@ export const STATE_IDS = Object.keys(STATES) as StateId[]
 
 export type Mascot = { markup: string; width: number; height: number }
 
-/** A state change fades the old drawing out over the new one, so only props, colors and motion change. */
-export function fadeFrom(next: Mascot, prev: Mascot | null): Mascot {
-  if (!prev) return next
-  return { ...next, markup: `${next.markup}<g><animate attributeName="opacity" from="1" to="0" begin="0s" dur="0.5s" fill="freeze"/>${prev.markup}</g>` }
+/**
+ * A move plays once between two states: props come on and off in these frames (sunglasses off, hard hat on, the
+ * hammer raised), then the target state's own loop takes over. Pairs without a move cut straight to the new state.
+ */
+type Move = { frames: Pose[]; fd: number }
+const LAPTOP: Pose = { laptop: 1, look: 'down', eyes: 'half', armL: 'type1', armR: 'type0' }
+const SUN: Pose = { beach: 0, shades: 1, mouth: 'smile', armR: 'half' }
+const READY: Pose = { eyes: 'happy', mouth: 'open', armR: 'high', bell: 0 }
+export const MOVES: Partial<Record<string, Move>> = {
+  'idle>thinking': { fd: 0.18, frames: [{ ...SUN }, { beach: 0, eyes: 'wide', armR: 'up', mouth: 'open' }, { look: 'up', armR: 'chin', eyes: 'open', mouth: 'flat' }] },
+  'thinking>typing': { fd: 0.15, frames: [{ spinner: 4, look: 'up', armR: 'chin' }, { laptop: 1, look: 'down', eyes: 'half', armR: 'chin' }, { ...LAPTOP }] },
+  'typing>building': { fd: 0.2, frames: [{ ...LAPTOP }, { hat: 'hard', look: 'down', armR: 'up', mouth: 'smile', eyes: 'open' }, { hat: 'hard', wrench: 1, armR: 'up', mouth: 'smile', eyes: 'open' }] },
+  'building>typing': { fd: 0.2, frames: [{ hat: 'hard', wrench: 2, armR: 'up', mouth: 'smile', eyes: 'open' }, { hat: 'hard', look: 'down', armR: 'half' }, { ...LAPTOP }] },
+  'typing>reading': { fd: 0.2, frames: [{ ...LAPTOP }, { glasses: 1, look: 'down', eyes: 'half', armL: 'hold', armR: 'hold' }, { glasses: 1, scroll: 1, look: 'down', armL: 'hold', armR: 'hold' }] },
+  'reading>typing': { fd: 0.2, frames: [{ glasses: 1, scroll: 1, look: 'down', armL: 'hold', armR: 'hold' }, { glasses: 1, look: 'down', eyes: 'half', armL: 'type1', armR: 'type0' }, { ...LAPTOP }] },
+  'typing>oops': { fd: 0.25, frames: [{ ...LAPTOP }, { eyes: 'x', mouth: 'o', bang: 1, bangX: OX + 21, armL: 'high', armR: 'high' }] },
+  'oops>typing': { fd: 0.25, frames: [{ eyes: 'x', mouth: 'o', bang: 1, bangX: OX + 21, armL: 'high', armR: 'high' }, { look: 'down', eyes: 'half', mouth: 'flat', armL: 'type1', armR: 'type0' }, { ...LAPTOP }] },
+  'typing>bell': { fd: 0.2, frames: [{ ...LAPTOP }, { ...READY }] },
+  'bell>idle': { fd: 0.25, frames: [{ ...READY }, { ...SUN }] },
+  'typing>hand': { fd: 0.25, frames: [{ ...LAPTOP }, { clipboard: 1, look: 'down', mouth: 'flat' }] },
+  'thinking>hand': { fd: 0.25, frames: [{ spinner: 3, look: 'up', armR: 'chin' }, { clipboard: 1, look: 'down', mouth: 'flat' }] },
+  'hand>typing': { fd: 0.25, frames: [{ clipboard: 3, look: 'down', mouth: 'flat' }, { ...LAPTOP }] },
+  'walk>idle': { fd: 0.2, frames: [{ mouth: 'smile' }, { ...SUN }] },
+}
+
+/** How long a move plays, in ms; 0 when the pair has none. */
+export function moveMs(from: StateId, to: StateId): number {
+  const m = MOVES[`${from}>${to}`]
+  return m ? Math.round(m.frames.length * m.fd * 1000) : 0
+}
+
+const moveCache = new Map<string, Mascot>()
+
+/** The markup of one move at 2x (or 1x for the small size), or null when the pair has none. */
+export function moveMarkup(from: StateId, to: StateId, scale: 1 | 2 = 2): Mascot | null {
+  const key = `${from}>${to}@${scale}`
+  const hit = moveCache.get(key)
+  if (hit) return hit
+  const m = MOVES[`${from}>${to}`]
+  if (!m) return null
+  const made = { markup: renderOnce(m.frames, m.fd, 34, scale), width: 34 * scale, height: 28 * scale }
+  moveCache.set(key, made)
+  return made
 }
 
 const cache = new Map<string, Mascot>()

@@ -50,7 +50,7 @@ import {
 import type { Change, Facts, Peer, Phase, Stat } from './preflight-logic'
 import { COLOR, CONTEXT_LIMIT, HAIKU_ID, dayKey, isStripShown, labelLocally, parseMode, savingOf, shortName } from './saver-logic'
 import type { Level } from './saver-logic'
-import { STATES, STATE_IDS, fadeFrom, stateMarkup } from './states'
+import { STATES, STATE_IDS, moveMarkup, moveMs, stateMarkup } from './states'
 import type { StateId } from './states'
 
 // ======================================================================================================
@@ -132,10 +132,25 @@ const mood = {
   writing: false, // a handoff brief or an enhanced draft is being written
   askAt: 0, // when a permission ask was seen; it only counts if the call has not started a moment later
   drawn: null as { id: StateId; since: number } | null, // what is on screen, and since when
-  prevId: null as StateId | null, // what it replaced, to fade out
+  move: null as { from: StateId; to: StateId; until: number } | null, // the one-shot move between the last two states, while it plays
 }
 // Where the speech bubble is drawn: float (over the text above, comes out of Clawd) or inline (a row under the band).
 let bubbleMode: 'float' | 'inline' = 'float'
+/** A permission ask must stay open this long before Clawd raises a hand: a rule or the mode often settles it first. */
+const ASK_MS = 2500
+
+/** Clawd's drawing: the move from the state he left while it plays, then the state itself. */
+function mascotFor(state: StateId, clock: string, move: { from: StateId; to: StateId; until: number } | null, now: number, scale: 1 | 2) {
+  if (move && move.to === state && now < move.until) {
+    try {
+      const m = moveMarkup(move.from, move.to, scale)
+      if (m) return m
+    } catch {
+      // A move that cannot be drawn falls back to the state itself.
+    }
+  }
+  return stateMarkup(state, clock, scale)
+}
 
 /** Redraw now, and again when a timed state ends. */
 function poke($: EngineInterface, ms = 0): void {
@@ -858,8 +873,11 @@ async function snapshot($: EngineInterface, propsWorking: boolean): Promise<Snap
   const shown = mood.drawn
   const state: StateId = !isDemo && shown && shown.id !== picked && shown.id !== 'hand' && now - shown.since < HOLD_MS && rank(picked) >= rank(shown.id) ? shown.id : picked
   if (!mood.drawn || mood.drawn.id !== state) {
-    mood.prevId = mood.drawn ? mood.drawn.id : null
+    const from = mood.drawn ? mood.drawn.id : null
+    const ms = from ? moveMs(from, state) : 0
+    mood.move = ms > 0 && from ? { from, to: state, until: now + ms } : null
     mood.drawn = { id: state, since: now }
+    if (mood.move) $.clock.after(ms + 20, () => $.ui.invalidate('ui.render'))
     $.clock.after(HOLD_MS + 80, () => $.ui.invalidate('ui.render'))
   }
   const usd = saved.day === day ? saved.usd : 0
@@ -891,7 +909,7 @@ async function snapshot($: EngineInterface, propsWorking: boolean): Promise<Snap
     state,
     bubble,
     clock,
-    mascot: mascotMode === 'off' ? { markup: '', width: 0, height: 0 } : fadeFrom(stateMarkup(state, clock, mascotMode === 'small' ? 1 : 2), mood.prevId && mood.prevId !== state ? stateMarkup(mood.prevId, clock, mascotMode === 'small' ? 1 : 2) : null),
+    mascot: mascotMode === 'off' ? { markup: '', width: 0, height: 0 } : mascotFor(state, clock, mood.move, now, mascotMode === 'small' ? 1 : 2),
   }
 }
 
@@ -1384,7 +1402,7 @@ export const register: Register = (on, options) => {
       // An ask is often settled by a rule or the mode before anyone is shown a prompt: only one still open after a moment counts.
       const at = await $.clock.now()
       mood.askAt = at
-      $.clock.after(1500, () => {
+      $.clock.after(ASK_MS, () => {
         if (mood.askAt === at) {
           mood.waiting = true
           poke($)
@@ -1577,7 +1595,15 @@ export const register: Register = (on, options) => {
       }
     }
 
-    const s = await snapshot($, e.props.isWorking)
+    let s: Snap
+    try {
+      s = await snapshot($, e.props.isWorking)
+    } catch (err) {
+      // A drawing that cannot be built must not blank the band without a word: say what failed.
+      const { Box: B, Text: T } = $.ui.resolve(e)
+      const c0 = { Box: B, Text: T } as unknown as Comps
+      return stack(below, el(c0.Box, { key: bandKey('cockpit') }, el(c0.Text, { color: '#e2553f' }, `Cockpit could not draw: ${err instanceof Error ? err.message : String(err)}`)) as never, B)
+    }
     // A collapse only holds while the alert level stays where it was; once calm, forget it.
     if (s.attention === 0 && (await read($, snooze)) !== 0) $.clock.after(0, () => void update($, snooze, () => 0))
 

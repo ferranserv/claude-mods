@@ -256,6 +256,21 @@ export function renderFrames(frames: Pose[], fd: number, w: number, drift: boole
   return `<g shape-rendering="crispEdges" transform="scale(${scale})"><g>${move}${groups}</g></g>`
 }
 
+/** Frames that play once, in order, then hold the last one: a move between two states. */
+export function renderOnce(frames: Pose[], fd: number, w: number, scale = 2): string {
+  const n = frames.length
+  const keyTimes = frames.map((_, i) => (i / n).toFixed(4)).join(';')
+  const dur = (n * fd).toFixed(2)
+  const groups = frames
+    .map((o, i) => {
+      const k = clawd({ w, ...o })
+      const anim = `<animate attributeName="opacity" values="${frames.map((_, j) => (j === i ? 1 : 0)).join(';')}" keyTimes="${keyTimes}" dur="${dur}s" calcMode="discrete" repeatCount="1" fill="freeze"/>`
+      return `<g opacity="${i === 0 ? 1 : 0}">${anim}${pathsOf(k.g, { ...PAL, ...(o.pal || {}) })}</g>`
+    })
+    .join('')
+  return `<g shape-rendering="crispEdges" transform="scale(${scale})">${groups}</g>`
+}
+
 /** Pixels any frame of the state draws outside the canvas (must be none). */
 export function pixelsOutside(frames: Pose[], w: number): number {
   return frames.reduce((a, o) => a + clawd({ w, ...o }).oob.length, 0)
