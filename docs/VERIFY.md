@@ -139,3 +139,15 @@ Report anything off in plain words ("the palm tree overlaps", "no animation", "a
 | 86 | In a git repo with uncommitted files | One bubble with the first finding and its button; **…** lists the others and Hide all | |
 | 87 | `/preflight` actions: New worktree | A bubble "Worktree ready" with **Switch**; **…** has Copy path and OK | |
 | 88 | Let Saver route an easy prompt to Haiku | A bubble "Haiku answered that · saved $x today"; no saver line anywhere | |
+
+
+## 0.16.0: the bubble lane
+
+| # | Do | Expect | OK? |
+|---|---|---|---|
+| 89 | Watch the cockpit while bubbles come and go | It never changes height: the bubble lane is always there under the meters | |
+| 90 | Look at a bubble | No shadow, black border, as wide as its words, tail pointing to Clawd, buttons at the right in the same height | |
+| 91 | Let one bubble give way to another (`/cockpit demo cold`, then `/cockpit demo fire`) | Old words deleted letter by letter, bubble resizes, new words typed; no flash. Opening scales out of Clawd; closing scales back | |
+| 92 | Have a warning bubble dismissed (send a message), then move the pointer over Clawd | The bubble reappears while the pointer is on him, and goes when it leaves | |
+| 93 | Let Claude edit a file, then finish | The bubble says "Editing x" only while he is the builder; when he changes pose the words are deleted | |
+| 94 | Permission prompt vs. a question (AskUserQuestion) | The raised hand with the bobbing "!" only for the question | |

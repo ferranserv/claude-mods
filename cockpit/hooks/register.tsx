@@ -26,8 +26,8 @@ import {
   priceOf,
   sideSvg,
   sideWidth,
+  bubbleArt,
   pillSvg,
-  speechSvg,
   wandSvg,
   windowMinutes,
 } from './lib'
@@ -55,7 +55,7 @@ import type { Change, Facts, Peer, Phase, Stat } from './preflight-logic'
 import { CONTEXT_LIMIT, HAIKU_ID, dayKey, labelLocally, realSaving } from './saver-logic'
 import type { Level } from './saver-logic'
 import { logPath, turnRow, withRow } from './turnlog'
-import { STATES, STATE_IDS, enterMarkup, stateMarkup } from './states'
+import { STATES, STATE_IDS, enterMarkup, moveMs, stateMarkup } from './states'
 import type { StateId } from './states'
 
 // ======================================================================================================
@@ -134,13 +134,13 @@ const mood = {
   demoRun: 0,
   writing: false, // a handoff brief or an enhanced draft is being written
   sticky: null as { bubble: Bubble; state: StateId } | null, // a bubble that asks for a decision stays until you click its button or send something else
-  linger: null as { bubble: Bubble; until: number; state: StateId } | null, // any other bubble stays a while after its state ends
   dismissed: [] as string[], // warnings whose bubble you answered; quiet until the warning ends and comes back
   shownAlert: null as string | null, // the warning the bubble on screen stands for
+  settleAt: 0, // when the pose being drawn will have settled, the moment a redraw is already booked for
   resetAt: 0, // the next limit reset a redraw is already booked for
   draftTurn: false, // the turn is a /handoff: Claude writes the brief as text, with no tool to show it
   askAt: 0, // when a permission ask was seen; it only counts if nothing has moved on a moment later
-  art: null as { text: string; prev: string | undefined; room: number; art: ReturnType<typeof speechSvg> } | null, // the bubble's drawing, kept while its words stand so it is never replaced (a replaced drawing blinks)
+  bub: null as { text: string; room: number; seq: number; layers: { key: string; art: ReturnType<typeof bubbleArt>; until: number; dropAt: number }[] } | null, // the bubble's drawings (see bubbleLane)
   msg: null as { text: string; until: number } | null, // a message to you (the one channel: the bubble), over everything but the raised hand
   history: [] as string[], // the last things the bubble said, for /cockpit log
   lastLogged: '', // the text last added to the history
@@ -150,8 +150,6 @@ const mood = {
 }
 /** A permission ask must stay open this long before Clawd raises a hand: a rule or the mode often settles it first. Set by the askSeconds option. */
 let askMs = 5000
-/** How long a bubble stays after its state has ended. */
-const BUBBLE_LINGER_MS = 12_000
 
 /** Clawd's drawing: the move from the state he left and the state's own loop, in one drawing (see enterMarkup). */
 function mascotFor(state: StateId, clock: string, move: { from: StateId; to: StateId } | null, scale: 1 | 2) {
@@ -903,6 +901,7 @@ type Snap = {
   enh: EnhancerState
   state: StateId
   speech: Speech | null
+  hover: Speech | null
   menuOpen: boolean
   clock: string
   mascot: { markup: string; width: number; height: number }
@@ -988,7 +987,6 @@ async function snapshot($: EngineInterface, propsWorking: boolean): Promise<Snap
   // A bubble waiting for a decision ends by itself when its warning does (the limit reset, the context was cleared).
   mood.dismissed = mood.dismissed.filter(id => alerts.some(a => a.id === id)) // a warning that ended may speak again when it returns
   if (mood.sticky?.bubble.alertId !== undefined && !alerts.some(a => a.id === mood.sticky?.bubble.alertId)) mood.sticky = null
-  if (mood.linger?.bubble.alertId !== undefined && !alerts.some(a => a.id === mood.linger?.bubble.alertId)) mood.linger = null
   const isDemo = mood.demo !== null && mood.demo.until > now
   const picked: StateId =
     mood.demo && mood.demo.until > now
@@ -1022,6 +1020,14 @@ async function snapshot($: EngineInterface, propsWorking: boolean): Promise<Snap
     mood.drawn = { id: state, since: now }
     $.clock.after(HOLD_MS + 80, () => $.ui.invalidate('ui.render'))
   }
+  // He moves from one pose to the next over a second or two (he puts down what he held and picks up the next thing): his
+  // bubble waits until he has settled, so it never talks about what he is no longer, or not yet, doing.
+  const settleAt = mood.drawn && mood.move && mood.move.to === state && !isDemo ? mood.drawn.since + moveMs(mood.move.from, mood.move.to) : 0
+  const isSettled = settleAt <= now
+  if (!isSettled && settleAt !== mood.settleAt) {
+    mood.settleAt = settleAt
+    $.clock.after(settleAt - now + 60, () => $.ui.invalidate('ui.render'))
+  }
   const usd = saved.day === day ? Math.max(0, saved.usd) : 0
   const said = bubbleFor(state, {
     ctxPercent: m.ctx.percent,
@@ -1039,41 +1045,34 @@ async function snapshot($: EngineInterface, propsWorking: boolean): Promise<Snap
   // A bubble that stands for a warning is only said while the warning stands (a pose held a few seconds after it ended says nothing).
   const bubble = said && said.alertId !== undefined && (mood.dismissed.includes(said.alertId) || (!isDemo && !alerts.some(a => a.id === said.alertId))) ? null : said
 
-  // A bubble that asks for a decision stays until you click its button or send something else; any other lingers a while
-  // after its state ends. The raised hand never lingers: it goes the moment you answer.
+  // A bubble belongs to the pose on screen and goes with it (it is deleted letter by letter when the pose changes); one that
+  // asks for a decision also keeps the pose until you click its button or send something else.
   let spoken: Bubble | null = bubble
   if (isDemo) {
     // A demo shows the state with its own bubble and takes both away together; it leaves nothing pending behind. One
     // state shown alone with a button waits for you to answer it, like the real one.
     if (mood.demo?.single && bubble?.action) mood.demo.until = HELD
-  } else if (state === 'hand') {
-    mood.linger = null
-  } else {
-    if (bubble?.action) mood.sticky = { bubble, state }
-    if (bubble && (!mood.linger || mood.linger.bubble.text !== bubble.text)) $.clock.after(BUBBLE_LINGER_MS + 80, () => $.ui.invalidate('ui.render'))
-    if (bubble) mood.linger = { bubble, until: now + BUBBLE_LINGER_MS, state }
-    // A bubble belongs to the state it was said for and follows that state's priority (mood.ts ORDER): the one on screen
-    // speaks first; a pending decision or a lingering bubble only speaks when its state outranks the one shown.
-    const outranks = (from: StateId) => rank(from) < rank(state)
-    if (!bubble) {
-      if (mood.sticky && outranks(mood.sticky.state)) spoken = mood.sticky.bubble
-      else if (mood.linger && mood.linger.until > now && outranks(mood.linger.state)) spoken = mood.linger.bubble
-      else spoken = null
-    }
-  }
+  } else if (bubble?.action && state !== 'hand') mood.sticky = { bubble, state }
   // A message to you speaks over everything but the raised hand (it is the answer to something you just did).
   if (!isDemo && state !== 'hand' && mood.msg && mood.msg.until > now) spoken = { text: mood.msg.text }
+  else if (!isSettled) spoken = null
 
   // The state's own bubble first; then, when Clawd is only on the case (a notice to read, findings to act on), those.
-  const alert = spoken?.alertId !== undefined ? alerts.find(a => a.id === spoken?.alertId) : undefined
-  const ids: ActionId[] = spoken?.action ? [spoken.action, ...(alert?.actions ?? []).filter(id => id !== spoken?.action)] : []
-  let speech: Speech | null = spoken
-    ? { text: spoken.text, alertId: spoken.alertId, acts: ids.filter(id => !(isWorking && id !== 'saverOn')).map(id => ({ id, label: ACTION_LABELS[id] })) }
-    : null
-  if (!speech && !isDemo) {
-    if (state === 'talk' && note) speech = noticeSpeech(note)
-    else if (state === 'detective' && rows.length > 0 && !isWorking) speech = adviceSpeech(rows, await read($, pending))
+  const speechOf = (b: Bubble): Speech => {
+    const alert = b.alertId !== undefined ? alerts.find(a => a.id === b.alertId) : undefined
+    const ids: ActionId[] = b.action ? [b.action, ...(alert?.actions ?? []).filter(id => id !== b.action)] : []
+    return { text: b.text, alertId: b.alertId, acts: ids.filter(id => !(isWorking && id !== 'saverOn')).map(id => ({ id, label: ACTION_LABELS[id] })) }
   }
+  const standing = async (): Promise<Speech | null> => {
+    if (state === 'talk' && note) return noticeSpeech(note)
+    if (state === 'detective' && rows.length > 0 && !isWorking) return adviceSpeech(rows, await read($, pending))
+    return null
+  }
+  let speech: Speech | null = spoken ? speechOf(spoken) : null
+  if (!speech && !isDemo && isSettled) speech = await standing()
+  // What his pose is about, for when the bubble is gone: hovering over him says it again (only while the pointer is there).
+  const aboutBubble = said && (said.alertId === undefined || isDemo || alerts.some(a => a.id === said.alertId)) ? said : null
+  const hover: Speech | null = speech || !isSettled ? null : aboutBubble ? speechOf(aboutBubble) : isDemo ? null : await standing()
   if (!isDemo && speech && speech.text !== mood.lastLogged) remember(now, speech.text)
   mood.shownAlert = isDemo ? null : (speech?.alertId ?? null)
   // The menu belongs to the bubble it opened from: when there is none, it closes.
@@ -1086,6 +1085,7 @@ async function snapshot($: EngineInterface, propsWorking: boolean): Promise<Snap
     enh: await read($, stateAtom),
     state,
     speech,
+    hover,
     menuOpen: menuOpen && speech !== null && speech.acts.length > 1,
     clock,
     mascot: mascotMode === 'off' ? { markup: '', width: 0, height: 0 } : mascotFor(state, clock, mood.move, mascotMode === 'small' ? 1 : 2),
@@ -1115,7 +1115,6 @@ function dismissBubble(): void {
   }
   if (mood.shownAlert && !mood.dismissed.includes(mood.shownAlert)) mood.dismissed.push(mood.shownAlert)
   mood.sticky = null
-  mood.linger = null
   mood.msg = null
 }
 
@@ -1153,8 +1152,8 @@ function artButton(c: Comps, label: string, key: string, onPress: () => void) {
 }
 
 /** One button of a bubble or its menu: pressing it answers the bubble and closes the menu. */
-function actButton(a: ActRef, c: Comps, fx: Fx, surface: string) {
-  const key = a.id === 'saverOn' ? 'saver' : a.arg !== undefined && typeof a.arg === 'string' ? `${a.id}-${a.arg}` : a.id
+function actButton(a: ActRef, c: Comps, fx: Fx, surface: string, prefix = '') {
+  const key = prefix + (a.id === 'saverOn' ? 'saver' : a.arg !== undefined && typeof a.arg === 'string' ? `${a.id}-${a.arg}` : a.id)
   const go = () => {
     dismissBubble()
     fx.menu(false)
@@ -1207,6 +1206,71 @@ function controls(s: Snap, c: Comps, fx: Fx, Svg: unknown = null) {
   return el(c.Box, { key: 'controls', flexDirection: 'row', alignItems: 'center', gap: 2, paddingX: 1 }, ...items)
 }
 
+
+/** What the bubble lane keeps for the buttons beside the bubble: the drawing never has to be redrawn when they change. */
+const LANE_BUTTONS_PX = 200
+/** The hover group of Clawd and the bubble that reappears while the pointer is on him. */
+const HOVER = 'cockpit-clawd'
+
+/**
+ * What Clawd would say about the state he is in, drawn hidden over the lane and revealed while the pointer is on him (a
+ * hover group, no hook runs): a bubble that went away is one hover from coming back, and goes again when the pointer leaves.
+ */
+function hoverCard(s: Snap, c: Comps, Svg: unknown, fx: Fx, room: number, surface: string): unknown[] {
+  if (!s.hover || s.speech || !s.mascot.width) return []
+  const art = bubbleArt(s.hover.text, s.hover.text, room)
+  const first = s.hover.acts[0]
+  return [
+    el(
+      c.Box,
+      { key: 'hover-card', position: 'absolute', top: 0, left: 0, display: 'none', hover: { scope: HOVER, display: 'flex' }, flexDirection: 'row', alignItems: 'center', gap: 1 },
+      el(Svg, { key: 'art', source: art.source, alt: s.hover.text, width: art.width, height: art.height }),
+      ...(first ? [actButton(first, c, fx, surface, 'hover-')] : []),
+    ),
+  ]
+}
+
+/**
+ * The bubble's lane: one row, always there, under the meters and beside Clawd, so the cockpit never grows or shrinks when
+ * he speaks. The bubble is drawn at the left (its tail toward him), its buttons at the right, in the same row height.
+ * Each change of words is a new drawing laid over the old one for a moment (kept mounted, so nothing reloads or blinks
+ * under it), then the old one is dropped; a closed bubble leaves no drawing behind.
+ */
+function bubbleLane($: EngineInterface, s: Snap, c: Comps, Svg: unknown, fx: Fx, metersPx: number, surface: string): unknown[] {
+  const room = Math.max(120, metersPx - LANE_BUTTONS_PX)
+  const text = s.speech?.text ?? ''
+  let bub = mood.bub
+  if (!bub || bub.room !== room) {
+    // A new width (a resized window) redraws what is there, still, without the motion.
+    const key = `b${(bub?.seq ?? 0) + 1}`
+    bub = mood.bub = { text, room, seq: (bub?.seq ?? 0) + 1, layers: text === '' ? [] : [{ key, art: bubbleArt(text, text, room), until: 0, dropAt: Infinity }] }
+  } else if (text !== bub.text) {
+    const art = bubbleArt(bub.text, text, room)
+    const ms = Math.ceil(art.seconds * 1000)
+    for (const l of bub.layers) if (l.dropAt === Infinity) l.dropAt = s.now + 250 // the old one stays under the new one until the new one is up
+    bub.seq++
+    bub.layers.push({ key: `b${bub.seq}`, art, until: s.now + ms + 100, dropAt: Infinity })
+    bub.text = text
+    $.clock.after(300, () => $.ui.invalidate('ui.render'))
+    $.clock.after(ms + 150, () => $.ui.invalidate('ui.render'))
+  }
+  bub.layers = bub.layers.filter(l => l.dropAt > s.now)
+  const newest = bub.layers[bub.layers.length - 1]
+  if (newest && bub.text === '' && newest.until <= s.now) bub.layers = [] // closed: nothing is left drawn
+  const first = s.speech?.acts[0]
+  const buttons = s.speech ? [...(first ? [actButton(first, c, fx, surface)] : []), ...(s.speech.acts.length > 1 ? [moreButton(s, c, fx)] : [])] : []
+  const cols = (px: number) => Math.floor(px / CELL.w)
+  const zone = el(
+    c.Box,
+    { key: 'zone', position: 'relative', width: cols(room), height: 1 },
+    ...bub.layers.map(l => el(c.Box, { key: l.key, position: 'absolute', top: 0, left: 0 }, el(Svg, { key: 'art', source: l.art.source, alt: text, isInteractive: true, width: l.art.width, height: l.art.height }))),
+    ...hoverCard(s, c, Svg, fx, room, surface),
+  )
+  return [
+    el(c.Box, { key: 'lane', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: cols(metersPx), height: 1 }, zone, el(c.Box, { key: 'buttons', flexDirection: 'row', alignItems: 'center', gap: 1 }, ...buttons)),
+    ...menuRow(s, c, fx, surface, 0),
+  ]
+}
 
 // ======================= wiring: one hook per event, each calling the sections =======================
 
@@ -1575,7 +1639,8 @@ export const register: Register = (on, options) => {
   on('tool.check', async ($, e, next) => {
     const r = await next(e)
     // A query (another plugin's $.tool.check) has no tool_use_id: nothing will run and nobody is asked, so it never counts.
-    if (r.decision === 'ask' && e.tool_use_id !== undefined) {
+    // The hand is for a question Claude put to you (AskUserQuestion, a plan to approve), not for permission prompts.
+    if (r.decision === 'ask' && e.tool_use_id !== undefined && (e.tool === 'AskUserQuestion' || e.tool === 'ExitPlanMode')) {
       // An ask is often settled by a rule or the mode before anyone is shown a prompt: only one still open after a moment counts.
       const at = await $.clock.now()
       mood.askAt = at
@@ -1784,33 +1849,15 @@ export const register: Register = (on, options) => {
       // Clawd and the meters are two drawings: a new pose replaces only Clawd's, so the meters never reload (a replaced
       // drawing blinks) and change only when a number does.
       const parts = bandParts(width, s.m, s.mascot)
+      const lane = bubbleLane($, s, c, Svg, fx, parts.meters.width, e.surface)
+      const column = el(c.Box, { key: 'col', flexDirection: 'column', paddingLeft: parts.mascot ? 3 : 0 }, el(Svg, { key: 'meters', source: parts.meters.source, alt: altText(s.m), width: parts.meters.width, height: parts.meters.height }), ...lane)
       const drawn = el(
         c.Box,
-        { key: 'art', flexDirection: 'row', alignItems: 'center', gap: 1 },
-        ...(parts.mascot ? [el(Svg, { key: 'mascot', source: parts.mascot.source, alt: `${STATES[s.state].label}${s.speech ? `. ${s.speech.text}` : ''}`, isInteractive: true, width: parts.mascot.width, height: parts.mascot.height })] : []),
-        el(Svg, { key: 'meters', source: parts.meters.source, alt: altText(s.m), width: parts.meters.width, height: parts.meters.height }),
+        { key: 'art', flexDirection: 'row', alignItems: 'center' },
+        ...(parts.mascot ? [el(c.Box, { key: 'clawd', hover: { scope: HOVER } }, el(Svg, { key: 'mascot', source: parts.mascot.source, alt: `${STATES[s.state].label}${s.speech ? `. ${s.speech.text}` : ''}`, isInteractive: true, width: parts.mascot.width, height: parts.mascot.height }))] : []),
+        column,
       )
       row = el(c.Box, { key: 'row', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, drawn, controls(s, c, fx, Svg))
-      // The bubble is its own row under the meters, so no number is ever covered and the band keeps one height. Its
-      // buttons are real ones beside it; the "…" opens the rest in a row below.
-      if (s.speech) {
-        const first = s.speech.acts[0]
-        const indent = Math.max(0, Math.floor(s.mascot.width / CELL.w))
-        // What the buttons take, so the words get the rest of the row (they wrap to two lines, never run past the band).
-        const buttons = (first ? pillSvg(first.label).width + 4 : 0) + (s.speech.acts.length > 1 ? pillSvg('…').width + 4 : 0)
-        const room = bandWidth(e.props.bodyColumns) - indent * CELL.w - buttons - 24
-        // Kept while its words stand; new words give way to the old in the same drawing (resize, delete, type).
-        const text = s.speech.text
-        if (!mood.art || mood.art.text !== text || mood.art.room !== room) {
-          const prev = mood.art && mood.art.text !== text ? mood.art.text : mood.art?.prev
-          mood.art = { text, prev, room, art: speechSvg(text, room, prev) }
-        }
-        const art = mood.art.art
-        speech = [
-          el(c.Box, { key: 'bubble', flexDirection: 'row', alignItems: 'center', gap: 1, paddingLeft: indent }, el(Svg, { key: 'bubble-art', source: art.source, alt: text, isInteractive: true, width: art.width, height: art.height }), ...(first ? [actButton(first, c, fx, e.surface)] : []), ...(s.speech.acts.length > 1 ? [moreButton(s, c, fx)] : [])),
-          ...menuRow(s, c, fx, e.surface, indent),
-        ]
-      } else mood.art = null
     }
 
     const mine = el(c.Box, { key: bandKey('cockpit'), flexDirection: 'column' }, row, ...(speech as never[]))

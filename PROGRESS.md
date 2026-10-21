@@ -162,3 +162,8 @@ Rule: no new engine event or `$` method in a mod without a spike on the owner's 
 Owner asked: saver line gone, band never expands, U5 into the bubble, meters always visible, buttons solid and same gray as the bubble, text always fits, no blinking, typewriter between bubbles. Owner chose in the questions: remove the arrow completely; a bubble button plus a "…" menu; most important finding first, the others in the menu.
 Done: see docs/COCKPIT.md "0.15.0". 225 tests, tsc clean, validate ok.
 Not verifiable from the cloud: the Button-over-drawing alignment (cells: 8 x 18 px) and Box overflow clipping on the desktop app; SMIL typewriter; whether the 0.14.1 hotfix loads (still waiting on the owner's report).
+
+## Session (2026-10-21): cockpit 0.16.0 (the bubble lane)
+Owner's list after testing 0.15.0 (screenshots): bubble row expanded the cockpit; shadow; blink between bubbles; empty space after the text; buttons right-aligned at the bubble's height; bubble from Clawd; meters further right; "!" animation; hand only for questions; typing mouth; typewriter open/close + scale; remove the shadow entirely; hover over Clawd brings the bubble back; bubbles must match the pose (a lingering "Editing" over a detective).
+Done: docs/COCKPIT.md "0.16.0". 225 tests, tsc clean, validate ok.
+Not verifiable from the cloud: keyed layers surviving a redraw without reload, hover scope across drawings, textLength rendering, the SMIL motion.

@@ -86,7 +86,7 @@ export type BubbleInput = {
 /** What he says, or null when the band already says it (preflight rows) or there is nothing to say. */
 export function bubbleFor(id: StateId, b: BubbleInput): Bubble | null {
   switch (id) {
-    case 'hand': return { text: 'Needs your OK' }
+    case 'hand': return { text: 'Waiting for your answer' }
     case 'writing': return { text: 'Writing it down…' }
     case 'oops': return { text: b.detail !== '' ? `${b.detail} failed` : 'A tool failed' }
     case 'bell': return { text: 'Done.' }

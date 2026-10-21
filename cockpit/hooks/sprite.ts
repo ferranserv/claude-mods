@@ -219,7 +219,7 @@ function clawd(o) {
   if (o.z !== undefined) px(PAT.Z, X + 24, Y - 8 - o.z + 4, 'z');
   if (o.z2 !== undefined) px(PAT.Z, X + 20, Y - 10 + o.z2 * 0 - o.z2 + 4, 'z');
   if (o.bang) px(PAT.BANG, o.bangX ?? X + 2, Y - 8, 'r');
-  if (o.bangC) px(['##', '##', '##', '##', '..', '##'], X + 11, Y - 8, 'r');   // a two-wide exclamation mark, centered above his head (his body is 24 wide)
+  if (o.bangC) px(['##', '##', '##', '##', '..', '##'], X + 11, Y - 8 + (o.bangC - 1), 'r');   // 1, 2, 3: the mark sinks a pixel at a time, so it bobs   // a two-wide exclamation mark, centered above his head (his body is 24 wide)
   if (o.star) { px(PAT.STAR, X - 4, Y - 6, 's'); px(PAT.STAR, X + 23, Y - 4, 's'); }
   if (o.flame !== undefined) { const f = PAT.FLAME[o.flame], g2 = PAT.FLAME[(o.flame + 1) % 3]; px(f, X - 3, F - 7, 'r'); px(g2, X + 3, F - 6, 'y'); px(f, X + 9, F - 7, 'r'); px(g2, X + 15, F - 6, 'y'); px(f, X + 21, F - 7, 'r'); [[X + 5, Y - 3], [X + 18, Y - 2], [X + 11, Y - 5]].forEach(([x, y], i) => set(x, y - (o.flame + i) % 3, i % 2 ? 'y' : 'r')); }
   if (o.steam !== undefined) { const t = o.steam; [[6, 2], [11, 0], [16, 2]].forEach(([x, , ], i) => fill(X + x, Y - 4 - ((t + i) % 3) * 2, 2, 2, 'v')); }

@@ -241,6 +241,7 @@ test('buttons: shown from the first warning, hidden when calm or while working; 
     await ui.unmount()
 
     await at(55)
+    await settle($, w) // he settles into the pose before the bubble speaks
     ui = await $.ui.mount(band(surface))
     expect(await ui.find({ key: 'handoff' })).toBeDefined()
     expect(await ui.find({ key: 'more' })).toBeDefined()
@@ -253,6 +254,7 @@ test('buttons: shown from the first warning, hidden when calm or while working; 
   }
 
   await at(55)
+  await settle($, w)
   let ui = await $.ui.mount(band('desktop'))
   await ui.press({ key: 'more' })
   await ui.unmount()
@@ -334,6 +336,7 @@ test('/meters warn, red, tokens: change the context warning levels without the o
 
   expect(text(await $.command.run({ command: 'meters', args: 'warn 5' } as never))).toContain('orange from 5%')
   expect(w.writes.limitOverrides).toEqual({ warnPercent: 5 })
+  await settle($, w)
   ui = await $.ui.mount(band('desktop'))
   expect(await ui.find({ key: 'handoff' })).toBeDefined() // now it warns
   await ui.unmount()
@@ -473,7 +476,8 @@ test('calm: the band is the meters and the wand only; no arrow, no bubble, no sa
   await measureCtx($, 10)
   await w.clock.advance(6000)
   const ui = await $.ui.mount(band('desktop'))
-  for (const key of ['toggle', 'bubble', 'more', 'saver', 'alert-ctx']) expect(await ui.find({ key })).toBeUndefined()
+  expect(await ui.find({ key: 'lane' })).toBeDefined() // the bubble's row is always there, empty, so the band never grows
+  for (const key of ['toggle', 'more', 'saver', 'alert-ctx', 'hover-card']) expect(await ui.find({ key })).toBeUndefined()
   expect(await ui.find({ key: 'enhance' })).toBeDefined()
   await ui.unmount()
 })
@@ -483,7 +487,7 @@ test('a warning speaks in one bubble: Handoff on it, Compact, Copy brief and Fre
   await measureCtx($, 60)
   await w.clock.advance(6000)
   let ui = await $.ui.mount(band('desktop'))
-  expect(await ui.find({ key: 'bubble' })).toBeDefined()
+  expect(await ui.find({ key: 'lane' })).toBeDefined()
   expect(await ui.find({ key: 'handoff' })).toBeDefined()
   expect(await ui.find({ key: 'row' })).toBeDefined() // the band's own row is always there, with the meters
   expect(await ui.find({ key: 'menu' })).toBeUndefined()
@@ -531,6 +535,12 @@ const altOf = async ($: unknown, isWorking = false): Promise<string> => {
   const alt = String(svgs.find(v => String(v.props?.alt ?? '').startsWith('Clawd'))?.props?.alt ?? '')
   await ui.unmount()
   return alt
+}
+/** He settles into a new pose before his bubble speaks: draw once so the change is seen, then let the move play. */
+const settle = async ($: unknown, w: { clock: { advance: (ms: number) => Promise<unknown> } }, ms = 4000): Promise<void> => {
+  const ui = await ($ as { ui: { mount: (i: unknown) => Promise<{ unmount: () => Promise<void> }> } }).ui.mount(band('desktop'))
+  await ui.unmount()
+  await w.clock.advance(ms)
 }
 /** The meters' own alt text: they are a drawing apart from Clawd's. */
 const metersAltOf = async ($: unknown): Promise<string> => {
@@ -595,17 +605,20 @@ test('a failed tool is an oops, a passing test run is the lab, an approved plan 
   expect(await altOf($)).toContain('idea')
 })
 
-test('a permission prompt raises a hand until the asked call ends; other calls and queries do not move it', async ($, on) => {
+test('a question to you raises a hand until it is answered; permission prompts, other calls and queries do not', async ($, on) => {
   const w = world(on)
   on('tool.check', () => ({ decision: 'ask' }) as never)
   on('tool.call', ok)
   await started($)
   await w.clock.advance(6000)
   const d = $ as unknown as Do
-  await d.tool.check({ tool: 'Bash', input: { command: 'ls' } }) // a query: nothing will run, nobody is asked
+  await d.tool.check({ tool: 'AskUserQuestion', input: {} }) // a query: nothing will run, nobody is asked
   await w.clock.advance(6000)
   expect(await altOf($)).not.toContain('clipboard')
-  await d.tool.check({ tool: 'Bash', input: { command: 'rm -rf x' }, tool_use_id: 'a' } as never)
+  await d.tool.check({ tool: 'Bash', input: { command: 'rm -rf x' }, tool_use_id: 'z' } as never) // a permission prompt is not a question
+  await w.clock.advance(6000)
+  expect(await altOf($)).not.toContain('clipboard')
+  await d.tool.check({ tool: 'AskUserQuestion', input: {}, tool_use_id: 'a' } as never)
   expect(await altOf($)).not.toContain('clipboard') // an ask settled at once by a rule shows nothing
   await w.clock.advance(4000)
   expect(await altOf($)).not.toContain('clipboard') // still inside the 5 s it takes to be sure
@@ -613,7 +626,7 @@ test('a permission prompt raises a hand until the asked call ends; other calls a
   expect(await altOf($)).toContain('clipboard')
   await d.tool.call({ tool: 'Read', file_path: '/x/a.ts', tool_use_id: 'b' } as never) // a parallel call ends: the question is still open
   expect(await altOf($)).toContain('clipboard')
-  await d.tool.call({ tool: 'Bash', command: 'ls', tool_use_id: 'a' } as never) // the asked call has run and ended
+  await d.tool.call({ tool: 'AskUserQuestion', tool_use_id: 'a' } as never) // you answered: the call ended
   expect(await altOf($)).not.toContain('clipboard')
 })
 
@@ -631,22 +644,23 @@ test('a /handoff turn shows Clawd writing with the quill, and the writing ends w
   expect(await altOf($)).not.toContain('quill')
 })
 
-test('a bubble that asks for a decision stays until you answer it', async ($, on) => {
+test('a bubble that asks for a decision stays until you answer it, and hovering over Clawd brings it back', async ($, on) => {
   const w = world(on)
   on('prompt.submit', (_, e) => e as never)
   await started($)
-  await measureCtx($, 60) // a warning with a button, spoken by the bubble while the band is collapsed
+  await measureCtx($, 60) // a warning with a button, spoken by the bubble
   await w.clock.advance(6000)
-  await $.command.run({ command: 'cockpit', args: 'close' } as never)
-  const speaking = 'from="0" to="1"' // the bubble materializing
-  expect(await svgOf($)).toContain(speaking)
+  expect(await hasButton($, 'handoff')).toBe(true)
   await w.clock.advance(60_000) // the warning still holds: so does the bubble, however long it takes
-  expect(await svgOf($)).toContain(speaking)
+  expect(await hasButton($, 'handoff')).toBe(true)
   await ($ as unknown as { prompt: { submit: (i: unknown) => Promise<unknown> } }).prompt.submit({ text: 'something else', origin: { kind: 'composer' } })
   await w.clock.advance(10_000)
-  const after = await svgOf($)
-  expect(after).not.toContain(speaking) // sending something else answers it: the bubble and its button are gone
-  expect(await hasButton($, 'handoff')).toBe(false)
+  expect(await hasButton($, 'handoff')).toBe(false) // sending something else answers it: the bubble is gone...
+  const ui = await $.ui.mount(band('desktop'))
+  const card = await ui.find({ key: 'hover-card' })
+  expect((card?.props as { display?: string } | undefined)?.display).toBe('none') // ...but a hover over him brings it back (drawn hidden, revealed by the app only while the pointer is on him)
+  expect(await ui.find({ key: 'clawd' })).toBeDefined()
+  await ui.unmount()
 })
 
 test('"Done." speaks over a pending decision while the bell rings, then the decision returns; it ends by itself when its warning does', async ($, on) => {
@@ -660,10 +674,12 @@ test('"Done." speaks over a pending decision while the bell rings, then the deci
   expect(await altOf($)).toContain('tipsy')
   await ($ as unknown as Do).turn.start({ text: 'go', turnId: 't1' })
   await ($ as unknown as Do).turn.complete({ reason: 'answer', answer: 'x', durationMs: 5, isAborted: false, turnId: 't1' })
+  await settle($, w, 2500)
   expect(await altOf($)).toContain('Done.') // the bell outranks the warning: it speaks, with no button
   expect(await hasButton($, 'handoff')).toBe(false)
-  await w.clock.advance(5100)
-  expect(await hasButton($, 'handoff')).toBe(true) // the bell is over: the open question is back, with its real button beside it
+  await settle($, w, 5100) // the bell is over...
+  await settle($, w, 3000) // ...he settles back into the pose
+  expect(await hasButton($, 'handoff')).toBe(true) // the open question is back, with its real button beside it
   await w.clock.advance(8000)
   await measureCtx($, 10) // the context is cleared: the warning is over, so the bubble and the pose are too
   await w.clock.advance(6000)
@@ -698,7 +714,7 @@ test('a cold cache clears, the pose and its bubble, when a new message is sent',
   expect(await hasButton($, 'handoff')).toBe(false)
 })
 
-test('a bubble with nothing to decide lingers after its state ends, then goes', async ($, on) => {
+test('a bubble goes with its pose: "Done." is said while the bell rings and is deleted when it is over', async ($, on) => {
   const w = world(on)
   on('turn.complete', (_, e) => ({ text: e.answer }) as never)
   await started($)
@@ -706,11 +722,11 @@ test('a bubble with nothing to decide lingers after its state ends, then goes', 
   await w.clock.advance(6000)
   await ($ as unknown as Do).turn.start({ text: 'go', turnId: 't1' })
   await ($ as unknown as Do).turn.complete({ reason: 'answer', answer: 'x', durationMs: 5, isAborted: false, turnId: 't1' })
+  await settle($, w, 2500) // the bell is in his hand, then he says it
   expect(await altOf($)).toContain('Done.') // while the bell rings
-  await w.clock.advance(8000) // the bell is over after 5 s, the words stay a little longer
-  expect(await altOf($)).toContain('Done.')
-  await w.clock.advance(12_000)
-  expect(await altOf($)).not.toContain('Done.')
+  await settle($, w, 6000) // the bell is over
+  await settle($, w, 100)
+  expect(await altOf($)).not.toContain('Done.') // no bubble about what he is no longer doing
 })
 test('a finished turn rings the bell over a warning, then the warning returns', async ($, on) => {
   const w = world(on)
@@ -867,7 +883,7 @@ test('with Clawd hidden the bubble still speaks and still carries its button', a
   await w.clock.advance(6000)
   await $.command.run({ command: 'cockpit', args: 'close' } as never)
   const ui = await $.ui.mount(band('desktop'))
-  expect(await ui.find({ key: 'bubble' })).toBeDefined()
+  expect(await ui.find({ key: 'lane' })).toBeDefined()
   expect(await ui.find({ key: 'handoff' })).toBeDefined()
   await ui.unmount()
 })
@@ -957,4 +973,24 @@ test('a new pose never changes the meters drawing, and the bubble drawing is kep
   const b = await sources()
   expect(b.clawd).not.toBe(a.clawd) // he changed pose...
   expect(b.meters).toBe(a.meters) // ...and the meters were not touched
+})
+
+test('after a tool ends the bubble about it goes with its pose; it never talks over another pose', async ($, on) => {
+  const w = world(on)
+  on('tool.call', ok)
+  await started($)
+  await measureCtx($, 60)
+  await w.clock.advance(6000)
+  await settle($, w, 4000) // tipsy, settled, his bubble up
+  await ($ as unknown as Do).turn.start({ text: 'go', turnId: 't1' })
+  await ($ as unknown as Do).tool.call({ tool: 'Edit', file_path: '/x/patch_readers.py' })
+  await settle($, w, 2500)
+  const during = await altOf($, true)
+  expect(during).toContain('hammer')
+  expect(during).toContain('Editing patch_readers.py') // pose and words agree
+  await settle($, w, 3000) // the tool is over, the hammer is put down
+  await settle($, w, 3000)
+  const after = await altOf($, true)
+  expect(after).not.toContain('hammer')
+  expect(after).not.toContain('Editing') // no bubble about what he is no longer doing
 })

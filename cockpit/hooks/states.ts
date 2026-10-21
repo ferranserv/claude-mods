@@ -27,7 +27,7 @@ const range = (n: number) => Array.from({ length: n }, (_, i) => i)
 
 export const STATES: Record<StateId, Def> = {
   idle: { label: 'Clawd is relaxing in sunglasses', face: '(-_-)~', fd: 0.5, frames: range(4).map(() => ({ shades: 1, mouth: 'smile' })) },
-  typing: { label: 'Clawd is typing on a laptop', face: '[o_o]>', fd: 0.16, frames: [0, 1, 0, 1].map(i => ({ ...T, armL: i ? 'type0' : 'type1', armR: i ? 'type1' : 'type0' })) },
+  typing: { label: 'Clawd is typing on a laptop', face: '[o_o]>', fd: 0.16, frames: [0, 1, 0, 1].map(i => ({ ...T, mouth: 'smile', armL: i ? 'type0' : 'type1', armR: i ? 'type1' : 'type0' })) },
   thinking: { label: 'Clawd is thinking', face: '(o_o)...', fd: 0.11, frames: range(8).map(t => ({ spinner: t, look: 'up', armR: 'chin' })) },
   bell: { label: 'Clawd rings a bell: the turn is finished', face: '(^o^)ding', fd: 0.1, frames: [0, -1, -1, 0, 1, 1, 0, -1, 0, 1].map((s, i) => ({ eyes: 'happy', mouth: 'open', armR: 'high', bell: s, notes: i })) },
   coins: { label: 'Clawd counts coins the saver kept', face: '($_$)', fd: 0.4, frames: [0, 1].map(t => ({ eyes: 'happy', mouth: 'smile', coins: t, star: t })) },
@@ -54,7 +54,7 @@ export const STATES: Record<StateId, Def> = {
   plug: { label: 'Clawd holds an unplugged cable: a connector is offline', face: '(;_;)~', fd: 0.4, frames: [0, 1].map(t => ({ plug: t, eyes: 'sad', mouth: 'grim', armL: 'half', armR: 'half', dy: t })) },
   dizzy: { label: 'Clawd is dizzy: the conversation is being compacted', face: '(@_@)', fd: 0.2, frames: [0, -1, 0, 1].map((dx, i) => ({ spiral: (i % 2) + 1, eyes: 'dizzy', dx, mouth: 'o' })) },
   lab: { label: 'Clawd holds bubbling flasks: the tests passed', face: '(^_^)8', fd: 0.35, frames: [0, 1, 2].map(t => ({ flask: t + 1, mouth: 'smile', eyes: t === 1 ? 'happy' : 'open' })) },
-  hand: { label: 'Clawd holds a clipboard and a pencil and raises a hand: something needs your approval', face: '(o_o)[]!', fd: 0.4, frames: [1, 2, 3, 3].map(clipboard => ({ clipboard, look: 'down', mouth: 'flat', bangC: 1 })) },
+  hand: { label: 'Clawd holds a clipboard and a pencil and raises a hand: Claude asked you a question and waits for your answer', face: '(o_o)[]!', fd: 0.2, frames: [[1, 1], [1, 2], [2, 3], [2, 2], [3, 1], [3, 2], [3, 3], [3, 2]].map(([clipboard, bangC]) => ({ clipboard, look: 'down', mouth: 'flat', bangC })) },
   writing: { label: 'Clawd writes it down with a quill', face: '(o_o)~', fd: 0.4, frames: [1, 2, 3, 4].map(paper => ({ glasses: 1, paper, look: 'down', mouth: 'flat' })) },
 }
 
@@ -117,7 +117,7 @@ export type Mascot = { markup: string; width: number; height: number }
  * hammer raised), then the target state's own loop takes over. Pairs without a move cut straight to the new state.
  */
 type Move = { frames: Pose[]; fd: number }
-const LAPTOP: Pose = { laptop: 1, look: 'down', eyes: 'half', armL: 'type1', armR: 'type0' }
+const LAPTOP: Pose = { laptop: 1, look: 'down', eyes: 'half', mouth: 'smile', armL: 'type1', armR: 'type0' }
 const SUN: Pose = { shades: 1, mouth: 'smile' }
 /** The first pose of a state: where a move into it ends and a move out of it begins, so there is no seam. */
 const F = (id: StateId): Pose => ({ ...STATES[id].frames[0] })
