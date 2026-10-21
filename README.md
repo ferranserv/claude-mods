@@ -77,7 +77,7 @@ The cache states show only while Claude is idle (a running turn keeps the cache 
 - Claude Code has no render site inside the prompt box, so the Enhance button sits in the band above it. The hotkey and `/enhance` work anywhere.
 - The Alt hotkeys do not work reliably in the desktop app; use the buttons or the commands.
 - The chime uses `afplay` on macOS and a PowerShell sound player on Windows (best effort: it needs the host to allow running commands). On Linux it plays nothing.
-- Clawd animates by SVG animation in a sandboxed frame; if your build does not play it, you see the first frame of each state. `/cockpit demo` shows all 31 states, 4 seconds each (`/cockpit demo typing` for one, `/cockpit demo off` to stop). In the terminal there are no drawings: a short text face and the text row. Clawd belongs to Anthropic: personal use only.
+- Clawd animates by SVG animation in a sandboxed frame; if your build does not play it, you see the first frame of each state. `/cockpit demo` shows all 33 states, 4 seconds each (`/cockpit demo typing` for one, `/cockpit demo off` to stop). In the terminal there are no drawings: a short text face and the text row. Clawd belongs to Anthropic: personal use only.
 - The Enhance sparkle is always shown (dim until you type a draft) because the desktop app may not raise draft events.
 
 ## Audit

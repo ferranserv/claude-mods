@@ -34,7 +34,7 @@ const PAT = {
 const MINI = {
   shades: ['ddddd', '.d.d.'], glasses: ['nnnnn', 'n.n.n'], laptop: ['LLLLL', 'LdddL', 'LLLLL'],
   book: ['XXXXX', 'XoooX', 'XXXXX'], stack: ['hhhhh', 'lllll', 'uuuuu'], scroll: ['ooooo', 'OOOOO', 'ooooo'], clipboard: ['.gg.', 'KKKK', 'KwwK', 'KwwK'],
-  cup: ['www', 'w.w', 'www'], flask: ['.q.', 'qqq', 'qqq'], bell: ['.bb.', 'bbbb', '.bb.'], paper: ['wwww', 'wOOw', 'wwww'], bulb: ['.s.', 'sss', '.s.'],
+  cup: ['www', 'w.w', 'www'], flask: ['.q.', 'qqq', 'qqq'], beaker: ['.i.', 'iii', 'rrr'], bell: ['.bb.', 'bbbb', '.bb.'], paper: ['wwww', 'wOOw', 'wwww'], bulb: ['.s.', 'sss', '.s.'],
   'hat-hard': ['.EEE.', 'EEEEE'], 'hat-fedora': ['.XXX.', 'XXXXX'], 'hat-wizard': ['..n..', '.nnn.', 'NNNNN'],
   wrench: ['ggg', '.x.', '.x.'], wand: ['..s', '.w.', 'w..'], glass: ['ggg', 'gig', 'ggg', '..X'], browser: ['GGGG', 'ybbb', 'ybbb'],
   thing: ['ggg', 'ggg'],
@@ -263,6 +263,60 @@ function clawd(o) {
   if (o.ice) { fill(X - 1, F - 1, 26, 4, 'i'); fill(X - 1, F - 1, 26, 1, 'w'); fill(X + 1, F + 3, 22, 1, 'Q'); for (const x of [X + 1, X + 8, X + 15, X + 21]) { fill(x, F - 3, 2, 2, 'i'); } }
   if (o.sweat !== undefined) px(['.#.', '###', '###'], X + 22, Y + 1 + o.sweat, 'q');
   if (o.gauge !== undefined) { fill(X + 6, Y - 7, 12, 4, 'g'); fill(X + 7, Y - 6, 10, 2, 'd'); fill(X + 7, Y - 6, o.gauge, 2, 'r'); }
+  // ---- ship: a launch console under his left hand (a big red button) and a rocket at the right edge that lifts off, clipped at the canvas
+  const cs = (x, y, c) => { if (x >= 0 && x < W && y >= 0 && y < H) k.g[y][x] = c; };   // clipped: a rocket that flies out of the top is not "outside the canvas"
+  const cstamp = (rows, x0, y0) => rows.forEach((row, j) => [...row].forEach((ch, i) => { if (ch !== '.') cs(x0 + i, y0 + j, ch); }));
+  if (o.console !== undefined) {
+    const cx0 = X - 1, cy0 = Y + 11;
+    fill(cx0, cy0, 13, 4, 'g'); fill(cx0, cy0, 13, 1, 'v'); fill(cx0, cy0 + 3, 13, 1, 'd'); fill(cx0 + 8, cy0 + 1, 3, 1, 'd'); set(cx0 + 9, cy0 + 2, 'a'); set(cx0 + 11, cy0 + 2, 's');
+    fill(X + 1, Y + 11, 6, 1, 'd');   // the button's base
+    if (o.console === 0) { fill(X + 2, Y + 9, 4, 2, 'r'); set(X + 2, Y + 9, 'w'); set(X + 5, Y + 10, 'P'); }
+    else fill(X + 2, Y + 10, 4, 1, 'r');
+  }
+  if (o.rocket !== undefined) {
+    const rx = X + 24 + (o.rocketDx || 0), ry = o.rocket;
+    cstamp(['..r..', '.rrr.', '.www.', '.wqw.', '.www.', '.wvw.', 'rwwwr', 'rwwwr', 'r.d.r'], rx, ry);
+    cs(rx + 1, ry + 2, 'v');
+    const th = o.thrust || 0, fy = ry + 9;
+    if (th >= 1) cs(rx + 2, fy, 'y');
+    if (th >= 2) { cs(rx + 1, fy, 'r'); cs(rx + 3, fy, 'r'); cs(rx + 2, fy + 1, 'y'); cs(rx + 2, fy + 2, 'r'); }
+    if (th >= 3) { cs(rx + 1, fy + 1, 'r'); cs(rx + 3, fy + 1, 'r'); cs(rx + 2, fy + 2, 'y'); cs(rx + 2, fy + 3, 'y'); cs(rx + 1, fy + 3, 'r'); cs(rx + 3, fy + 3, 'r'); cs(rx + 2, fy + 4, 'r'); cs(rx + 2, fy + 5, 'r'); }
+  }
+  if (o.smokeP) {   // the puffs the engine leaves on the ground, growing and drifting as the rocket goes
+    const n = o.smokeP, gy = F - 2, pf = (x, y, c) => { cs(x, y, c); cs(x + 1, y, c); cs(x, y + 1, c); cs(x + 1, y + 1, c); };
+    pf(X + 25, gy, 'v');
+    if (n >= 2) { pf(X + 22, gy - 1, 'w'); pf(X + 28, gy - 1, 'w'); }
+    if (n >= 3) { pf(X + 20, gy, 'v'); pf(X + 27, gy - 3, 'v'); pf(X + 24, gy - 3, 'w'); }
+    if (n >= 4) { cs(X + 18, gy + 1, 'v'); cs(X + 29, gy - 5, 'v'); cs(X + 23, gy - 5, 'w'); }
+  }
+  // ---- boom: a flask held up that swells and cracks, the blast, and what it leaves (soot, frizzy hair, smoke)
+  if (o.beaker) {
+    const t = o.beaker, bx = X + 20 + ((t >= 3) ? 1 : 0), by0 = Y - 3, liq = t >= 2 ? 'r' : 'l';
+    fill(bx + 2, by0, 3, 3, 'i'); fill(bx + 1, by0 + 3, 5, 1, 'i'); fill(bx, by0 + 4, 7, 3, 'i'); fill(bx + 1, by0 + 5, 5, 3, liq); fill(bx + 2, by0 + 8, 3, 1, liq);
+    fill(bx + 1, by0 + 3, 1, 4, 'v'); set(bx + 2, by0 + 5, 'w'); set(bx + 4, by0 + 6, 'w');
+    if (t >= 2) { set(bx + 3 - (t % 2), by0 - 1, liq); set(bx + 4, by0 - 3 + (t % 2), liq); set(bx + 1, by0 - 2, liq); }
+    if (t >= 3) { set(bx + 3, by0 + 4, 'e'); set(bx + 4, by0 + 5, 'e'); set(bx + 3, by0 + 6, 'e'); set(bx + 5, by0 + 4, 'e'); }
+  }
+  if (o.burst) {   // a blast star in front of his right side (center x + 22, y + 2), growing; the rays are clipped to the canvas
+    const n = o.burst, cx0 = X + 22, cy0 = Y + 2;
+    if (n <= 3) {
+      const R = [2, 4, 6][n - 1];
+      for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
+        const d1 = Math.abs(dx) + Math.abs(dy), spike = (dx === 0 || dy === 0 || Math.abs(dx) === Math.abs(dy)) && Math.max(Math.abs(dx), Math.abs(dy)) <= R;
+        if (d1 <= Math.floor(R * 0.75) || spike) cs(cx0 + dx, cy0 + dy, d1 <= R * 0.4 ? 'w' : d1 <= R * 0.8 ? 's' : 'r');
+      }
+    } else {   // debris and the last of the ring
+      [[-7, -1, 'd'], [6, -2, 'd'], [-5, 5, 'r'], [6, 5, 'd'], [0, -7, 'r'], [-8, 2, 'r'], [2, 7, 'd'], [8, 0, 'r'], [-3, -5, 'd'], [4, -5, 'r']].forEach(([dx, dy, c]) => { cs(cx0 + dx, cy0 + dy, c); cs(cx0 + dx + 1, cy0 + dy, c); });
+      [[-3, 0], [3, 0], [0, -3], [0, 3], [-2, -2], [2, -2], [-2, 2], [2, 2]].forEach(([dx, dy]) => cs(cx0 + dx, cy0 + dy, 'v'));
+    }
+  }
+  if (o.soot) { [[5, 1], [6, 1], [5, 2], [16, 1], [17, 1], [18, 2], [9, 0], [13, 0], [4, 5], [19, 5], [20, 4]].forEach(([dx, dy]) => set(X + dx, Y + dy, 'd')); fill(X + 9, Y + 1, 2, 1, 'k'); fill(X + 14, Y + 1, 2, 1, 'k'); }
+  if (o.frizz) { [[6, -1, 2], [9, -3, 3], [12, -2, 2], [15, -3, 3], [18, -1, 2]].forEach(([dx, dy, h]) => { for (let j = 0; j < h; j++) set(X + dx, Y + dy + j, 'd'); }); }
+  if (o.puff) {   // smoke rising off his head
+    const n = o.puff, py = (a) => Y - 4 - a;
+    const pf = (x, y, c) => { cs(x, y, c); cs(x + 1, y, c); cs(x, y + 1, c); cs(x + 1, y + 1, c); };
+    pf(X + 10, py(n), 'M'); if (n >= 2) pf(X + 13, py(n - 1) - 2, 'g'); if (n >= 3) pf(X + 8, py(n - 2) - 3, 'L');
+  }
   if (o.carry) {   // the prop in his hand: at 1 above the raised hand, at 3 just under the arm that swings out to put it behind him
     const [cxo, cyo] = o.at === 3 ? [X + 22, Y + 7] : [X + 19, Y - 5];
     stamp(MINI[o.carry] || MINI.thing, cxo, cyo, 'g');
