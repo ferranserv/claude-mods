@@ -4,7 +4,7 @@ Source: `docs/mascot/clawd-sheet.html` (browsable, animated, drawn by code on Cl
 
 ## States (signal -> state), 30 in the sheet
 Cockpit signals
-- idle: beach lounge, sunglasses, drink with umbrella, big palm; no sand, water or chair (calm)
+- idle: neutral, sunglasses only, a slow breath (calm). The old beach lounge is archived: `archive/cockpit-idle-beach.md`
 - typing (turn running) | thinking: loading circle, no question mark (waiting on model)
 - bell: big bell hanging below his raised hand, shake lines, music notes (turn finished, 4 s, chime plays)
 - coins (saver routed) | walk (session start, 6 s) | talk (a bubble with an action is up)

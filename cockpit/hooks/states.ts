@@ -26,7 +26,7 @@ const T: Pose = { eyes: 'half', look: 'down', laptop: 1 }
 const range = (n: number) => Array.from({ length: n }, (_, i) => i)
 
 export const STATES: Record<StateId, Def> = {
-  idle: { label: 'Clawd is lounging on a beach', face: '(-_-)~', fd: 0.5, frames: range(4).map(i => ({ beach: i, shades: 1, mouth: 'smile', armR: 'half', drink: i === 1 || i === 2 ? 2 : 1 })) },
+  idle: { label: 'Clawd is relaxing in sunglasses', face: '(-_-)~', fd: 0.5, frames: range(4).map(() => ({ shades: 1, mouth: 'smile' })) },
   typing: { label: 'Clawd is typing on a laptop', face: '[o_o]>', fd: 0.16, frames: [0, 1, 0, 1].map(i => ({ ...T, armL: i ? 'type0' : 'type1', armR: i ? 'type1' : 'type0' })) },
   thinking: { label: 'Clawd is thinking', face: '(o_o)...', fd: 0.11, frames: range(8).map(t => ({ spinner: t, look: 'up', armR: 'chin' })) },
   bell: { label: 'Clawd rings a bell: the turn is finished', face: '(^o^)ding', fd: 0.1, frames: [0, -1, -1, 0, 1, 1, 0, -1, 0, 1].map((s, i) => ({ eyes: 'happy', mouth: 'open', armR: 'high', bell: s, notes: i })) },
@@ -48,7 +48,7 @@ export const STATES: Record<StateId, Def> = {
   hello: { label: 'Clawd waves hello', face: '(^_^)/', fd: 0.3, frames: [{ armR: 'high', mouth: 'smile', eyes: 'happy' }, { armR: 'up', mouth: 'smile', eyes: 'open' }] },
   idea: { label: 'Clawd has an idea: a plan is ready', face: '(o_o)!', fd: 0.4, frames: [{ bulb: 1, eyes: 'open', mouth: 'smile', armR: 'up' }, { bulb: 2, eyes: 'happy', mouth: 'smile', armR: 'up' }] },
   coffee: { label: 'Clawd drinks coffee: this turn is taking a while', face: '(-_-)c', fd: 0.5, frames: [0, 1].map(t => ({ cup: t + 1, armR: 'hold', mouth: 'smile', eyes: 'open' })) },
-  reading: { label: 'Clawd is reading files', face: '(o_o)=', fd: 0.8, frames: [{ glasses: 1, scroll: 1, look: 'down', armL: 'hold', armR: 'hold' }, { glasses: 1, scroll: 1, look: 'down', eyes: 'blink', armL: 'hold', armR: 'hold' }] },
+  reading: { label: 'Clawd is reading files, a stack of books beside him', face: '(o_o)=', fd: 0.8, frames: [{ glasses: 1, book: 1, stack: 1, look: 'down', armL: 'hold', armR: 'hold' }, { glasses: 1, book: 1, stack: 1, look: 'down', eyes: 'blink', armL: 'hold', armR: 'hold' }] },
   building: { label: 'Clawd is editing code with a hammer', face: '(>_<)T', fd: 0.22, frames: [0, 1].map(t => ({ hat: 'hard', wrench: t + 1, armR: 'up', mouth: 'smile', eyes: 'open' })) },
   browse: { label: 'Clawd is searching the web', face: '(o_o)Q', fd: 0.5, frames: [1, 2, 1, 2].map(b => ({ browser: b, glass: 1, look: 'right' })) },
   plug: { label: 'Clawd holds an unplugged cable: a connector is offline', face: '(;_;)~', fd: 0.4, frames: [0, 1].map(t => ({ plug: t, eyes: 'sad', mouth: 'grim', armL: 'half', armR: 'half', dy: t })) },
@@ -119,19 +119,19 @@ export type Mascot = { markup: string; width: number; height: number }
  */
 type Move = { frames: Pose[]; fd: number }
 const LAPTOP: Pose = { laptop: 1, look: 'down', eyes: 'half', armL: 'type1', armR: 'type0' }
-const SUN: Pose = { beach: 0, shades: 1, drink: 1, mouth: 'smile', armR: 'half' }
+const SUN: Pose = { shades: 1, mouth: 'smile' }
 const READY: Pose = { eyes: 'happy', mouth: 'open', armR: 'high', bell: 0, notes: 0 }
 const MUSE: Pose = { spinner: 0, look: 'up', armR: 'chin' }
 const OOPS: Pose = { eyes: 'x', mouth: 'o', bang: 1, bangX: OX + 21 }
 const HAT: Pose = { hat: 'hard', wrench: 1, armR: 'up', mouth: 'smile', eyes: 'open' }
-const READ: Pose = { glasses: 1, scroll: 1, look: 'down', armL: 'hold', armR: 'hold' }
+const READ: Pose = { glasses: 1, book: 1, stack: 1, look: 'down', armL: 'hold', armR: 'hold' }
 export const MOVES: Partial<Record<string, Move>> = {
-  'idle>thinking': { fd: 0.18, frames: [{ ...SUN }, { beach: 0, drink: 1, eyes: 'wide', armR: 'up', mouth: 'open' }, { ...MUSE }] },
+  'idle>thinking': { fd: 0.18, frames: [{ ...SUN }, { eyes: 'wide', armR: 'up', mouth: 'open' }, { ...MUSE }] },
   'thinking>typing': { fd: 0.15, frames: [{ ...MUSE }, { laptop: 1, look: 'down', eyes: 'half', armR: 'chin' }, { ...LAPTOP }] },
   'typing>building': { fd: 0.2, frames: [{ ...LAPTOP }, { hat: 'hard', look: 'down', armR: 'up', mouth: 'smile', eyes: 'open' }, { ...HAT }] },
   'building>typing': { fd: 0.2, frames: [{ ...HAT }, { hat: 'hard', look: 'down', armR: 'half' }, { ...LAPTOP }] },
-  'typing>reading': { fd: 0.2, frames: [{ ...LAPTOP }, { glasses: 1, look: 'down', eyes: 'half', armL: 'hold', armR: 'hold' }, { ...READ }] },
-  'reading>typing': { fd: 0.2, frames: [{ ...READ }, { glasses: 1, look: 'down', eyes: 'half', armL: 'type1', armR: 'type0' }, { ...LAPTOP }] },
+  'typing>reading': { fd: 0.2, frames: [{ ...LAPTOP }, { glasses: 1, look: 'down', eyes: 'half', armL: 'hold', armR: 'hold' }, { glasses: 1, stack: 1, look: 'down', eyes: 'half', armL: 'hold', armR: 'hold' }, { ...READ }] },
+  'reading>typing': { fd: 0.2, frames: [{ ...READ }, { glasses: 1, stack: 1, look: 'down', eyes: 'half', armL: 'hold', armR: 'hold' }, { glasses: 1, look: 'down', eyes: 'half', armL: 'type1', armR: 'type0' }, { ...LAPTOP }] },
   'typing>oops': { fd: 0.25, frames: [{ ...LAPTOP }, { armL: 'high', armR: 'high', eyes: 'x', mouth: 'o' }, { ...OOPS }] },
   'oops>typing': { fd: 0.25, frames: [{ ...OOPS }, { look: 'down', eyes: 'half', mouth: 'flat', armL: 'type1', armR: 'type0' }, { ...LAPTOP }] },
   'typing>bell': { fd: 0.2, frames: [{ ...LAPTOP }, { ...READY }] },
@@ -139,8 +139,11 @@ export const MOVES: Partial<Record<string, Move>> = {
   'typing>hand': { fd: 0.25, frames: [{ ...LAPTOP }, { clipboard: 1, look: 'down', mouth: 'flat' }] },
   'thinking>hand': { fd: 0.25, frames: [{ ...MUSE }, { clipboard: 1, look: 'down', mouth: 'flat' }] },
   'hand>typing': { fd: 0.25, frames: [{ clipboard: 1, look: 'down', mouth: 'flat' }, { ...LAPTOP }] },
-  'hello>idle': { fd: 0.2, frames: [{ armR: 'high', mouth: 'smile', eyes: 'happy' }, { armR: 'up', mouth: 'smile', eyes: 'open' }, { beach: 0, drink: 1, eyes: 'happy', mouth: 'smile', armR: 'half' }, { ...SUN }] },
-  'thinking>reading': { fd: 0.2, frames: [{ ...MUSE }, { glasses: 1, look: 'down', eyes: 'half', armL: 'hold', armR: 'hold' }, { ...READ }] },
+  'hello>idle': { fd: 0.2, frames: [{ armR: 'high', mouth: 'smile', eyes: 'happy' }, { armR: 'up', mouth: 'smile', eyes: 'open' }, { eyes: 'happy', mouth: 'smile' }, { ...SUN }] },
+  'idle>typing': { fd: 0.2, frames: [{ ...SUN }, { eyes: 'open', mouth: 'smile' }, { ...LAPTOP }] },
+  'idle>building': { fd: 0.2, frames: [{ ...SUN }, { hat: 'hard', look: 'down', armR: 'up', mouth: 'smile', eyes: 'open' }, { ...HAT }] },
+  'idle>reading': { fd: 0.2, frames: [{ ...SUN }, { glasses: 1, look: 'down', eyes: 'half', armL: 'hold', armR: 'hold' }, { glasses: 1, stack: 1, look: 'down', eyes: 'half', armL: 'hold', armR: 'hold' }, { ...READ }] },
+  'thinking>reading': { fd: 0.2, frames: [{ ...MUSE }, { glasses: 1, look: 'down', eyes: 'half', armL: 'hold', armR: 'hold' }, { glasses: 1, stack: 1, look: 'down', eyes: 'half', armL: 'hold', armR: 'hold' }, { ...READ }] },
   'thinking>building': { fd: 0.2, frames: [{ ...MUSE }, { hat: 'hard', look: 'down', armR: 'up', mouth: 'smile', eyes: 'open' }, { ...HAT }] },
   'walk>hello': { fd: 0.2, frames: [{ mouth: 'smile' }, { armR: 'up', mouth: 'smile', eyes: 'open' }, { armR: 'high', mouth: 'smile', eyes: 'happy' }] },
   'walk>idle': { fd: 0.2, frames: [{ mouth: 'smile' }, { ...SUN }] },
@@ -162,6 +165,9 @@ function moveOf(from: StateId, to: StateId): (Move & { w: number }) | null {
   // Drawn on the canvas of the state he enters (the band's layout is fixed by it); a wider scene he leaves is skipped.
   const w = b.w ?? 34
   const first = (a.w ?? 34) <= w ? [a.frames[0] ?? {}] : []
+  // Reading brings a lot with it (glasses, a book, a stack of books): they come and go one at a time, not all at once.
+  if (to === 'reading') return { fd: 0.14, w, frames: [...first, { ...NEUTRAL }, { glasses: 1, look: 'down', eyes: 'half' }, { glasses: 1, stack: 1, look: 'down', eyes: 'half', armL: 'hold', armR: 'hold' }, b.frames[0] ?? {}] }
+  if (from === 'reading') return { fd: 0.14, w, frames: [...first, { glasses: 1, stack: 1, look: 'down', eyes: 'half' }, { glasses: 1, look: 'down', eyes: 'half' }, { ...NEUTRAL }, b.frames[0] ?? {}] }
   return { fd: 0.12, w, frames: [...first, { ...NEUTRAL }, b.frames[0] ?? {}] }
 }
 

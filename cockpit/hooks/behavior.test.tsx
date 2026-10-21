@@ -544,14 +544,14 @@ const altOf = async ($: unknown, isWorking = false): Promise<string> => {
 }
 const ok = () => ({ ref: 0, result: {}, text: 'ok' }) as never
 
-test('Clawd lounges on the beach when nothing is going on; the session starts with a walk', async ($, on) => {
+test('Clawd relaxes in sunglasses when nothing is going on; the session starts with a walk', async ($, on) => {
   const w = world(on)
-  expect(await altOf($)).toContain('lounging on a beach')
+  expect(await altOf($)).toContain('relaxing in sunglasses')
   await started($)
   await measureCtx($, 10)
   expect(await altOf($)).toContain('walks in')
   await w.clock.advance(6000)
-  expect(await altOf($)).toContain('lounging')
+  expect(await altOf($)).toContain('relaxing')
 })
 
 test('an Edit shows the hammer while it runs and a moment after; then the lasting state is back', async ($, on) => {
@@ -606,12 +606,26 @@ test('a permission prompt raises a hand until the call runs', async ($, on) => {
   await w.clock.advance(6000)
   await ($ as unknown as Do).tool.check({ tool: 'Bash', input: { command: 'rm -rf x' } })
   expect(await altOf($)).not.toContain('clipboard') // an ask settled at once by a rule shows nothing
-  await w.clock.advance(1000)
-  expect(await altOf($)).not.toContain('clipboard') // still inside the 2.5 s it takes to be sure
-  await w.clock.advance(1600)
+  await w.clock.advance(4000)
+  expect(await altOf($)).not.toContain('clipboard') // still inside the 5 s it takes to be sure
+  await w.clock.advance(1100)
   expect(await altOf($)).toContain('clipboard')
   await ($ as unknown as Do).tool.call({ tool: 'Bash', command: 'ls' })
   expect(await altOf($)).not.toContain('clipboard')
+})
+
+test('a /handoff turn shows Clawd writing with the quill, and the writing ends with the turn', async ($, on) => {
+  const w = world(on)
+  on('prompt.submit', (_, e) => e as never)
+  on('turn.complete', (_, e) => ({ text: e.answer }) as never)
+  await started($)
+  await w.clock.advance(6000)
+  await ($ as unknown as { prompt: { submit: (i: unknown) => Promise<unknown> } }).prompt.submit({ text: '/handoff until now', origin: { kind: 'composer' } })
+  await ($ as unknown as Do).turn.start({ text: '/handoff until now', turnId: 't1' })
+  expect(await altOf($, true)).toContain('quill')
+  await ($ as unknown as Do).turn.complete({ reason: 'answer', answer: 'x', durationMs: 5, isAborted: false, turnId: 't1' })
+  await w.clock.advance(6000)
+  expect(await altOf($)).not.toContain('quill')
 })
 
 test('a finished turn rings the bell over a warning, then the warning returns', async ($, on) => {

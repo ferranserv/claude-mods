@@ -415,31 +415,35 @@ export function bandWidth(columns: number): number {
 const LEGEND_SIZE = 9
 const LINE = 10
 
-/** The enhance wand: flat and one color (white), drawn as a shape so no emoji font can color or shade it. */
+/** The enhance wand: flat and one color (the cockpit gray), drawn as a shape so no emoji font can color or shade it. 18 px, like the controls around it. */
 export function wandSvg(dim: boolean): { source: string; width: number; height: number } {
   const o = dim ? 0.45 : 1
-  const out = `<g fill="#ffffff" stroke="#ffffff" fill-opacity="${o}" stroke-opacity="${o}"><path d="M3 21L14 10" stroke-width="3" stroke-linecap="round" fill="none"/><path d="M18 2L19.6 6.4L24 8L19.6 9.6L18 14L16.4 9.6L12 8L16.4 6.4Z" stroke="none"/></g>`
-  return { source: wrapSvg(24, 24, out), width: 24, height: 24 }
+  const out = `<g transform="scale(0.75)" fill="${C.gray}" stroke="${C.gray}" fill-opacity="${o}" stroke-opacity="${o}"><path d="M3 21L14 10" stroke-width="3" stroke-linecap="round" fill="none"/><path d="M18 2L19.6 6.4L24 8L19.6 9.6L18 14L16.4 9.6L12 8L16.4 6.4Z" stroke="none"/></g>`
+  return { source: wrapSvg(18, 18, out), width: 18, height: 18 }
 }
 
+const BUBBLE_H = 26
+/** How wide the speech bubble is for this text, in px. */
+export const bubbleWidth = (text: string): number => Math.min(420, Math.max(60, Math.round(text.length * 7 + 24)))
 
-/** Clawd's speech bubble in pixels: white inside, a dark stepped border, a tail pointing down to him, regular text. */
-export function bubbleSvg(text: string): { source: string; width: number; height: number } {
-  const h = 26
-  const w = Math.min(460, Math.max(60, Math.round(text.length * 7 + 24)))
+/**
+ * Clawd's speech bubble in pixels, drawn inside the band over the meters, so the band never grows: the cockpit
+ * gray inside, a dark stepped border, a tail pointing left to Clawd, regular text. (bx, by) is its top left.
+ */
+function bubbleOut(text: string, bx: number, by: number, w: number): string {
+  const h = BUBBLE_H
   const r = (x: number, y: number, rw: number, rh: number, c: string) => `<rect x="${x}" y="${y}" width="${rw}" height="${rh}" fill="${c}"/>`
   const D = '#0b0705'
-  const W = '#ffffff'
-  const out = [
-    r(2, 0, w - 4, h, D), r(0, 2, w, h - 4, D), // the border: a block with its corners stepped
-    r(4, 2, w - 8, h - 4, W), r(2, 4, w - 4, h - 8, W), // the white inside, stepped the same way
-    r(16, h - 2, 8, 2, W), // the opening in the border for the tail
-    r(14, h, 12, 2, D), r(16, h, 8, 2, W),
-    r(16, h + 2, 8, 2, D), r(18, h + 2, 4, 2, W),
-    r(18, h + 4, 4, 2, D),
-    `<text x="${Math.round(w / 2)}" y="${h / 2 + 4}" text-anchor="middle" font-size="12" font-weight="400" fill="#1b1a19">${esc(text)}</text>`,
+  const G = C.gray
+  return [
+    r(bx + 2, by, w - 4, h, D), r(bx, by + 2, w, h - 4, D), // the border: a block with its corners stepped
+    r(bx + 4, by + 2, w - 8, h - 4, G), r(bx + 2, by + 4, w - 4, h - 8, G), // the inside, stepped the same way
+    r(bx, by + 10, 2, 6, G), // the opening in the border for the tail
+    r(bx - 2, by + 8, 2, 10, D), r(bx - 2, by + 10, 2, 6, G),
+    r(bx - 4, by + 10, 2, 6, D), r(bx - 4, by + 12, 2, 2, G),
+    r(bx - 6, by + 12, 2, 2, D),
+    `<text x="${bx + Math.round(w / 2)}" y="${by + h / 2 + 4}" text-anchor="middle" font-size="12" font-weight="400" fill="#1b1a19">${esc(text)}</text>`,
   ].join('')
-  return { source: wrapSvg(w, h + 6, out), width: w, height: h + 6 }
 }
 
 /** One slim band: the meters side by side, a few lines tall. */
@@ -524,7 +528,7 @@ export function bandSvg(width: number, m: Model): { source: string; width: numbe
 export const MIN_ROW = 46
 
 /** The whole cockpit drawing: the mascot on the left (if any), the meters beside it. */
-export function cockpitSvg(width: number, m: Model, mascot: { markup: string; width: number; height: number }): { source: string; width: number; height: number } {
+export function cockpitSvg(width: number, m: Model, mascot: { markup: string; width: number; height: number }, bubble: string | null = null): { source: string; width: number; height: number; bubbleEnd: number } {
   const gap = mascot.width > 0 ? 12 : 0
   const bodyW = Math.max(200, width - mascot.width - gap)
   const body = bandBody(bodyW, m)
@@ -532,8 +536,16 @@ export function cockpitSvg(width: number, m: Model, mascot: { markup: string; wi
   const height = Math.max(mascot.height, MIN_ROW, body.height + 2)
   const top = Math.max(0, Math.round((height - body.height) / 2) - 3)
   const mascotY = Math.round((height - mascot.height) / 2)
-  const out = `<g transform="translate(0 ${mascotY})">${mascot.markup}</g><g transform="translate(${mascot.width + gap} ${top})">${body.out}</g>`
-  return { source: wrapSvg(mascot.width + gap + bodyW, height, out), width: mascot.width + gap + bodyW, height }
+  let out = `<g transform="translate(0 ${mascotY})">${mascot.markup}</g><g transform="translate(${mascot.width + gap} ${top})">${body.out}</g>`
+  // A speech bubble covers the meters for as long as it speaks; the room for the action button beside it is left out of its width.
+  let bubbleEnd = 0
+  if (bubble) {
+    const bx = mascot.width + gap + 6
+    const w = Math.min(bubbleWidth(bubble), Math.max(60, bodyW - 150))
+    out += bubbleOut(bubble, bx, Math.round((height - BUBBLE_H) / 2), w)
+    bubbleEnd = bx + w
+  }
+  return { source: wrapSvg(mascot.width + gap + bodyW, height, out), width: mascot.width + gap + bodyW, height, bubbleEnd }
 }
 
 /** A hairline with room above and below it, to set one band apart from the next. */

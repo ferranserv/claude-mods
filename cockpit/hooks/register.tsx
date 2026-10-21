@@ -17,7 +17,7 @@ import {
   bandWidth,
   cacheView,
   clockText,
-  bubbleSvg,
+  C,
   cockpitSvg,
   learnWindow,
   line,
@@ -132,14 +132,15 @@ const mood = {
   demo: null as { id: StateId; until: number } | null,
   demoRun: 0,
   writing: false, // a handoff brief or an enhanced draft is being written
+  draftTurn: false, // the turn is a /handoff: Claude writes the brief as text, with no tool to show it
   askAt: 0, // when a permission ask was seen; it only counts if the call has not started a moment later
   drawn: null as { id: StateId; since: number } | null, // what is on screen, and since when
   move: null as { from: StateId; to: StateId } | null, // the state he left, so the drawing can play the move into the one he is in
 }
 // Where the speech bubble is drawn: float (a pixel bubble in a row above the band, tail to Clawd) or inline (a text row under the band).
 let bubbleMode: 'float' | 'inline' = 'float'
-/** A permission ask must stay open this long before Clawd raises a hand: a rule or the mode often settles it first. */
-const ASK_MS = 2500
+/** A permission ask must stay open this long before Clawd raises a hand: a rule or the mode often settles it first. Set by the askSeconds option. */
+let askMs = 5000
 
 /** Clawd's drawing: the move from the state he left and the state's own loop, in one drawing (see enterMarkup). */
 function mascotFor(state: StateId, clock: string, move: { from: StateId; to: StateId } | null, scale: 1 | 2) {
@@ -854,7 +855,7 @@ async function snapshot($: EngineInterface, propsWorking: boolean): Promise<Snap
       : pickState({
           now,
           waiting: mood.waiting,
-          writing: mood.writing,
+          writing: mood.writing || (mood.draftTurn && isWorking && !mood.tool),
           fleet: mood.fleet,
           compacting: mood.compacting,
           tool: mood.tool,
@@ -936,10 +937,12 @@ const el = (type: unknown, props: Record<string, unknown>, ...children: unknown[
 /** One alert: its words and the buttons that answer it. Handoff and fresh wait while Claude works. */
 /** One action button; `short` is the compact label used in Clawd's speech bubble. */
 function actionButton(id: ActionId, c: Comps, fx: Fx, short: boolean) {
-  if (id === 'handoff') return el(c.Button, { key: 'handoff', hotkey: 'h', variant: 'primary', onPress: () => fx.handoff('full') }, '➜ Handoff')
-  if (id === 'copy') return el(c.Button, { key: 'copy', hotkey: 'c', onPress: () => fx.handoff('brief') }, '❐ Copy brief')
-  if (id === 'fresh') return el(c.Button, { key: 'fresh', hotkey: 'n', onPress: () => fx.fresh() }, '↺ Fresh')
-  return el(c.Button, { key: 'saver', variant: 'primary', onPress: () => fx.saver(true) }, '⚡ Saver on')
+  // Beside the bubble the label is the cockpit gray, not the bright default.
+  const label = (t: string) => (short ? el(c.Text, { color: C.gray }, t) : t)
+  if (id === 'handoff') return el(c.Button, { key: 'handoff', hotkey: 'h', variant: 'primary', onPress: () => fx.handoff('full') }, label('➜ Handoff'))
+  if (id === 'copy') return el(c.Button, { key: 'copy', hotkey: 'c', onPress: () => fx.handoff('brief') }, label('❐ Copy brief'))
+  if (id === 'fresh') return el(c.Button, { key: 'fresh', hotkey: 'n', onPress: () => fx.fresh() }, label('↺ Fresh'))
+  return el(c.Button, { key: 'saver', variant: 'primary', onPress: () => fx.saver(true) }, label('⚡ Saver on'))
 }
 
 /** One alert: its words and the buttons that answer it. Handoff and fresh wait while Claude works. */
@@ -949,13 +952,9 @@ function alertRow(a: Alert, c: Comps, fx: Fx, isWorking: boolean) {
   return el(c.Box, { key: `alert-${a.id}`, flexDirection: 'row', alignItems: 'center', gap: 1, flexWrap: 'wrap' }, el(c.Text, { key: 't', color: tone }, `● ${a.text}`), ...wanted.map(id => actionButton(id, c, fx, false)))
 }
 
-/** The speech bubble above the band: a pixel bubble with its tail down to Clawd, and the button that answers it beside it. */
-function bubbleFloat(b: Bubble, c: Comps, fx: Fx, isWorking: boolean, Svg: unknown = null) {
-  const items: unknown[] = []
-  if (Svg) {
-    const art = bubbleSvg(b.text)
-    items.push(el(Svg as never, { key: 'bubble-art', source: art.source, alt: b.text, width: art.width, height: art.height }))
-  } else items.push(el(c.Text, { key: 't' }, b.text))
+/** On the terminal the speech bubble is a line of text above the band (the desktop draws it as pixels inside the band). */
+function bubbleFloat(b: Bubble, c: Comps, fx: Fx, isWorking: boolean) {
+  const items: unknown[] = [el(c.Text, { key: 't' }, b.text)]
   if (b.action && !(isWorking && b.action !== 'saverOn')) items.push(actionButton(b.action, c, fx, true))
   return el(c.Box, { key: 'bubble', flexDirection: 'row', alignItems: 'center', gap: 1, paddingLeft: 3 }, ...items)
 }
@@ -1027,7 +1026,7 @@ function controls(s: Snap, c: Comps, fx: Fx, onToggle: () => void, Svg: unknown 
       // A Button cannot hold a drawing: the flat white wand is an Svg, with a plain button of blank text laid over it.
       const wand = wandSvg(!s.enh.hasDraft)
       items.push(
-        el(c.Box, { key: 'enhance-wrap', position: 'relative' }, el(Svg as never, { key: 'wand', source: wand.source, alt: 'Enhance my draft', width: wand.width, height: wand.height }), el(c.Box, { key: 'wand-hit', position: 'absolute', top: 0, left: 0 }, el(c.Button, { key: 'enhance', plain: true, onPress: () => fx.enhance() }, '    ')), tip(tipText)),
+        el(c.Box, { key: 'enhance-wrap', position: 'relative' }, el(Svg as never, { key: 'wand', source: wand.source, alt: 'Enhance my draft', width: wand.width, height: wand.height }), el(c.Box, { key: 'wand-hit', position: 'absolute', top: 0, left: 0 }, el(c.Button, { key: 'enhance', plain: true, onPress: () => fx.enhance() }, '  ')), tip(tipText)),
       )
     } else items.push(el(c.Box, { key: 'enhance-wrap' }, el(c.Button, { key: 'enhance', dimColor: !s.enh.hasDraft, onPress: () => fx.enhance() }, el(c.Text, { color: 'white' }, WAND)), tip(tipText)))
   }
@@ -1180,6 +1179,7 @@ async function startBand($: EngineInterface): Promise<void> {
 
 export const register: Register = (on, options) => {
   defaults = thresholds(options)
+  askMs = Math.max(1, Number(options.askSeconds) || 5) * 1000
   fallbackMin = Math.max(1, Number(options.cacheMinutes ?? 60) || 60)
   notifyMin = Math.max(1, Number(options.notifyMinutes ?? 5) || 5)
   stepMin = Math.max(1, Number(options.cacheStepMinutes ?? 5) || 5)
@@ -1240,6 +1240,7 @@ export const register: Register = (on, options) => {
   on('turn.complete', async ($, e, next) => {
     if (e.agentId === undefined) {
       await update($, isBusy, () => false)
+      mood.draftTurn = false
       mood.waiting = false
       mood.askAt = 0
       mood.tool = null
@@ -1256,6 +1257,7 @@ export const register: Register = (on, options) => {
   // Sending a message restarts the cache countdown (the next request re-reads or re-writes the whole prefix)
   // and labels the turn for the saver; the enhancer's draft is spent. Commands and hidden prompts send nothing.
   on('prompt.submit', async ($, e, next) => {
+    if (/^\s*\/(?:[\w.-]+:)?handoff\b/i.test(String(e.text ?? ''))) mood.draftTurn = true
     await safe(async () => {
       if (!e.command && !e.isMeta) {
         const now = await $.clock.now()
@@ -1406,7 +1408,7 @@ export const register: Register = (on, options) => {
       // An ask is often settled by a rule or the mode before anyone is shown a prompt: only one still open after a moment counts.
       const at = await $.clock.now()
       mood.askAt = at
-      $.clock.after(ASK_MS, () => {
+      $.clock.after(askMs, () => {
         if (mood.askAt === at) {
           mood.waiting = true
           poke($)
@@ -1616,18 +1618,23 @@ export const register: Register = (on, options) => {
     const fx = makeFx($)
     const onToggle = () => void toggle($, s.isOpen, s.attention)
 
+    const speaks = bubbleMode === 'float' && s.bubble !== null && !(s.isOpen && s.bubble.alertId !== undefined && s.alerts.some(a => a.id === s.bubble?.alertId))
     let row
     if (e.surface === 'terminal') {
       row = el(c.Box, { key: 'row', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, el(c.Box, { key: 'meters' }, ...(mascotMode === 'off' ? [] : [el(c.Text, { key: 'face', dimColor: true }, `${STATES[s.state].face}  `)]), ...line(s.m).map((seg, i) => el(c.Text, { key: `s${i}`, color: seg.fill }, seg.t))), controls(s, c, fx, onToggle))
     } else {
       const { Svg } = $.ui.resolve(e)
-      const svg = cockpitSvg(Math.max(300, bandWidth(e.props.bodyColumns) - 90), s.m, s.mascot)
+      // The bubble is drawn inside the band's own drawing, over the meters: the band never grows for it.
+      const said = speaks && s.bubble ? s.bubble.text : null
+      const svg = cockpitSvg(Math.max(300, bandWidth(e.props.bodyColumns) - 90), s.m, s.mascot, said)
+      const act = speaks && s.bubble?.action && !(s.isWorking && s.bubble.action !== 'saverOn') ? s.bubble.action : null
+      // The button sits beside the bubble, laid over the row (a column is about 8 px).
+      const beside = act ? [el(c.Box, { key: 'bubble', position: 'absolute', top: 1, left: Math.round(svg.bubbleEnd / 8) + 1 }, actionButton(act, c, fx, true))] : []
       // An interactive Svg is drawn in a frame of its own: give it its real size, or the frame is far taller than the drawing.
-      row = el(c.Box, { key: 'row', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, el(Svg, { key: 'svg', source: svg.source, alt: `${STATES[s.state].label}. ${altText(s.m)}`, isInteractive: true, width: svg.width, height: svg.height }), controls(s, c, fx, onToggle, Svg))
+      row = el(c.Box, { key: 'row', position: 'relative', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, el(Svg, { key: 'svg', source: svg.source, alt: `${STATES[s.state].label}. ${said ? `${said}. ` : ''}${altText(s.m)}`, isInteractive: true, width: svg.width, height: svg.height }), controls(s, c, fx, onToggle, Svg), ...beside)
     }
 
-    const speaks = bubbleMode === 'float' && s.bubble !== null && !(s.isOpen && s.bubble.alertId !== undefined && s.alerts.some(a => a.id === s.bubble?.alertId))
-    const mine = el(c.Box, { key: bandKey('cockpit'), flexDirection: 'column' }, ...(speaks && s.bubble ? [bubbleFloat(s.bubble, c, fx, s.isWorking, e.surface === 'terminal' ? null : $.ui.resolve(e).Svg)] : []), row, ...(details(s, c, fx, e.surface) as never[]))
+    const mine = el(c.Box, { key: bandKey('cockpit'), flexDirection: 'column' }, ...(speaks && s.bubble && e.surface === 'terminal' ? [bubbleFloat(s.bubble, c, fx, s.isWorking)] : []), row, ...(details(s, c, fx, e.surface) as never[]))
     return stack(below, mine as never, Box)
   })
 

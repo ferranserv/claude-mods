@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'claude-code/testing'
 
-import { alertsOf, attentionOf, cockpitSvg, model, wandSvg, bubbleSvg } from './lib'
+import { alertsOf, attentionOf, cockpitSvg, model, wandSvg } from './lib'
 import { stateMarkup } from './states'
 
 const NOW = new Date(2026, 9, 21, 12).getTime() // a Wednesday: 60% of the week is allotted
@@ -74,26 +74,33 @@ describe('cockpitSvg', () => {
 })
 
 describe('wandSvg', () => {
-  test('a flat drawing in one color, white, dimmer when there is no draft', () => {
+  test('a flat drawing in the cockpit gray, dimmer when there is no draft', () => {
     const on = wandSvg(false).source
-    expect(on).toContain('#ffffff')
-    expect(on.match(/#[0-9a-fA-F]{6}/g)?.every(c => c.toLowerCase() === '#ffffff')).toBe(true)
+    expect(on).toContain('#8E8E93')
+    expect(on.match(/#[0-9a-fA-F]{6}/g)?.every(c => c.toLowerCase() === '#8e8e93')).toBe(true)
+    expect(wandSvg(false).width).toBe(18)
     expect(on).not.toContain('Gradient')
     expect(wandSvg(true).source).toContain('fill-opacity="0.45"')
   })
 })
 
-describe('bubbleSvg', () => {
-  test('a white pixel bubble with a dark border and regular dark text', () => {
-    const b = bubbleSvg('Needs your OK')
-    expect(b.source).toContain('fill="#ffffff"')
-    expect(b.source).toContain('font-weight="400"')
-    expect(b.source).not.toContain('NaN')
-    expect(b.height).toBeGreaterThan(26)
-    expect(b.width).toBeGreaterThan(60)
+describe('the speech bubble in the band', () => {
+  const mascot = { markup: '<g/>', width: 68, height: 56 }
+  test('it is drawn over the meters, so the band keeps its size', () => {
+    const plain = cockpitSvg(600, m(10), mascot)
+    const said = cockpitSvg(600, m(10), mascot, 'Needs your OK')
+    expect(said.height).toBe(plain.height)
+    expect(said.width).toBe(plain.width)
+    expect(said.source).toContain('Needs your OK')
+    expect(said.source).toContain('font-weight="400"')
+    expect(said.source).toContain('#8E8E93') // the cockpit gray inside
+    expect(said.source).not.toContain('#ffffff')
+    expect(said.bubbleEnd).toBeGreaterThan(68)
+    expect(plain.bubbleEnd).toBe(0)
   })
-  test('text is escaped and the bubble stays inside a sane width', () => {
-    expect(bubbleSvg('a < b & c').source).toContain('a &lt; b &amp; c')
-    expect(bubbleSvg('x'.repeat(200)).width).toBe(460)
+  test('text is escaped and the bubble leaves room for its button', () => {
+    expect(cockpitSvg(600, m(10), mascot, 'a < b & c').source).toContain('a &lt; b &amp; c')
+    const wide = cockpitSvg(600, m(10), mascot, 'x'.repeat(200))
+    expect(wide.bubbleEnd).toBeLessThan(600 - 100)
   })
 })

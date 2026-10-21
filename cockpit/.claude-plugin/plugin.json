@@ -1,6 +1,6 @@
 {
   "name": "cockpit",
-  "version": "0.6.2",
+  "version": "0.7.0",
   "author": {
     "name": "Ferran"
   },
@@ -84,6 +84,12 @@
       "title": "Clawd's size",
       "description": "normal (68 x 56 px), small (34 x 28 px) or off. /cockpit mascot changes it from the prompt and remembers it.",
       "default": "normal"
+    },
+    "askSeconds": {
+      "type": "number",
+      "title": "Raised hand delay (seconds)",
+      "description": "A permission ask must stay open this long before Clawd raises the clipboard. Longer means fewer false alarms when a rule or the mode settles the ask.",
+      "default": 5
     }
   }
 }

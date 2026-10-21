@@ -47,3 +47,15 @@ Report anything off in plain words ("the palm tree overlaps", "no animation", "a
 | 29 | Trigger a bubble | A white pixel bubble with a dark border above Clawd, regular text, button beside it. The band moves down while it shows | |
 | 30 | Look at the wand | Flat, single colour, white; clicking it enhances the draft | |
 | 31 | Watch each state for a few seconds | Every state moves: hops, sways, shivers, stomps | |
+
+## 0.7.0 additions
+
+| # | Do | Expect | OK? |
+|---|---|---|---|
+| 32 | Look at Clawd with nothing going on | Neutral, sunglasses only; no palm, sun or drink | |
+| 33 | Read a file (and from idle, from typing, from anything) | Glasses come on, a stack of books appears beside him, an open book in front; no abrupt pop | |
+| 34 | Send a prompt from idle that starts a tool | Sunglasses off, then the laptop, hat or book (idle > typing, building, reading) | |
+| 35 | Trigger a bubble (a warning, a tool failure) | Grey pixel bubble over the meters; the band does not grow; the button sits beside it in grey | |
+| 36 | Run `/handoff` (the skill) | Clawd writes with the quill, not the thinking spinner | |
+| 37 | Look at the wand | 18 px, grey like the labels; the clickable square matches it; clicking enhances | |
+| 38 | Raise a permission prompt | The hand shows after 5 s (`askSeconds` option); tune it if it still shows too often | |
