@@ -30,6 +30,7 @@ export type WorldOptions = {
   clock?: ReturnType<typeof mock.clock>
   env?: Record<string, string> // environment variables the "host" has (default: HOME only)
   refuse?: string[] // command names the "app" refuses to register
+  stepChunks?: unknown[] // what the stub model streams before it answers (a tool call beginning, pieces of its arguments)
   contextTokens?: number // what $.session.usage reports (default 200k, above the saver's limit)
   bare?: boolean // leave the git, file, skill and sound calls to the test
 }
@@ -120,6 +121,7 @@ export function world(on: On, o: WorldOptions = {}): Log & { clock: ReturnType<t
   }
   // The request the stub "model" answers: tests change log.usage to say what the cache did.
   on('turn.step', async function* () {
+    for (const chunk of o.stepChunks ?? []) yield chunk as never
     return { turnId: 't', index: 0, answer: '', toolUses: [], stopReason: 'end_turn', usage: log.usage } as never
   } as never)
   on('turn.start', (_, e) => e as never)

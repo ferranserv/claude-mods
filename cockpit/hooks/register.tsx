@@ -124,6 +124,7 @@ const mood = {
   fleet: {} as Partial<Record<Fleet, number>>, // fleeting events, by the time they end
   tool: null as { kind: ToolKind; until: number } | null,
   toolNote: '',
+  inputJson: '', // the first pieces of the arguments being streamed, to find the file's name
   failNote: '',
   walkUntil: 0,
   helloUntil: 0,
@@ -216,6 +217,26 @@ function toolStarts($: EngineInterface, input: ToolInput): void {
     mood.toolNote = baseName(String(input.file_path ?? input.notebook_path ?? input.pattern ?? ''))
   }
   poke($)
+}
+
+/** Writing a file or an edit is something the model streams for a while before the tool runs: Clawd paints it. */
+const CREATES = ['Write', 'Edit', 'MultiEdit', 'NotebookEdit']
+
+/** One piece of the model's stream: a tool call beginning, or a piece of its arguments (the file's name is in the first). */
+function noteChunk($: EngineInterface, c: { kind: string; name?: string; json?: string }): void {
+  if (c.kind === 'tool' && CREATES.includes(String(c.name))) {
+    mood.tool = { kind: 'creating', until: Number.MAX_SAFE_INTEGER }
+    mood.toolNote = ''
+    mood.inputJson = ''
+    poke($)
+  } else if (c.kind === 'input' && mood.tool?.kind === 'creating' && mood.toolNote === '') {
+    mood.inputJson = (mood.inputJson + String(c.json ?? '')).slice(0, 600)
+    const name = /"(?:file_path|notebook_path)"\s*:\s*"([^"]+)"/.exec(mood.inputJson)
+    if (name?.[1]) {
+      mood.toolNote = baseName(name[1])
+      poke($)
+    }
+  }
 }
 
 /** It ends: the tool state lingers a moment; a failed call, a passing test run and an approved plan flash. */
@@ -1014,7 +1035,9 @@ async function snapshot($: EngineInterface, propsWorking: boolean): Promise<Snap
   // While a bubble waits for a decision, an idle Clawd stays in the pose that goes with it (cold, on fire...), not back to idle.
   const wanted: StateId = !isDemo && mood.sticky && (picked === 'idle' || picked === 'talk') ? mood.sticky.state : picked
   const shown = mood.drawn
-  const state: StateId = !isDemo && shown && shown.id !== wanted && shown.id !== 'hand' && now - shown.since < HOLD_MS && rank(wanted) >= rank(shown.id) ? shown.id : wanted
+  // Painting a file and then hammering it (or reading, then browsing) is one piece of work: those follow each other at once.
+  const isWork = (id: StateId) => id === 'creating' || id === 'building' || id === 'reading' || id === 'browse'
+  const state: StateId = !isDemo && shown && shown.id !== wanted && shown.id !== 'hand' && now - shown.since < HOLD_MS && rank(wanted) >= rank(shown.id) && !(isWork(wanted) && isWork(shown.id)) ? shown.id : wanted
   if (!mood.drawn || mood.drawn.id !== state) {
     mood.move = mood.drawn ? { from: mood.drawn.id, to: state } : null
     mood.drawn = { id: state, since: now }
@@ -1530,6 +1553,7 @@ export const register: Register = (on, options) => {
     mood.waiting = false
     mood.askAt = 0
     mood.askId = ''
+    if (mood.tool?.kind === 'creating') mood.tool = null // a new request: whatever was being written has run, or never will
     const before = await read($, cache)
     const startedAt = await $.clock.now()
     let isHaiku = false
@@ -1553,7 +1577,19 @@ export const register: Register = (on, options) => {
       return before.lastAt > 0 && (state === 'warm' || state === 'soon')
     })()
     if (!isHaiku) await patchCache($, c => ({ ...c, lastAt: startedAt }))
-    const response = yield* next(isHaiku ? { ...e, model: HAIKU_ID } : e)
+    // The stream is passed on untouched; what the model begins to write (a tool call and its arguments) tells Clawd he is painting.
+    const stream = next(isHaiku ? { ...e, model: HAIKU_ID } : e)
+    let step = await stream.next()
+    try {
+      while (!step.done) {
+        noteChunk($, step.value as { kind: string; name?: string; json?: string })
+        yield step.value
+        step = await stream.next()
+      }
+    } finally {
+      if (!step.done) await stream.return?.(undefined as never)
+    }
+    const response = step.value
     const endedAt = await $.clock.now()
 
     await safe(async () => {
@@ -1812,7 +1848,7 @@ export const register: Register = (on, options) => {
   // ---- the band
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const below = await next(e)
-    if (e.props.hasSurvey) return below
+    // A survey or a question from Claude holds the band too, and the cockpit stays under it: Clawd raises his hand for the question.
 
     await read($, tick)
     if (await read($, isSide)) {

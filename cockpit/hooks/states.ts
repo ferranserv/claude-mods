@@ -6,7 +6,7 @@ import type { Pose } from './sprite'
 export type StateId =
   | 'idle' | 'typing' | 'thinking' | 'bell' | 'coins' | 'walk' | 'talk' | 'drunk' | 'fire' | 'hourglass' | 'cold'
   | 'gauge' | 'mad' | 'sleepy' | 'asleep' | 'love' | 'detective' | 'oops' | 'wand' | 'hello' | 'idea' | 'coffee'
-  | 'reading' | 'building' | 'browse' | 'plug' | 'dizzy' | 'lab' | 'hand' | 'writing'
+  | 'reading' | 'building' | 'browse' | 'plug' | 'dizzy' | 'lab' | 'hand' | 'writing' | 'creating'
 
 type Def = {
   /** What a screen reader hears. */
@@ -49,6 +49,7 @@ export const STATES: Record<StateId, Def> = {
   idea: { label: 'Clawd has an idea: a plan is ready', face: '(o_o)!', fd: 0.4, frames: [{ bulb: 1, eyes: 'open', mouth: 'smile', armR: 'up' }, { bulb: 2, eyes: 'happy', mouth: 'smile', armR: 'up' }] },
   coffee: { label: 'Clawd drinks coffee: this turn is taking a while', face: '(-_-)c', fd: 0.5, frames: [0, 1].map(t => ({ cup: t + 1, armR: 'hold', mouth: 'smile', eyes: 'open' })) },
   reading: { label: 'Clawd is reading files, turning pages of a book, a stack of books beside him', face: '(o_o)=', fd: 0.5, frames: [{ glasses: 1, book: 1, stack: 1, look: 'down', armL: 'hold', armR: 'hold' }, { glasses: 1, book: 1, stack: 1, look: 'down', eyes: 'blink', armL: 'hold', armR: 'hold' }, { glasses: 1, book: 2, stack: 1, look: 'down', armL: 'hold', armR: 'hold' }, { glasses: 1, book: 3, stack: 1, look: 'down', armL: 'hold', armR: 'hold' }] },
+  creating: { label: 'Clawd, a moustache and a beret on, is painting a picture: Claude is writing a file', face: '(o_o)~', fd: 0.28, frames: [[0, 0], [1, 1], [1, 2], [2, 3], [3, 4], [3, 2]].map(([canvas, brush]) => ({ hat: 'beret', stache: 1, canvas, brush, armR: 'half', armL: 'half', look: 'down', eyes: 'open', mouth: 'flat' })) },
   building: { label: 'Clawd is editing code with a hammer', face: '(>_<)T', fd: 0.22, frames: [0, 1].map(t => ({ hat: 'hard', wrench: t + 1, armR: 'up', mouth: 'smile', eyes: 'open' })) },
   browse: { label: 'Clawd is searching the web', face: '(o_o)Q', fd: 0.5, frames: [1, 2, 1, 2].map(b => ({ browser: b, glass: 1, look: 'right' })) },
   plug: { label: 'Clawd holds an unplugged cable: a connector is offline', face: '(;_;)~', fd: 0.4, frames: [0, 1].map(t => ({ plug: t, eyes: 'sad', mouth: 'grim', armL: 'half', armR: 'half', dy: t })) },
@@ -84,6 +85,7 @@ const MOTION: Partial<Record<StateId, Motion>> = {
   idea: { each: 2, dy: [0, -2, 0, 0] }, // eureka hop
   coffee: { each: 2, dy: [0, 0, 1, 0] }, // sips
   building: { dy: [0, 1] }, // the body dips with each swing
+  creating: { each: 2, dx: [0, 1, 0, 0, -1, 0] }, // leans into each stroke
   browse: { dx: [0, -1, -2, -1] }, // leans in to look
   plug: { each: 2, dx: [0, 1, 0, -1] }, // sags and sways
   lab: { each: 2, dy: [0, -1, 0, -1, 0, -1] }, // bubbles over

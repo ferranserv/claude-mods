@@ -131,3 +131,8 @@ From the owner's testing of 0.15.0.
 - A bubble belongs to the pose on screen: no lingering after its state ends (a lingering "Editing x" over a detective was the bug), and it waits until Clawd has finished his move into the pose (`moveMs`) before it speaks.
 - Hover over Clawd: a hidden card (same hover scope as Clawd) with what he would say about his current pose, with its first button, shown by the app only while the pointer is on him (`hoverCard`). Not seen in the cloud: whether the app honours a hover scope across drawings.
 - The raised hand ("Waiting for your answer") is only for a question to you (`AskUserQuestion`, `ExitPlanMode`), not for permission prompts. Its "!" bobs. Typing has a mouth.
+
+## 0.17.0: a painter, and the cockpit under a question
+
+- New pose `creating` (31 states): Clawd in a beret and a curled moustache paints a picture while the model is writing a file (the "Creating 11.3k tokens" stretch). Signal: the model's own stream in `turn.step` (a `tool` chunk for Write, Edit, MultiEdit or NotebookEdit, then the first `input` pieces name the file: bubble "Creating new_module.py"); the stream is passed on untouched. When the tool runs the hammer takes over at once (creating, building, reading and browse follow each other without the 5 s hold).
+- The cockpit no longer yields to a survey or to a question from Claude (`hasSurvey`): it stays under it, and Clawd raises his hand for the question.

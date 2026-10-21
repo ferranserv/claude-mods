@@ -994,3 +994,21 @@ test('after a tool ends the bubble about it goes with its pose; it never talks o
   expect(after).not.toContain('hammer')
   expect(after).not.toContain('Editing') // no bubble about what he is no longer doing
 })
+
+test('while the model streams a file it is writing, Clawd paints with a moustache; the hammer takes over when the tool runs', async ($, on) => {
+  const w = world(on, { stepChunks: [{ kind: 'tool', index: 0, id: 'u1', name: 'Write' }, { kind: 'input', index: 0, json: '{"file_path":"/x/src/new_module.py","content":"' }, { kind: 'input', index: 0, json: 'print(1)' }] })
+  on('tool.call', ok)
+  await started($)
+  await measureCtx($, 10)
+  await w.clock.advance(6000)
+  await ($ as unknown as Do).turn.start({ text: 'go', turnId: 't1' })
+  const it = ($ as unknown as { turn: { step: (i: unknown) => AsyncIterable<unknown> } }).turn.step({ turnId: 't', index: 0, model: 'claude-sonnet-5-5', messageCount: 3 })[Symbol.asyncIterator]()
+  await it.next() // the tool call begins
+  expect(await altOf($, true)).toContain('painting')
+  await it.next() // the first pieces of its arguments name the file
+  await settle($, w, 2500)
+  expect(await altOf($, true)).toContain('Creating new_module.py')
+  while (!(await it.next()).done) { /* the rest of the stream */ }
+  await ($ as unknown as Do).tool.call({ tool: 'Write', file_path: '/x/src/new_module.py' }) // the file is written: the hammer
+  expect(await altOf($, true)).toContain('hammer')
+})

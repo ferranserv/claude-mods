@@ -112,8 +112,8 @@ describe('the drawings', () => {
       expect(d.label.length).toBeGreaterThan(5)
     }
   })
-  test('30 states, each with a terminal face', () => {
-    expect(STATE_IDS.length).toBe(30)
+  test('31 states, each with a terminal face', () => {
+    expect(STATE_IDS.length).toBe(31)
     for (const id of STATE_IDS) expect(STATES[id].face.length).toBeGreaterThan(2)
   })
   test('the alarm clock shows the wake-up time it is given', () => {

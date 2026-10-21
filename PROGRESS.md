@@ -167,3 +167,8 @@ Not verifiable from the cloud: the Button-over-drawing alignment (cells: 8 x 18 
 Owner's list after testing 0.15.0 (screenshots): bubble row expanded the cockpit; shadow; blink between bubbles; empty space after the text; buttons right-aligned at the bubble's height; bubble from Clawd; meters further right; "!" animation; hand only for questions; typing mouth; typewriter open/close + scale; remove the shadow entirely; hover over Clawd brings the bubble back; bubbles must match the pose (a lingering "Editing" over a detective).
 Done: docs/COCKPIT.md "0.16.0". 225 tests, tsc clean, validate ok.
 Not verifiable from the cloud: keyed layers surviving a redraw without reload, hover scope across drawings, textLength rendering, the SMIL motion.
+
+## Session (2026-10-21): cockpit 0.17.0
+Owner: "Creating 11.3k tokens" showed Needs your OK (old build; fixed in 0.16: hand only for questions) and asked for a painter pose with a moustache; also the cockpit vanished when Claude asked a question (the hook yielded to `hasSurvey`; now it stays).
+Done: `creating` pose + stream signal, no yield to surveys, README/docs. 226 tests, tsc clean.
+Not verifiable from the cloud: the `turn.step` stream observation on the desktop build (it passes every chunk on unchanged), the cockpit under a question card.
