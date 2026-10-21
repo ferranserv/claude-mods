@@ -24,10 +24,10 @@ Everything the cockpit has to tell you is Clawd's **bubble**, in a row under the
 
 | Clawd says | Button on the bubble | Behind the … |
 | --- | --- | --- |
-| Context past 50% (or 150k tokens), past 80% | Handoff | Compact, Copy brief, Fresh |
+| Context past 50% (or 150k tokens), past 80% | Copy handoff (writes the brief and copies it, the session stays) | Handoff (new session), Compact, Fresh |
 | Cache about to go cold, or cold | Handoff | |
 | 5-hour limit at 80% (saver off) | Saver on | |
-| 5-hour limit reached | Copy brief | |
+| 5-hour limit reached | Copy handoff | |
 | Weekly use ahead of pace (saver off) | Saver on | |
 | Preflight: on main, uncommitted changes, another session in the folder | New worktree / Commit checkpoint / Commit its files | the other findings, Hide all |
 | A notice (worktree ready, committed) | Switch / OK | Copy path, OK, Copy undo command |

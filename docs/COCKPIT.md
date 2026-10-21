@@ -177,3 +177,16 @@ The px-sized lane (0.18.1) and the Button layer spanning the box with two Button
 - **Typing blows bubble gum**: chewing (the mouth opens and closes, very small and low), a pink bubble that swells in three sizes and pops into scraps, then chewing again; the loop is 16 frames.
 - The painter's moustache stays clear of his eyes: nothing of it above the row two below the eyes.
 - A session starting (or opened again) forgets the drawings made for another one (`mood.bub`, `drawn`, `move`, `msg`). Not reproduced in the cloud: the white box where Clawd is after switching sessions; if it still happens, say whether it clears by itself or on the next pose change.
+
+## 0.20.0: the buttons as one picture, Copy handoff first, one bubble
+
+- **The buttons are ONE picture** (`pillGroupSvg`): the primary pill and the "…" are drawn together, as tall as the bubble (26 px), with a gap, so they can never be drawn over one another (the "…" had been hiding under Handoff). The real Buttons are laid over it, one per pill, in a layer that spans the picture on all four edges and is cut there; the layer is a row whose pieces get the pills' widths and the gap as flex ratios (`width: 0`, `flexGrow`), so each Button sits over its pill in whatever units the host counts in. Each Button is one row tall, centered on its pill (a Button is one row: the pill's top and bottom 4 px are not a click target, the rest is).
+- **Context's primary button is "Copy handoff"** (`copy`: write the brief, put it in the prompt box and the clipboard, the session stays). Behind the "…": Handoff (new session), Compact, Fresh. The cache warnings keep Handoff as their own (the cache is gone anyway).
+- **One bubble, written over**: no second drawing is ever laid under or over the first. A change of words replaces the drawing with one that starts as the old bubble, deletes its words (it shortens with them) and types the new ones (it lengthens with them). The layering of 0.16 to 0.19 showed the old, longer bubble under the shrinking new one.
+
+## 0.20.1: review before the PR
+
+- Fix: when the bubble arrived with buttons (or left with them) the room it has changed, and that case was checked before the change of words, so it was redrawn still: no opening motion, no closing motion, a jump. A change of words now always plays (from the old words to the new, in the room it has now); only a change of room with the same words redraws still.
+- Clawd's drawing no longer carries the bubble's words in its alt text (a changed prop could redraw him); the bubble's own drawing carries them.
+- Tests: a bubble that arrives with buttons opens with the scale out of Clawd, one that leaves closes with the scale back; Clawd's alt is stable; `altOf` reads the bubble's drawing.
+- Reviewed and left as they are: the timers (every `invalidate` is scheduled once per change, none from inside a render except the one that closes a stale menu), the stream observation in `turn.step` (every chunk passed on unchanged, the generator closed if it is cut short), the terminal and side-panel paths (text buttons, no drawings), the meters' drawing (a new string only when a number changes).
