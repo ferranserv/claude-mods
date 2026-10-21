@@ -427,15 +427,27 @@ export function wandSvg(dim: boolean): { source: string; width: number; height: 
 
 /** One character cell of the host, in px: boxes are laid out in whole cells. */
 export const CELL = { w: 8, h: 18 }
-/** The bubble is exactly one row tall, like the buttons beside it. */
-const BUBBLE_H = CELL.h
-const BUBBLE_SIZE = 11
+/** The bubble's lane is two cell rows tall: the bubble and the buttons are drawn in it, centered, and the cockpit's height never depends on them. */
+export const LANE_H = CELL.h * 2
+/** The bubble and the buttons beside it, one height. */
+const BUBBLE_H = 26
+const BUBBLE_Y = (LANE_H - BUBBLE_H) / 2
+const BUBBLE_SIZE = 13
 /** Room left of the bubble for its tail, which points to Clawd. */
 const BUBBLE_TAIL = 8
 /** Space between the bubble's border and its words, each side. */
-const BUBBLE_PAD = 7
-/** The width a text takes at the bubble's size; the drawing stretches the letters to exactly this, so the bubble fits its words. */
-export const bubbleTextWidth = (t: string): number => Math.ceil(t.length * BUBBLE_SIZE * 0.54)
+const BUBBLE_PAD = 12
+
+const NARROW = new Set([...'iljtfrI.,:;\'|!()[]"` '])
+const WIDE = new Set([...'mwMW@%'])
+/** A close count of the pixels a text takes at `size`, letter by letter (narrow, wide, capital, digit), in the cockpit's sans font. */
+export function textPx(t: string, size: number): number {
+  let em = 0
+  for (const ch of t) em += NARROW.has(ch) ? 0.3 : WIDE.has(ch) ? 0.86 : ch >= 'A' && ch <= 'Z' ? 0.64 : ch >= '0' && ch <= '9' ? 0.57 : ch.charCodeAt(0) > 127 ? 0.7 : 0.52
+  return Math.ceil(em * size)
+}
+/** The width a text takes at the bubble's size; the drawing fits the letters to exactly this by spacing alone (never squashed), so the bubble fits its words. */
+export const bubbleTextWidth = (t: string): number => textPx(t, BUBBLE_SIZE)
 
 /** The text cut with an ellipsis so it fits `maxPx`. */
 export function fitText(text: string, maxPx: number): string {
@@ -445,23 +457,27 @@ export function fitText(text: string, maxPx: number): string {
   return `${t.trimEnd()}…`
 }
 
+/** How wide the bubble's drawing is for these words (what it needs, never more than the room it was given). */
+export const bubbleWidth = (text: string, room: number): number => Math.min(room, BUBBLE_TAIL + bubbleTextWidth(fitText(text, Math.max(40, room - BUBBLE_TAIL - 2 * BUBBLE_PAD))) + 2 * BUBBLE_PAD + 2)
+
 /**
- * Clawd's speech bubble in pixels, one row tall, as wide as its words: the cockpit gray inside, a black stepped border, a
- * tail on the left pointing to him, no shadow. The drawing is the motion from what it said (`from`, '' when nothing) to
- * what it says (`to`, '' when it closes), in one document that never changes after it is drawn:
- *   opening: it scales out from Clawd while the words are typed and the bubble grows with them;
+ * Clawd's speech bubble in pixels, as wide as its words: the cockpit gray inside, a black stepped border, a tail on the
+ * left pointing to him, no shadow. The drawing is the motion from what it said (`from`, '' when nothing) to what it says
+ * (`to`, '' when it closes), in one document that never changes after it is drawn:
+ *   opening: it scales out of Clawd while the words are typed and the bubble grows with them;
  *   changing: the old words are deleted letter by letter, the bubble resizes, the new words are typed;
  *   closing: the words are deleted as the bubble shrinks, then it scales back to Clawd.
- * The frame is `room` px wide whatever the words are, so the drawing beside it never moves. `seconds` is how long the motion takes.
+ * The frame is `room` px wide and a lane tall whatever the words are, so the drawing beside it never moves. `seconds` is how long the motion takes.
  */
 export function bubbleArt(from: string, to: string, room: number): { source: string; width: number; height: number; seconds: number } {
-  const maxText = Math.max(40, room - BUBBLE_TAIL - 2 * BUBBLE_PAD)
+  const maxText = Math.max(40, room - BUBBLE_TAIL - 2 * BUBBLE_PAD - 2)
   const a = from === '' ? '' : fitText(from, maxText)
   const b = to === '' ? '' : fitText(to, maxText)
   const MIN = 2 * BUBBLE_PAD
   const wA = a === '' ? MIN : bubbleTextWidth(a) + 2 * BUBBLE_PAD
   const wB = b === '' ? MIN : bubbleTextWidth(b) + 2 * BUBBLE_PAD
   const bx = BUBBLE_TAIL
+  const y0 = BUBBLE_Y
   const D = '#0b0705'
   const G = C.gray
   const same = a === b
@@ -472,25 +488,26 @@ export function bubbleArt(from: string, to: string, room: number): { source: str
   const resizeS = !same && a !== '' && b !== '' ? 0.18 : 0
   const scaleS = 0.2
   // When each part of the motion begins.
-  const resizeAt = opening ? 0 : closing ? 0 : eraseS
+  const resizeAt = opening || closing ? 0 : eraseS
   const resizeFor = opening ? typeS : closing ? eraseS : resizeS
   const typeAt = opening ? 0 : eraseS + resizeS
   const seconds = same ? 0 : closing ? eraseS + scaleS : opening ? Math.max(typeS, scaleS) : eraseS + resizeS + typeS
-  const grow = (attr: string, x: number, y: number) => (x === y || resizeFor === 0 ? '' : `<animate attributeName="${attr}" from="${x}" to="${y}" begin="${resizeAt}s" dur="${resizeFor}s" fill="freeze"/>`)
-  const shape = (x: number, y: number, dw: number, h: number, fill: string) => `<rect x="${x}" y="${y}" width="${wA + dw}" height="${h}" fill="${fill}">${grow('width', wA + dw, wB + dw)}</rect>`
+  const grow = (x: number, y: number) => (x === y || resizeFor === 0 ? '' : `<animate attributeName="width" from="${x}" to="${y}" begin="${resizeAt}s" dur="${resizeFor}s" fill="freeze"/>`)
+  const shape = (x: number, y: number, dw: number, h: number, fill: string) => `<rect x="${x}" y="${y}" width="${wA + dw}" height="${h}" fill="${fill}">${grow(wA + dw, wB + dw)}</rect>`
   const r = (x: number, y: number, rw: number, rh: number, c: string) => `<rect x="${x}" y="${y}" width="${rw}" height="${rh}" fill="${c}"/>`
   const body = [
-    shape(bx + 2, 0, -4, BUBBLE_H, D), shape(bx, 2, 0, BUBBLE_H - 4, D), // the border: a block with its corners stepped
-    shape(bx + 4, 2, -8, BUBBLE_H - 4, G), shape(bx + 2, 4, -4, BUBBLE_H - 8, G), // the inside, stepped the same way
+    shape(bx + 2, y0, -4, BUBBLE_H, D), shape(bx, y0 + 2, 0, BUBBLE_H - 4, D), // the border: a block with its corners stepped
+    shape(bx + 4, y0 + 2, -8, BUBBLE_H - 4, G), shape(bx + 2, y0 + 4, -4, BUBBLE_H - 8, G), // the inside, stepped the same way
   ].join('')
-  const mid = BUBBLE_H / 2
+  const mid = y0 + BUBBLE_H / 2
   const tail = [
     r(bx, mid - 3, 2, 6, G), // the opening in the border for the tail
     r(bx - 2, mid - 5, 2, 10, D), r(bx - 2, mid - 3, 2, 6, G),
     r(bx - 4, mid - 3, 2, 6, D), r(bx - 4, mid - 1, 2, 2, G),
     r(bx - 6, mid - 1, 2, 2, D),
   ].join('')
-  const words = (t: string, w: number) => `<text x="${bx + BUBBLE_PAD}" y="${mid + 4}" font-size="${BUBBLE_SIZE}" font-weight="400" textLength="${w}" lengthAdjust="spacingAndGlyphs" fill="#1b1a19">${esc(t)}</text>`
+  // The letters keep their shape: only the space between them is fitted to the width counted.
+  const words = (t: string, w: number) => `<text x="${bx + BUBBLE_PAD}" y="${mid + 5}" font-size="${BUBBLE_SIZE}" font-weight="400" textLength="${w}" lengthAdjust="spacing" fill="#1b1a19">${esc(t)}</text>`
   // A clip that opens (or closes) in whole letters: the words appear (or go) as typed.
   const letters = (t: string, widthPx: number, opens: boolean, begin: number, dur: number) => {
     const n = Math.min(40, Math.max(1, t.length))
@@ -499,8 +516,9 @@ export function bubbleArt(from: string, to: string, room: number): { source: str
     return `<animate attributeName="width" values="${ws.join(';')}" keyTimes="${times.join(';')}" calcMode="discrete" begin="${begin}s" dur="${dur}s" fill="freeze"/>`
   }
   const px = (t: string) => bubbleTextWidth(t)
-  const oldWords = a === '' ? '' : `<clipPath id="cko"><rect x="${bx + BUBBLE_PAD - 1}" y="0" width="${same ? px(a) + 2 : px(a) + 2}" height="${BUBBLE_H}">${same ? '' : letters(a, px(a) + 2, false, 0, eraseS)}</rect></clipPath>`
-  const newWords = b === '' || same ? '' : `<clipPath id="ckn"><rect x="${bx + BUBBLE_PAD - 1}" y="0" width="0" height="${BUBBLE_H}">${letters(b, px(b) + 2, true, typeAt, typeS)}</rect></clipPath>`
+  const clip = (id: string, t: string, anim: string, w: number) => `<clipPath id="${id}"><rect x="${bx + BUBBLE_PAD - 1}" y="0" width="${w}" height="${LANE_H}">${anim}</rect></clipPath>`
+  const oldWords = a === '' ? '' : clip('cko', a, same ? '' : letters(a, px(a) + 2, false, 0, eraseS), px(a) + 2)
+  const newWords = b === '' || same ? '' : clip('ckn', b, letters(b, px(b) + 2, true, typeAt, typeS), 0)
   const defs = oldWords || newWords ? `<defs>${oldWords}${newWords}</defs>` : ''
   const texts = (same ? (b === '' ? '' : words(b, px(b))) : '') + (!same && a !== '' ? `<g clip-path="url(#cko)">${words(a, px(a))}</g>` : '') + (!same && b !== '' ? `<g clip-path="url(#ckn)">${words(b, px(b))}</g>` : '')
   // The scale in and out is around the tail's tip: the bubble comes from Clawd and goes back to him.
@@ -513,26 +531,27 @@ export function bubbleArt(from: string, to: string, room: number): { source: str
   const start = opening ? ' opacity="0"' : ''
   const inner = `${defs}${body}${tail}${texts}`
   const out = `<g transform="translate(${ox} ${oy})"${start}>${opening ? popIn : closing ? popOut : ''}<g>${opening ? scaleIn : closing ? scaleOut : ''}<g transform="translate(${-ox} ${-oy})">${inner}</g></g></g>`
-  return { source: wrapSvg(Math.max(room, bx + wA + 2, bx + wB + 2), BUBBLE_H, out), width: Math.max(room, bx + wA + 2, bx + wB + 2), height: BUBBLE_H, seconds }
+  const width = Math.max(room, bx + wA + 2, bx + wB + 2)
+  return { source: wrapSvg(width, LANE_H, out), width, height: LANE_H, seconds }
 }
 
 /**
- * A button drawn as pixels: the cockpit gray of the bubble, dark text, the same stepped border. It is a whole number of
- * character cells wide and one row tall, so the real Button laid over it (blank text, clipped to the same cells) covers
- * exactly what is drawn and nothing else.
+ * A button drawn as pixels, the bubble's height: the cockpit gray of the bubble, dark text, the same stepped border. It
+ * is a whole number of character cells wide and a lane tall, so the real Button laid over it (blank, clipped to the same
+ * cells) covers exactly it, plus the few pixels of margin above and below that belong to the lane.
  */
 export function pillSvg(label: string): { source: string; width: number; height: number; cols: number } {
-  const size = 11
-  const cols = Math.max(3, Math.ceil((estimate(label, size) + 18) / CELL.w))
+  const size = 12
+  const cols = Math.max(4, Math.ceil((textPx(label, size) + 2 * BUBBLE_PAD + 2) / CELL.w))
   const w = cols * CELL.w
-  const h = CELL.h
+  const y0 = BUBBLE_Y
   const r = (x: number, y: number, rw: number, rh: number, c: string) => `<rect x="${x}" y="${y}" width="${rw}" height="${rh}" fill="${c}"/>`
   const body = [
-    r(2, 0, w - 4, h, '#0b0705'), r(0, 2, w, h - 4, '#0b0705'),
-    r(4, 2, w - 8, h - 4, C.gray), r(2, 4, w - 4, h - 8, C.gray),
-    `<text x="${w / 2}" y="${h / 2 + 4}" text-anchor="middle" font-size="${size}" font-weight="500" fill="#1b1a19">${esc(label)}</text>`,
+    r(2, y0, w - 4, BUBBLE_H, '#0b0705'), r(0, y0 + 2, w, BUBBLE_H - 4, '#0b0705'),
+    r(4, y0 + 2, w - 8, BUBBLE_H - 4, C.gray), r(2, y0 + 4, w - 4, BUBBLE_H - 8, C.gray),
+    `<text x="${w / 2}" y="${y0 + BUBBLE_H / 2 + 4.5}" text-anchor="middle" font-size="${size}" font-weight="500" fill="#1b1a19">${esc(label)}</text>`,
   ].join('')
-  return { source: wrapSvg(w, h, body), width: w, height: h, cols }
+  return { source: wrapSvg(w, LANE_H, body), width: w, height: LANE_H, cols }
 }
 
 /** The mascot, the meters and the gap between them as separate drawings: a new pose replaces only Clawd, so the meters are never reloaded (a replaced drawing blinks). */

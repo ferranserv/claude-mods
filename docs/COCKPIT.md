@@ -136,3 +136,12 @@ From the owner's testing of 0.15.0.
 
 - New pose `creating` (31 states): Clawd with a curled moustache, a color palette in one hand and a paintbrush in the other, paints while the model is writing a file (the "Creating 11.3k tokens" stretch). Signal: the model's own stream in `turn.step` (a `tool` chunk for Write, Edit, MultiEdit or NotebookEdit, then the first `input` pieces name the file: bubble "Creating new_module.py"); the stream is passed on untouched. When the tool runs the hammer takes over at once (creating, building, reading and browse follow each other without the 5 s hold).
 - The cockpit no longer yields to a survey or to a question from Claude (`hasSurvey`): it stays under it, and Clawd raises his hand for the question.
+
+## 0.18.0: bubble polish, a clearer painter
+
+- The lane is two cell rows tall (36 px); the bubble and its buttons are 26 px tall and centered in it, so the cockpit's height still never depends on them (the lane is always there). The Button over each pill covers the lane's two rows.
+- Words keep their shape: the text is fitted to the width counted by letter spacing only (`lengthAdjust="spacing"`, never `spacingAndGlyphs`, which squashed it). The width counted is letter by letter (`textPx`: narrow, wide, capital, digit). 12 px of padding either side, font 13.
+- The bubble takes all the row up to its buttons (their real widths) and no more than its words need; it is laid out afresh for the room it has whenever the window or the buttons change (the drawing is rebuilt, never scaled).
+- The double bubble: a drawing that is still moving, or closing, is no longer held under the next one; only a settled bubble stays 120 ms under the one that replaces it.
+- Typing has a concentration mouth (`focus`: a short flat line to one side, the corner pulled up).
+- The painter is unmistakable: a handlebar moustache (no hat, no mouth), a wooden palette with a thumb hole and five blobs of paint in the left hand, a paintbrush in the right that dabs a canvas on a small easel at his right; the canvas fills in (sky, hill, sun) as the frames play.

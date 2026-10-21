@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'claude-code/testing'
 
-import { CELL, alertsOf, attentionOf, bandParts, bubbleArt, bubbleTextWidth, cockpitSvg, fitText, model, pillSvg, wandSvg } from './lib'
+import { CELL, LANE_H, alertsOf, attentionOf, bandParts, bubbleArt, bubbleTextWidth, bubbleWidth, cockpitSvg, fitText, model, pillSvg, wandSvg } from './lib'
 import { stateMarkup } from './states'
 
 const NOW = new Date(2026, 9, 21, 12).getTime() // a Wednesday: 60% of the week is allotted
@@ -82,9 +82,9 @@ describe('wandSvg', () => {
 })
 
 describe('the speech bubble', () => {
-  test('it is one row tall (like the buttons), cockpit gray with a black stepped border, a tail to Clawd and no shadow', () => {
+  test('it is drawn in a lane two rows tall (like the buttons), cockpit gray with a black stepped border, a tail to Clawd and no shadow', () => {
     const b = bubbleArt('Done.', 'Waiting for your answer', 400)
-    expect(b.height).toBe(CELL.h)
+    expect(b.height).toBe(LANE_H)
     expect(b.source).toContain('#8E8E93')
     expect(b.source).toContain('#0b0705')
     expect(b.source).not.toContain('fill-opacity') // no shadow
@@ -92,12 +92,22 @@ describe('the speech bubble', () => {
     expect(b.source).not.toContain('NaN')
     expect(bubbleArt('Done.', 'Done.', 400).source).not.toContain('<animate') // the same words twice: a still drawing
   })
-  test('it fits its words: as wide as they are, no empty space after them', () => {
+  test('it fits its words: as wide as they are, padding either side, letters never squashed', () => {
     const still = (t: string) => bubbleArt(t, t, 600)
-    const widthOf = (t: string) => Number(/<rect x="10" y="0" width="(\d+)"/.exec(still(t).source)?.[1])
-    expect(widthOf('Done.')).toBe(bubbleTextWidth('Done.') + 14 - 4) // the border block, inside the stepped corners
+    const widthOf = (t: string) => Number(/<rect x="10" y="5" width="(\d+)"/.exec(still(t).source)?.[1])
+    expect(widthOf('Done.')).toBe(bubbleTextWidth('Done.') + 24 - 4) // the border block, inside the stepped corners; 12 px of padding each side
     expect(widthOf('A much longer sentence than the first')).toBeGreaterThan(widthOf('Done.'))
-    expect(still('Done.').source).toContain('textLength') // the letters are stretched to exactly the width counted
+    expect(still('Done.').source).toContain('lengthAdjust="spacing"') // only the space between letters is fitted, the letters keep their shape
+    expect(still('Done.').source).not.toContain('spacingAndGlyphs')
+  })
+  test('the width counted follows the letters: narrow ones take less than wide ones', () => {
+    expect(bubbleTextWidth('iiiiiiiiii')).toBeLessThan(bubbleTextWidth('mmmmmmmmmm'))
+    expect(bubbleTextWidth('IIII')).toBeLessThan(bubbleTextWidth('WWWW'))
+  })
+  test('it takes all the room it has up to its buttons, and no more than its words need', () => {
+    expect(bubbleWidth('Done.', 600)).toBeLessThan(bubbleWidth('A sentence that needs a good deal more room than that', 600))
+    expect(bubbleWidth('A sentence that needs a good deal more room than that', 200)).toBeLessThanOrEqual(200)
+    expect(bubbleWidth('A sentence that needs a good deal more room than that', 800)).toBeGreaterThan(bubbleWidth('A sentence that needs a good deal more room than that', 200))
   })
   test('text is escaped, and a text that cannot fit ends in an ellipsis', () => {
     expect(bubbleArt('a < b & c', 'a < b & c', 400).source).toContain('a &lt; b &amp; c')
@@ -136,10 +146,10 @@ describe('the speech bubble', () => {
 })
 
 describe('a button is a drawing with the Button over it', () => {
-  test('gray with dark text, whole cells wide and one row tall, so the Button over it covers exactly it', () => {
+  test('gray with dark text, whole cells wide and a lane tall, so the Button over it covers exactly it', () => {
     const p = pillSvg('Handoff')
     expect(p.width).toBe(p.cols * CELL.w)
-    expect(p.height).toBe(CELL.h)
+    expect(p.height).toBe(LANE_H)
     expect(p.source).toContain('#8E8E93')
     expect(p.source).toContain('>Handoff<')
     expect(p.source).not.toContain('fill-opacity')

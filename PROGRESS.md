@@ -172,3 +172,8 @@ Not verifiable from the cloud: keyed layers surviving a redraw without reload, h
 Owner: "Creating 11.3k tokens" showed Needs your OK (old build; fixed in 0.16: hand only for questions) and asked for a painter pose with a moustache; also the cockpit vanished when Claude asked a question (the hook yielded to `hasSurvey`; now it stays).
 Done: `creating` pose + stream signal, no yield to surveys, README/docs. 226 tests, tsc clean.
 Not verifiable from the cloud: the `turn.step` stream observation on the desktop build (it passes every chunk on unchanged), the cockpit under a question card.
+
+## Session (2026-10-21): cockpit 0.18.0
+Owner's list: bigger bubble height without squashed font, padding, double bubble when text is long, concentration mouth for typing, a clearer painter, bubble as wide as possible up to the buttons and responsive (not scaled).
+Done: docs/COCKPIT.md "0.18.0". 229 tests, validate ok, tsc clean.
+Not verifiable from the cloud: the 2-row lane and 26 px bubble in the app, letter-spacing fit in the app's font, the double-bubble fix.

@@ -1012,3 +1012,21 @@ test('while the model streams a file it is writing, Clawd paints with a moustach
   await ($ as unknown as Do).tool.call({ tool: 'Write', file_path: '/x/src/new_module.py' }) // the file is written: the hammer
   expect(await altOf($, true)).toContain('hammer')
 })
+
+test('the bubble is laid out afresh for the room it has (a wider or narrower window), not scaled', async ($, on) => {
+  const w = world(on)
+  await started($)
+  await measureCtx($, 60)
+  await w.clock.advance(6000)
+  await settle($, w)
+  type Mounted = { findAll: (q: unknown) => Promise<{ props?: { alt?: string; width?: number } }[]>; unmount: () => Promise<void> }
+  const widthAt = async (columns: number): Promise<number> => {
+    const ui = (await $.ui.mount({ plugin: 'cockpit', surface: 'desktop', component: 'AbovePrompt', props: { hasSurvey: false, isWorking: false, maxRows: 12, bodyColumns: columns, scroll: { bodyRows: 10 }, view: {} } } as never)) as unknown as Mounted
+    const art = (await ui.findAll({ type: 'Svg' })).find(v => String(v.props?.alt ?? '').includes('quality') && !String(v.props?.alt ?? '').startsWith('Clawd'))
+    await ui.unmount()
+    return Number(art?.props?.width)
+  }
+  const wide = await widthAt(140)
+  const narrow = await widthAt(60)
+  expect(narrow).toBeLessThan(wide) // the drawing was made for the room, so the words keep their size
+})
