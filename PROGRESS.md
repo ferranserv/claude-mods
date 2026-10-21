@@ -153,3 +153,7 @@ Next: PR 2 = 0.14.0 UX (U1-U8, one message channel).
 ## Session (2026-10-21): PR 2 = cockpit 0.14.0 (one channel)
 Done: `tell()` puts every message in the bubble (toasts only with the side panel), status-line texts removed, saver line only in the open band, coins/love bubbles reworded, preflight collapsed row shorter, `/cockpit log`, linger 12 s, legend 10 px. 228 tests, tsc clean.
 Not done (by design): preflight rows and command-carrying notices stay rows (a bubble has one button, one line); contrast of orange on a light theme unchanged (dark theme passes 4.5:1; the theme cannot be detected).
+
+## Hotfix 0.14.1 (2026-10-21): cockpit did not show in new sessions after 0.14.0
+Owner: after merging and updating, new sessions showed no cockpit (a running session kept the old one). Likely cause (not confirmed, no error text): 0.13.0 added engine surface the desktop build may not have, and one unknown name stops the whole module loading: `classic.PostModelSwitch`, `$.session.compact`, `$.tool.call`. Removed all three: the cache reset on a model switch moved into the existing `classic.PreModelSwitch` hook; Compact runs `$.command.run({command:'compact'})`; the worktree switch is the old one-turn prompt again (the saving T2 is gone until the app's version is known).
+Rule: no new engine event or `$` method in a mod without a spike on the owner's app first. If 0.14.1 loads, add them back one per release to find the culprit.
