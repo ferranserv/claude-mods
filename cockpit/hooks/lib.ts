@@ -427,11 +427,11 @@ export function wandSvg(dim: boolean): { source: string; width: number; height: 
 
 /** One character cell of the host, in px: boxes are laid out in whole cells. */
 export const CELL = { w: 8, h: 18 }
-/** The bubble's lane: the bubble and the buttons are drawn in it, 2 px of margin above and below, and the cockpit's height never depends on them. */
-export const LANE_H = 30
+/** The bubble's lane is two cell rows tall, exactly: the bubble and the buttons are drawn in it, centered, and the Buttons over them are laid out in the same rows, so what is drawn is where the click lands. */
+export const LANE_H = CELL.h * 2
 /** The bubble and the buttons beside it, one height. */
-const BUBBLE_H = 26
-const BUBBLE_Y = (LANE_H - BUBBLE_H) / 2   // 2
+const BUBBLE_H = 30
+const BUBBLE_Y = (LANE_H - BUBBLE_H) / 2   // 3
 const BUBBLE_SIZE = 13
 /** Room left of the bubble for its tail, which points to Clawd. */
 const BUBBLE_TAIL = 8
@@ -537,12 +537,13 @@ export function bubbleArt(from: string, to: string, room: number): { source: str
 
 /**
  * A button drawn as pixels, the bubble's height: the cockpit gray of the bubble, dark text, the same stepped border. It
- * is as wide as its label needs, in px, and a lane tall; the real Button is laid over it (see artButton), clipped to this box.
+ * is a whole number of character cells wide and a lane tall, so the real Button laid over it (blank, clipped to the same
+ * cells) covers exactly it, plus the few pixels of margin above and below that belong to the lane.
  */
 export function pillSvg(label: string): { source: string; width: number; height: number; cols: number } {
   const size = 12
-  // Its width is the label's and its padding's, in px: nothing about the host's character cells decides where it ends.
-  const w = Math.max(32, textPx(label, size) + 2 * BUBBLE_PAD + 2)
+  const cols = Math.max(4, Math.ceil((textPx(label, size) + 2 * BUBBLE_PAD + 2) / CELL.w))
+  const w = cols * CELL.w
   const y0 = BUBBLE_Y
   const r = (x: number, y: number, rw: number, rh: number, c: string) => `<rect x="${x}" y="${y}" width="${rw}" height="${rh}" fill="${c}"/>`
   const body = [
@@ -550,7 +551,7 @@ export function pillSvg(label: string): { source: string; width: number; height:
     r(4, y0 + 2, w - 8, BUBBLE_H - 4, C.gray), r(2, y0 + 4, w - 4, BUBBLE_H - 8, C.gray),
     `<text x="${w / 2}" y="${y0 + BUBBLE_H / 2 + 4.5}" text-anchor="middle" font-size="${size}" font-weight="500" fill="#1b1a19">${esc(label)}</text>`,
   ].join('')
-  return { source: wrapSvg(w, LANE_H, body), width: w, height: LANE_H, cols: Math.ceil(w / CELL.w) }
+  return { source: wrapSvg(w, LANE_H, body), width: w, height: LANE_H, cols }
 }
 
 /** The mascot, the meters and the gap between them as separate drawings: a new pose replaces only Clawd, so the meters are never reloaded (a replaced drawing blinks). */
@@ -645,7 +646,7 @@ export function bandSvg(width: number, m: Model): { source: string; width: numbe
 }
 
 /** The meters' drawing in the band: labels, bars and the small print line. */
-export const METERS_H = 42
+export const METERS_H = 41
 
 /** The shortest the row gets, so the small mascot or none still leaves room for a label, a bar and a value. */
 export const MIN_ROW = 46

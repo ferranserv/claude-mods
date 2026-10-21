@@ -161,3 +161,10 @@ Hand-drawn moves between the painter and the builder (`creating>building`, `buil
 - Hand-drawn moves `bell>detective` and `detective>bell`: the bell is put away, the fedora and then the magnifier are fetched by hand (and back). `magnifier` is a carried prop now.
 - Typing's concentration mouth is two pixels, low and to one side, well away from the eyes.
 - Click areas: nothing about a button's or the bubble's place depends on the host's character cells any more. A button is a drawing as wide as its label (px) in a box that is exactly that big; the Button layer inside spans that box on all four edges and is cut at it, with two rows of Button covering its height. The lane is made of drawings in px (a blank one holds the bubble zone), the buttons sit at the right edge of the meters' width through a growing spacer, instead of a width counted in cells.
+
+## 0.18.4: back to buttons laid out in the host's own cells (supersedes the click-area parts of 0.18.1 and 0.18.3)
+
+The px-sized lane (0.18.1) and the Button layer spanning the box with two Buttons (0.18.3) were wrong: the desktop draws every Button natively, so two stacked Buttons showed as two buttons over the drawing, and a lane that is not a whole number of rows does not line up with the rows the Buttons are laid out in. What lined up (0.16 to 0.18.0) is back:
+- The lane is exactly two rows (36 px). A button is a drawing a whole number of columns wide and the lane's height, in a box of those columns and two rows (`overflow: hidden`), and ONE Button sits at the box's corner with enough blank text to fill it.
+- To keep the cockpit slim, the padding is cut by making the bubble and the buttons taller instead (30 px in the 36 px lane: 3 px above and below, was 5) and the meters' drawing 41 px (was 46).
+- Rule from this: nothing but one Button per click target, and a click target is always laid out in whole rows and columns.
