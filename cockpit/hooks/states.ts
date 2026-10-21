@@ -1,6 +1,6 @@
 // Clawd's states: what each looks like (frames), how fast it plays, and the words that go with it.
 // The sheet in docs/mascot/clawd-sheet.html shows every one of them animated.
-import { renderFrames, renderOnce } from './sprite'
+import { onceSeconds, renderFrames, renderOnce } from './sprite'
 import type { Pose } from './sprite'
 
 export type StateId =
@@ -120,6 +120,9 @@ export type Mascot = { markup: string; width: number; height: number }
 type Move = { frames: Pose[]; fd: number }
 const LAPTOP: Pose = { laptop: 1, look: 'down', eyes: 'half', armL: 'type1', armR: 'type0' }
 const SUN: Pose = { shades: 1, mouth: 'smile' }
+/** The first pose of a state: where a move into it ends and a move out of it begins, so there is no seam. */
+const F = (id: StateId): Pose => ({ ...STATES[id].frames[0] })
+const BARE: Pose = { eyes: 'blink', mouth: 'smile' }
 const READY: Pose = { eyes: 'happy', mouth: 'open', armR: 'high', bell: 0, notes: 0 }
 const MUSE: Pose = { spinner: 0, look: 'up', armR: 'chin' }
 const OOPS: Pose = { eyes: 'x', mouth: 'o', bang: 1, bangX: OX + 21 }
@@ -143,6 +146,34 @@ export const MOVES: Partial<Record<string, Move>> = {
   'idle>typing': { fd: 0.2, frames: [{ ...SUN }, { eyes: 'open', mouth: 'smile' }, { ...LAPTOP }] },
   'idle>building': { fd: 0.2, frames: [{ ...SUN }, { hat: 'hard', look: 'down', armR: 'up', mouth: 'smile', eyes: 'open' }, { ...HAT }] },
   'idle>reading': { fd: 0.2, frames: [{ ...SUN }, { glasses: 1, look: 'down', eyes: 'half', armL: 'hold', armR: 'hold' }, { glasses: 1, stack: 1, look: 'down', eyes: 'half', armL: 'hold', armR: 'hold' }, { ...READ }] },
+  'hand>building': { fd: 0.14, frames: [F('hand'), { ...BARE }, { hat: 'hard', look: 'down', armR: 'up', mouth: 'smile', eyes: 'open' }, F('building')] },
+  'hand>thinking': { fd: 0.14, frames: [F('hand'), { ...BARE, look: 'up' }, F('thinking')] },
+  'building>oops': { fd: 0.14, frames: [F('building'), { hat: 'hard', eyes: 'wide', mouth: 'o', armR: 'high' }, { eyes: 'x', mouth: 'o', armL: 'high', armR: 'high' }, F('oops')] },
+  'oops>thinking': { fd: 0.14, frames: [F('oops'), { eyes: 'half', mouth: 'flat', look: 'up' }, F('thinking')] },
+  'typing>lab': { fd: 0.14, frames: [F('typing'), { eyes: 'happy', mouth: 'smile', armR: 'up' }, F('lab')] },
+  'lab>typing': { fd: 0.14, frames: [F('lab'), { eyes: 'open', mouth: 'smile', armR: 'half' }, F('typing')] },
+  'lab>idle': { fd: 0.14, frames: [F('lab'), { eyes: 'happy', mouth: 'smile' }, F('idle')] },
+  'building>reading': { fd: 0.14, frames: [F('building'), { hat: 'hard', look: 'down', armR: 'half' }, { glasses: 1, look: 'down', eyes: 'half' }, { glasses: 1, stack: 1, look: 'down', eyes: 'half', armL: 'hold', armR: 'hold' }, F('reading')] },
+  'reading>building': { fd: 0.14, frames: [F('reading'), { glasses: 1, stack: 1, look: 'down', eyes: 'half' }, { glasses: 1, look: 'down', eyes: 'half' }, { hat: 'hard', look: 'down', armR: 'up', mouth: 'smile', eyes: 'open' }, F('building')] },
+  'building>bell': { fd: 0.14, frames: [F('building'), { hat: 'hard', eyes: 'happy', mouth: 'smile', armR: 'up' }, { eyes: 'happy', mouth: 'open', armR: 'high' }, F('bell')] },
+  'reading>bell': { fd: 0.14, frames: [F('reading'), { glasses: 1, look: 'down', eyes: 'happy' }, { eyes: 'happy', mouth: 'open', armR: 'high' }, F('bell')] },
+  'thinking>bell': { fd: 0.14, frames: [F('thinking'), { look: 'up', armR: 'up', eyes: 'wide', mouth: 'o' }, { eyes: 'happy', mouth: 'open', armR: 'high' }, F('bell')] },
+  'bell>thinking': { fd: 0.14, frames: [F('bell'), { eyes: 'happy', mouth: 'smile', armR: 'half' }, { look: 'up', armR: 'chin', eyes: 'open' }, F('thinking')] },
+  'typing>coffee': { fd: 0.14, frames: [F('typing'), { look: 'down', eyes: 'half', mouth: 'smile', armR: 'half' }, { eyes: 'open', mouth: 'smile', armR: 'hold' }, F('coffee')] },
+  'coffee>typing': { fd: 0.14, frames: [F('coffee'), { eyes: 'open', mouth: 'smile', armR: 'half' }, { look: 'down', eyes: 'half', armR: 'half' }, F('typing')] },
+  'thinking>coffee': { fd: 0.14, frames: [F('thinking'), { look: 'up', eyes: 'half', mouth: 'flat' }, { eyes: 'half', mouth: 'smile', armR: 'hold' }, F('coffee')] },
+  'typing>browse': { fd: 0.14, frames: [F('typing'), { laptop: 1, look: 'right', eyes: 'open', armL: 'type1', armR: 'type0' }, { look: 'right', eyes: 'open', glass: 1 }, F('browse')] },
+  'browse>typing': { fd: 0.14, frames: [F('browse'), { look: 'right', eyes: 'open', glass: 1 }, { laptop: 1, look: 'right', eyes: 'open', armL: 'type1', armR: 'type0' }, F('typing')] },
+  'thinking>browse': { fd: 0.14, frames: [F('thinking'), { look: 'right', eyes: 'open' }, { look: 'right', glass: 1 }, F('browse')] },
+  'idle>writing': { fd: 0.14, frames: [F('idle'), { eyes: 'open', mouth: 'smile' }, { glasses: 1, look: 'down', mouth: 'flat' }, F('writing')] },
+  'writing>love': { fd: 0.14, frames: [F('writing'), { glasses: 1, look: 'down', eyes: 'happy', mouth: 'smile' }, { eyes: 'happy', mouth: 'smile', armL: 'half', armR: 'half' }, F('love')] },
+  'writing>idle': { fd: 0.14, frames: [F('writing'), { glasses: 1, look: 'down', eyes: 'open', mouth: 'smile' }, { eyes: 'open', mouth: 'smile' }, F('idle')] },
+  'love>idle': { fd: 0.14, frames: [F('love'), { eyes: 'happy', mouth: 'smile', armL: 'half', armR: 'half' }, F('idle')] },
+  'typing>dizzy': { fd: 0.14, frames: [F('typing'), { laptop: 1, eyes: 'dizzy', mouth: 'o', look: 'down', armL: 'type1', armR: 'type0' }, F('dizzy')] },
+  'dizzy>typing': { fd: 0.14, frames: [F('dizzy'), { laptop: 1, eyes: 'half', mouth: 'o', look: 'down', armL: 'type1', armR: 'type0' }, F('typing')] },
+  'idle>wand': { fd: 0.14, frames: [F('idle'), { eyes: 'wide', mouth: 'o' }, { hat: 'wizard', eyes: 'happy', mouth: 'smile' }, F('wand')] },
+  'wand>idle': { fd: 0.14, frames: [F('wand'), { hat: 'wizard', eyes: 'open', mouth: 'smile' }, { eyes: 'open', mouth: 'smile' }, F('idle')] },
+  'hello>thinking': { fd: 0.14, frames: [F('hello'), { armR: 'up', mouth: 'smile', eyes: 'open' }, F('thinking')] },
   'thinking>reading': { fd: 0.2, frames: [{ ...MUSE }, { glasses: 1, look: 'down', eyes: 'half', armL: 'hold', armR: 'hold' }, { glasses: 1, stack: 1, look: 'down', eyes: 'half', armL: 'hold', armR: 'hold' }, { ...READ }] },
   'thinking>building': { fd: 0.2, frames: [{ ...MUSE }, { hat: 'hard', look: 'down', armR: 'up', mouth: 'smile', eyes: 'open' }, { ...HAT }] },
   'walk>hello': { fd: 0.2, frames: [{ mouth: 'smile' }, { armR: 'up', mouth: 'smile', eyes: 'open' }, { armR: 'high', mouth: 'smile', eyes: 'happy' }] },
@@ -152,6 +183,25 @@ export const MOVES: Partial<Record<string, Move>> = {
 const NEUTRAL: Pose = { eyes: 'blink', mouth: 'smile' }
 
 /**
+ * What makes a move read as one motion and not a slideshow: the first frame is short (he is already moving), a
+ * blink covers the swap of props in the middle, a small hop gives the change some life, and the last frame holds
+ * a little longer so he settles into the state. The ends stay as they are, so a move still meets its neighbours.
+ */
+function smooth(frames: Pose[]): Pose[] {
+  const n = frames.length
+  if (n < 3) return frames
+  const mid = Math.floor((n - 1) / 2)
+  return frames.map((f, i) => {
+    if (i === 0) return { ...f, hold: 0.6 }
+    if (i === n - 1) return { ...f, hold: 1.3 }
+    const out: Pose = { ...f }
+    if (i === mid && (out.eyes === undefined || out.eyes === 'open' || out.eyes === 'half')) out.eyes = 'blink'
+    if (out.dy === undefined && i % 2 === 1) out.dy = -1
+    return out
+  })
+}
+
+/**
  * The move between two states: the hand-drawn one when there is one, otherwise a morph. The morph drops what
  * he holds (a bare, blinking Clawd) and picks up the next thing, which works for any pair because every state
  * starts from the same neutral pose. Null only when nothing changes.
@@ -159,22 +209,22 @@ const NEUTRAL: Pose = { eyes: 'blink', mouth: 'smile' }
 function moveOf(from: StateId, to: StateId): (Move & { w: number }) | null {
   if (from === to) return null
   const m = MOVES[`${from}>${to}`]
-  if (m) return { ...m, w: 34 }
+  if (m) return { fd: Math.min(m.fd, 0.15), w: 34, frames: smooth(m.frames) }
   const a = STATES[from]
   const b = STATES[to]
   // Drawn on the canvas of the state he enters (the band's layout is fixed by it); a wider scene he leaves is skipped.
   const w = b.w ?? 34
   const first = (a.w ?? 34) <= w ? [a.frames[0] ?? {}] : []
   // Reading brings a lot with it (glasses, a book, a stack of books): they come and go one at a time, not all at once.
-  if (to === 'reading') return { fd: 0.14, w, frames: [...first, { ...NEUTRAL }, { glasses: 1, look: 'down', eyes: 'half' }, { glasses: 1, stack: 1, look: 'down', eyes: 'half', armL: 'hold', armR: 'hold' }, b.frames[0] ?? {}] }
-  if (from === 'reading') return { fd: 0.14, w, frames: [...first, { glasses: 1, stack: 1, look: 'down', eyes: 'half' }, { glasses: 1, look: 'down', eyes: 'half' }, { ...NEUTRAL }, b.frames[0] ?? {}] }
-  return { fd: 0.12, w, frames: [...first, { ...NEUTRAL }, b.frames[0] ?? {}] }
+  if (to === 'reading') return { fd: 0.14, w, frames: smooth([...first, { ...NEUTRAL }, { glasses: 1, look: 'down', eyes: 'half' }, { glasses: 1, stack: 1, look: 'down', eyes: 'half', armL: 'hold', armR: 'hold' }, b.frames[0] ?? {}]) }
+  if (from === 'reading') return { fd: 0.14, w, frames: smooth([...first, { glasses: 1, stack: 1, look: 'down', eyes: 'half' }, { glasses: 1, look: 'down', eyes: 'half' }, { ...NEUTRAL }, b.frames[0] ?? {}]) }
+  return { fd: 0.13, w, frames: smooth([...first, { ...NEUTRAL }, b.frames[0] ?? {}]) }
 }
 
 /** How long a move plays, in ms; 0 when nothing changes. */
 export function moveMs(from: StateId, to: StateId): number {
   const m = moveOf(from, to)
-  return m ? Math.round(m.frames.length * m.fd * 1000) : 0
+  return m ? Math.round(onceSeconds(m.frames, m.fd) * 1000) : 0
 }
 
 const moveCache = new Map<string, Mascot>()
@@ -207,7 +257,7 @@ export function enterMarkup(from: StateId, to: StateId, clock = '', scale: 1 | 2
   const d = STATES[to]
   const frames = to === 'asleep' && clock !== '' ? d.frames.map(f => ({ ...f, clock })) : d.frames
   const w = d.w ?? 34
-  const dur = m.frames.length * m.fd
+  const dur = onceSeconds(m.frames, m.fd)
   const made = { markup: renderOnce(m.frames, m.fd, m.w, scale) + renderFrames(frames, d.fd, w, d.drift === true, scale, dur), width: w * scale, height: 28 * scale }
   enterCache.set(key, made)
   return made

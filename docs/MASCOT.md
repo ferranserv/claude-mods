@@ -43,7 +43,7 @@ SVG per frame set, frames swapped by SMIL (`animate` on opacity, `isInteractive:
 
 ## 0.4.0 changes
 
-- Every state starts from the same neutral pose (props and colours change, not position), so switches look smooth; a switch plays a short one-shot move: hand-drawn for the common pairs (`MOVES` in `states.ts`), a morph (drop what he holds, pick up the next) for the rest.
+- Every state starts from the same neutral pose (props and colours change, not position), so switches look smooth; a switch plays a short one-shot move: hand-drawn for the common pairs (`MOVES` in `states.ts`, 49 of them, each built from the neighbouring states' own first frames), a morph (drop what he holds, pick up the next) for the rest. Every move is eased (`smooth`): a short first frame, a blink over the prop swap, a small hop, a longer last frame.
 - Hold rule: the shown state stays at least 5 s unless a higher-priority one arrives (`HOLD_MS` in `mood.ts`); every fleeting state lasts 5 s or more.
 - The bubble is a pixel Svg (white inside, dark stepped border, tail down to Clawd, regular text) in a row above the band, with the action button beside it; `/cockpit bubble float|inline` (inline is a text row under the band).
 - Permission asks are debounced 1.5 s (a tool that runs right after was auto-allowed, not an ask); PowerShell counts as a shell for test runs.

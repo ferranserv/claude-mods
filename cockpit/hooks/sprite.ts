@@ -268,10 +268,16 @@ export function renderFrames(frames: Pose[], fd: number, w: number, drift: boole
 }
 
 /** Frames that play once, in order, then hold the last one: a move between two states. */
+/** How long a move plays, in seconds (to the millisecond). A frame's `hold` stretches or shortens its share of the time. */
+export function onceSeconds(frames: Pose[], fd: number): number {
+  return Math.round(frames.reduce((a, f) => a + (f.hold ?? 1), 0) * fd * 1000) / 1000
+}
+
 export function renderOnce(frames: Pose[], fd: number, w: number, scale = 2): string {
-  const n = frames.length
-  const keyTimes = frames.map((_, i) => (i / n).toFixed(4)).join(';')
-  const dur = (n * fd).toFixed(2)
+  const total = frames.reduce((a, f) => a + (f.hold ?? 1), 0)
+  let acc = 0
+  const keyTimes = frames.map(f => { const t = (acc / total).toFixed(4); acc += f.hold ?? 1; return t }).join(';')
+  const dur = onceSeconds(frames, fd).toFixed(2)
   const groups = frames
     .map((o, i) => {
       const k = clawd({ w, ...o })

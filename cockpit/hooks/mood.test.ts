@@ -148,7 +148,7 @@ describe('the moves between states', () => {
   })
   test('a hand-drawn move starts on the state it leaves and ends on the state it enters, so nothing pops', () => {
     const same = (a: Record<string, unknown>, b: Record<string, unknown>) => {
-      const clean = (p: Record<string, unknown>) => Object.entries(p).filter(([k, v]) => !((k === 'dx' || k === 'dy') && !v)).sort(([x], [y]) => (x < y ? -1 : 1))
+      const clean = (p: Record<string, unknown>) => Object.entries(p).filter(([k, v]) => !((k === 'dx' || k === 'dy') && !v) && k !== 'hold').sort(([x], [y]) => (x < y ? -1 : 1))
       return JSON.stringify(clean(a)) === JSON.stringify(clean(b))
     }
     for (const key of Object.keys(MOVES)) {
@@ -168,6 +168,20 @@ describe('the moves between states', () => {
     expect(e.width).toBe(stateMarkup('thinking').width)
     expect(enterMarkup('idle', 'thinking').markup).toBe(e.markup) // the same string every time: no reload
     expect(enterMarkup('idle', 'idle').markup).toBe(stateMarkup('idle').markup)
+  })
+  test('there are at least 45 hand-drawn moves, covering the common flows', () => {
+    expect(Object.keys(MOVES).length).toBeGreaterThanOrEqual(45)
+    for (const key of ['idle>thinking', 'hand>building', 'building>oops', 'typing>lab', 'typing>coffee', 'typing>browse', 'writing>love', 'thinking>bell']) expect(MOVES[key], key).toBeDefined()
+  })
+  test('moves are eased: a short first frame, a longer settling last frame, a blink over the swap', () => {
+    for (const key of Object.keys(MOVES)) {
+      const [from, to] = key.split('>') as [StateId, StateId]
+      const m = moveFrames(from, to)!
+      if (m.frames.length < 3) continue
+      expect(m.frames[0]!.hold, `${key} first`).toBeLessThan(1)
+      expect(m.frames[m.frames.length - 1]!.hold, `${key} last`).toBeGreaterThan(1)
+      expect(m.frames.slice(1, -1).some(f => f.eyes === 'blink' || (f.eyes !== undefined && f.eyes !== 'open' && f.eyes !== 'half')), `${key} blink or an expressive look in the middle`).toBe(true)
+    }
   })
   test('a pair without a hand-drawn move gets a morph; staying put gets nothing', () => {
     expect(moveMs('idle', 'asleep')).toBeGreaterThan(0)
