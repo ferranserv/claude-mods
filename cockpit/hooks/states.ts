@@ -27,7 +27,7 @@ const range = (n: number) => Array.from({ length: n }, (_, i) => i)
 
 export const STATES: Record<StateId, Def> = {
   idle: { label: 'Clawd is relaxing in sunglasses', face: '(-_-)~', fd: 0.5, frames: range(4).map(() => ({ shades: 1, mouth: 'smile' })) },
-  typing: { label: 'Clawd is typing on a laptop', face: '[o_o]>', fd: 0.16, frames: [0, 1, 0, 1].map(i => ({ ...T, mouth: 'smile', armL: i ? 'type0' : 'type1', armR: i ? 'type1' : 'type0' })) },
+  typing: { label: 'Clawd is typing on a laptop', face: '[o_o]>', fd: 0.16, frames: [0, 1, 0, 1].map(i => ({ ...T, mouth: 'focus', armL: i ? 'type0' : 'type1', armR: i ? 'type1' : 'type0' })) },
   thinking: { label: 'Clawd is thinking', face: '(o_o)...', fd: 0.11, frames: range(8).map(t => ({ spinner: t, look: 'up', armR: 'chin' })) },
   bell: { label: 'Clawd rings a bell: the turn is finished', face: '(^o^)ding', fd: 0.1, frames: [0, -1, -1, 0, 1, 1, 0, -1, 0, 1].map((s, i) => ({ eyes: 'happy', mouth: 'open', armR: 'high', bell: s, notes: i })) },
   coins: { label: 'Clawd counts coins the saver kept', face: '($_$)', fd: 0.4, frames: [0, 1].map(t => ({ eyes: 'happy', mouth: 'smile', coins: t, star: t })) },
@@ -49,7 +49,7 @@ export const STATES: Record<StateId, Def> = {
   idea: { label: 'Clawd has an idea: a plan is ready', face: '(o_o)!', fd: 0.4, frames: [{ bulb: 1, eyes: 'open', mouth: 'smile', armR: 'up' }, { bulb: 2, eyes: 'happy', mouth: 'smile', armR: 'up' }] },
   coffee: { label: 'Clawd drinks coffee: this turn is taking a while', face: '(-_-)c', fd: 0.5, frames: [0, 1].map(t => ({ cup: t + 1, armR: 'hold', mouth: 'smile', eyes: 'open' })) },
   reading: { label: 'Clawd is reading files, turning pages of a book, a stack of books beside him', face: '(o_o)=', fd: 0.5, frames: [{ glasses: 1, book: 1, stack: 1, look: 'down', armL: 'hold', armR: 'hold' }, { glasses: 1, book: 1, stack: 1, look: 'down', eyes: 'blink', armL: 'hold', armR: 'hold' }, { glasses: 1, book: 2, stack: 1, look: 'down', armL: 'hold', armR: 'hold' }, { glasses: 1, book: 3, stack: 1, look: 'down', armL: 'hold', armR: 'hold' }] },
-  creating: { label: 'Clawd, a moustache on, holds a color palette and a paintbrush and is painting: Claude is writing a file', face: '(o_o)~', fd: 0.28, frames: [0, 1, 2, 3, 4, 2].map(brush => ({ stache: 1, palette: 1, brush, armR: 'half', armL: 'half', look: 'down', eyes: 'open', mouth: 'flat' })) },
+  creating: { label: 'Clawd, a moustache on, holds a color palette and a paintbrush and is painting a picture on an easel: Claude is writing a file', face: '(o_o)~', fd: 0.28, frames: [[0, 0], [1, 1], [1, 2], [2, 3], [3, 4], [3, 2]].map(([easel, brush]) => ({ stache: 1, palette: 1, easel, brush, armR: 'half', armL: 'half', look: 'right', eyes: 'open' })) },
   building: { label: 'Clawd is editing code with a hammer', face: '(>_<)T', fd: 0.22, frames: [0, 1].map(t => ({ hat: 'hard', wrench: t + 1, armR: 'up', mouth: 'smile', eyes: 'open' })) },
   browse: { label: 'Clawd is searching the web', face: '(o_o)Q', fd: 0.5, frames: [1, 2, 1, 2].map(b => ({ browser: b, glass: 1, look: 'right' })) },
   plug: { label: 'Clawd holds an unplugged cable: a connector is offline', face: '(;_;)~', fd: 0.4, frames: [0, 1].map(t => ({ plug: t, eyes: 'sad', mouth: 'grim', armL: 'half', armR: 'half', dy: t })) },
@@ -85,7 +85,6 @@ const MOTION: Partial<Record<StateId, Motion>> = {
   idea: { each: 2, dy: [0, -2, 0, 0] }, // eureka hop
   coffee: { each: 2, dy: [0, 0, 1, 0] }, // sips
   building: { dy: [0, 1] }, // the body dips with each swing
-  creating: { each: 2, dx: [0, 1, 0, 0, -1, 0] }, // leans into each stroke
   browse: { dx: [0, -1, -2, -1] }, // leans in to look
   plug: { each: 2, dx: [0, 1, 0, -1] }, // sags and sways
   lab: { each: 2, dy: [0, -1, 0, -1, 0, -1] }, // bubbles over
@@ -119,7 +118,7 @@ export type Mascot = { markup: string; width: number; height: number }
  * hammer raised), then the target state's own loop takes over. Pairs without a move cut straight to the new state.
  */
 type Move = { frames: Pose[]; fd: number }
-const LAPTOP: Pose = { laptop: 1, look: 'down', eyes: 'half', mouth: 'smile', armL: 'type1', armR: 'type0' }
+const LAPTOP: Pose = { laptop: 1, look: 'down', eyes: 'half', mouth: 'focus', armL: 'type1', armR: 'type0' }
 const SUN: Pose = { shades: 1, mouth: 'smile' }
 /** The first pose of a state: where a move into it ends and a move out of it begins, so there is no seam. */
 const F = (id: StateId): Pose => ({ ...STATES[id].frames[0] })

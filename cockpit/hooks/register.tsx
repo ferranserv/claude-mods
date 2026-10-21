@@ -16,6 +16,7 @@ import {
   bandWidth,
   cacheView,
   CELL,
+  LANE_H,
   clockText,
   C,
   bandParts,
@@ -141,7 +142,7 @@ const mood = {
   resetAt: 0, // the next limit reset a redraw is already booked for
   draftTurn: false, // the turn is a /handoff: Claude writes the brief as text, with no tool to show it
   askAt: 0, // when a permission ask was seen; it only counts if nothing has moved on a moment later
-  bub: null as { text: string; room: number; seq: number; layers: { key: string; art: ReturnType<typeof bubbleArt>; until: number; dropAt: number }[] } | null, // the bubble's drawings (see bubbleLane)
+  bub: null as { text: string; room: number; seq: number; layers: { key: string; art: ReturnType<typeof bubbleArt>; until: number; dropAt: number; to: string }[] } | null, // the bubble's drawings (see bubbleLane)
   msg: null as { text: string; until: number } | null, // a message to you (the one channel: the bubble), over everything but the raised hand
   history: [] as string[], // the last things the bubble said, for /cockpit log
   lastLogged: '', // the text last added to the history
@@ -1168,7 +1169,7 @@ function artButton(c: Comps, label: string, key: string, onPress: () => void) {
   const art = pillSvg(label)
   return el(
     c.Box,
-    { key: `${key}-wrap`, position: 'relative', width: art.cols, height: 1, overflow: 'hidden' },
+    { key: `${key}-wrap`, position: 'relative', width: art.cols, height: LANE_H / CELL.h, overflow: 'hidden', flexShrink: 0 },
     el(c.Svg as never, { key: 'art', source: art.source, alt: label, width: art.width, height: art.height }),
     el(c.Box, { key: 'hit', position: 'absolute', top: 0, left: 0 }, el(c.Button, { key, plain: true, onPress }, NBSP.repeat(art.cols * 2))),
   )
@@ -1230,8 +1231,6 @@ function controls(s: Snap, c: Comps, fx: Fx, Svg: unknown = null) {
 }
 
 
-/** What the bubble lane keeps for the buttons beside the bubble: the drawing never has to be redrawn when they change. */
-const LANE_BUTTONS_PX = 200
 /** The hover group of Clawd and the bubble that reappears while the pointer is on him. */
 const HOVER = 'cockpit-clawd'
 
@@ -1241,8 +1240,8 @@ const HOVER = 'cockpit-clawd'
  */
 function hoverCard(s: Snap, c: Comps, Svg: unknown, fx: Fx, room: number, surface: string): unknown[] {
   if (!s.hover || s.speech || !s.mascot.width) return []
-  const art = bubbleArt(s.hover.text, s.hover.text, room)
   const first = s.hover.acts[0]
+  const art = bubbleArt(s.hover.text, s.hover.text, Math.max(120, room - (first ? pillSvg(first.label).width + CELL.w : 0)))
   return [
     el(
       c.Box,
@@ -1260,37 +1259,45 @@ function hoverCard(s: Snap, c: Comps, Svg: unknown, fx: Fx, room: number, surfac
  * under it), then the old one is dropped; a closed bubble leaves no drawing behind.
  */
 function bubbleLane($: EngineInterface, s: Snap, c: Comps, Svg: unknown, fx: Fx, metersPx: number, surface: string): unknown[] {
-  const room = Math.max(120, metersPx - LANE_BUTTONS_PX)
+  const first = s.speech?.acts[0]
+  const hasMore = (s.speech?.acts.length ?? 0) > 1
+  // The bubble gets all the row up to its buttons (and no more than its words need); with no buttons, all of it.
+  const gap = CELL.w
+  const buttonsPx = (first ? pillSvg(first.label).width : 0) + (hasMore ? pillSvg('…').width : 0) + (first && hasMore ? gap : 0)
+  const room = Math.max(120, Math.floor((metersPx - (buttonsPx > 0 ? buttonsPx + gap : 0)) / CELL.w) * CELL.w)
   const text = s.speech?.text ?? ''
   let bub = mood.bub
   if (!bub || bub.room !== room) {
-    // A new width (a resized window) redraws what is there, still, without the motion.
+    // A new width (a resized window, other buttons) redraws what is there, still, laid out afresh for the room it has.
     const key = `b${(bub?.seq ?? 0) + 1}`
-    bub = mood.bub = { text, room, seq: (bub?.seq ?? 0) + 1, layers: text === '' ? [] : [{ key, art: bubbleArt(text, text, room), until: 0, dropAt: Infinity }] }
+    bub = mood.bub = { text, room, seq: (bub?.seq ?? 0) + 1, layers: text === '' ? [] : [{ key, art: bubbleArt(text, text, room), until: 0, dropAt: Infinity, to: text }] }
   } else if (text !== bub.text) {
     const art = bubbleArt(bub.text, text, room)
     const ms = Math.ceil(art.seconds * 1000)
-    for (const l of bub.layers) if (l.dropAt === Infinity) l.dropAt = s.now + 250 // the old one stays under the new one until the new one is up
+    const newest = bub.layers[bub.layers.length - 1]
+    // The old drawing stays under the new one for a moment, until the new one is up, so nothing blinks. But a drawing that is still
+    // moving, or one that is closing, is not a picture to hold under another: it would show through. That one goes at once.
+    for (const l of bub.layers) l.dropAt = l === newest && s.now >= l.until && l.to !== '' ? s.now + 120 : Math.min(l.dropAt, s.now)
     bub.seq++
-    bub.layers.push({ key: `b${bub.seq}`, art, until: s.now + ms + 100, dropAt: Infinity })
+    bub.layers.push({ key: `b${bub.seq}`, art, until: s.now + ms + 100, dropAt: Infinity, to: text })
     bub.text = text
-    $.clock.after(300, () => $.ui.invalidate('ui.render'))
+    $.clock.after(200, () => $.ui.invalidate('ui.render'))
     $.clock.after(ms + 150, () => $.ui.invalidate('ui.render'))
   }
   bub.layers = bub.layers.filter(l => l.dropAt > s.now)
-  const newest = bub.layers[bub.layers.length - 1]
-  if (newest && bub.text === '' && newest.until <= s.now) bub.layers = [] // closed: nothing is left drawn
-  const first = s.speech?.acts[0]
-  const buttons = s.speech ? [...(first ? [actButton(first, c, fx, surface)] : []), ...(s.speech.acts.length > 1 ? [moreButton(s, c, fx)] : [])] : []
+  const last = bub.layers[bub.layers.length - 1]
+  if (last && bub.text === '' && last.until <= s.now) bub.layers = [] // closed: nothing is left drawn
+  const buttons = s.speech ? [...(first ? [actButton(first, c, fx, surface)] : []), ...(hasMore ? [moreButton(s, c, fx)] : [])] : []
   const cols = (px: number) => Math.floor(px / CELL.w)
+  const rows = LANE_H / CELL.h
   const zone = el(
     c.Box,
-    { key: 'zone', position: 'relative', width: cols(room), height: 1 },
+    { key: 'zone', position: 'relative', width: cols(room), height: rows, flexShrink: 0 },
     ...bub.layers.map(l => el(c.Box, { key: l.key, position: 'absolute', top: 0, left: 0 }, el(Svg, { key: 'art', source: l.art.source, alt: text, isInteractive: true, width: l.art.width, height: l.art.height }))),
     ...hoverCard(s, c, Svg, fx, room, surface),
   )
   return [
-    el(c.Box, { key: 'lane', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: cols(metersPx), height: 1 }, zone, el(c.Box, { key: 'buttons', flexDirection: 'row', alignItems: 'center', gap: 1 }, ...buttons)),
+    el(c.Box, { key: 'lane', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: cols(metersPx), height: rows }, zone, el(c.Box, { key: 'buttons', flexDirection: 'row', alignItems: 'center', gap: 1, flexShrink: 0 }, ...buttons)),
     ...menuRow(s, c, fx, surface, 0),
   ]
 }
