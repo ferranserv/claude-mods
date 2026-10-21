@@ -132,6 +132,9 @@ const mood = {
   demo: null as { id: StateId; until: number } | null,
   demoRun: 0,
   writing: false, // a handoff brief or an enhanced draft is being written
+  sticky: null as Bubble | null, // a bubble that asks for a decision stays until you click its button or send something else
+  linger: null as { bubble: Bubble; until: number } | null, // any other bubble stays a while after its state ends
+  lastSaid: null as string | null, // what the bubble said last, so it can fade out in the same drawing
   draftTurn: false, // the turn is a /handoff: Claude writes the brief as text, with no tool to show it
   askAt: 0, // when a permission ask was seen; it only counts if the call has not started a moment later
   drawn: null as { id: StateId; since: number } | null, // what is on screen, and since when
@@ -141,6 +144,8 @@ const mood = {
 let bubbleMode: 'float' | 'inline' = 'float'
 /** A permission ask must stay open this long before Clawd raises a hand: a rule or the mode often settles it first. Set by the askSeconds option. */
 let askMs = 5000
+/** How long a bubble stays after its state has ended. */
+const BUBBLE_LINGER_MS = 9000
 
 /** Clawd's drawing: the move from the state he left and the state's own loop, in one drawing (see enterMarkup). */
 function mascotFor(state: StateId, clock: string, move: { from: StateId; to: StateId } | null, scale: 1 | 2) {
@@ -166,7 +171,7 @@ async function flash($: EngineInterface, id: Fleet): Promise<void> {
 }
 
 type ToolInput = { tool?: string; file_path?: string; notebook_path?: string; pattern?: string; command?: string }
-const TEST_COMMAND = /\b(pytest|vitest|jest|mocha|rspec|phpunit|ctest|go test|cargo test|npm (run )?test|pnpm (run )?test|yarn test|plugin test)\b/i
+const TEST_COMMAND = /\b(pytest|vitest|jest|mocha|rspec|phpunit|ctest|go test|cargo test|npm (run )?test|pnpm (run )?test|yarn test|bun test|deno test|dotnet test|make (test|check)|mvn( \S+)* test|gradlew? (\S+ )*test|node --test|unittest|tox|nox|plugin test)\b/i
 const baseName = (p: string) => p.replace(/\\/g, '/').split('/').filter(Boolean).pop() ?? ''
 
 function toolKind(tool: string): ToolKind | null {
@@ -893,6 +898,17 @@ async function snapshot($: EngineInterface, propsWorking: boolean): Promise<Snap
     savedUsd: usd > 0 ? money(usd) : '',
     hasAdvice: rows.length > 0,
   })
+  // A bubble that asks for a decision stays until you click its button or send something else; any other lingers a while
+  // after its state ends. The raised hand never lingers: it goes the moment you answer.
+  let speech: Bubble | null = bubble
+  if (state === 'hand') {
+    mood.linger = null
+  } else {
+    if (bubble?.action) mood.sticky = bubble
+    if (bubble && (!mood.linger || mood.linger.bubble.text !== bubble.text)) $.clock.after(BUBBLE_LINGER_MS + 80, () => $.ui.invalidate('ui.render'))
+    if (bubble) mood.linger = { bubble, until: now + BUBBLE_LINGER_MS }
+    else speech = mood.sticky ?? (mood.linger && mood.linger.until > now ? mood.linger.bubble : null)
+  }
   return {
     m,
     now,
@@ -906,7 +922,7 @@ async function snapshot($: EngineInterface, propsWorking: boolean): Promise<Snap
     ask: await read($, pending),
     enh: await read($, stateAtom),
     state,
-    bubble,
+    bubble: speech,
     clock,
     mascot: mascotMode === 'off' ? { markup: '', width: 0, height: 0 } : mascotFor(state, clock, mood.move, mascotMode === 'small' ? 1 : 2),
   }
@@ -935,14 +951,27 @@ type Comps = { Box: never; Text: never; Button: never }
 const el = (type: unknown, props: Record<string, unknown>, ...children: unknown[]) => h(type as never, props as never, ...(children as never[])) as never
 
 /** One alert: its words and the buttons that answer it. Handoff and fresh wait while Claude works. */
+/** A button in the cockpit gray with dark text: the same color as the speech bubble, whatever the app's own button style is. */
+function pill(c: Comps, label: string, props: Record<string, unknown>) {
+  return el(c.Button, { plain: true, ...props }, el(c.Text, { color: '#1b1a19', backgroundColor: C.gray }, ` ${label} `))
+}
+
+/** Pressing a button, or sending something else, is the decision a bubble was waiting for. */
+function dismissBubble(): void {
+  mood.sticky = null
+  mood.linger = null
+}
+
 /** One action button; `short` is the compact label used in Clawd's speech bubble. */
 function actionButton(id: ActionId, c: Comps, fx: Fx, short: boolean) {
-  // Beside the bubble the label is the cockpit gray, not the bright default.
-  const label = (t: string) => (short ? el(c.Text, { color: C.gray }, t) : t)
-  if (id === 'handoff') return el(c.Button, { key: 'handoff', hotkey: 'h', variant: 'primary', onPress: () => fx.handoff('full') }, label('➜ Handoff'))
-  if (id === 'copy') return el(c.Button, { key: 'copy', hotkey: 'c', onPress: () => fx.handoff('brief') }, label('❐ Copy brief'))
-  if (id === 'fresh') return el(c.Button, { key: 'fresh', hotkey: 'n', onPress: () => fx.fresh() }, label('↺ Fresh'))
-  return el(c.Button, { key: 'saver', variant: 'primary', onPress: () => fx.saver(true) }, label('⚡ Saver on'))
+  const go = (run: () => void) => () => {
+    if (short) dismissBubble()
+    run()
+  }
+  if (id === 'handoff') return pill(c, '➜ Handoff', { key: 'handoff', hotkey: 'h', onPress: go(() => fx.handoff('full')) })
+  if (id === 'copy') return pill(c, '❐ Copy brief', { key: 'copy', hotkey: 'c', onPress: go(() => fx.handoff('brief')) })
+  if (id === 'fresh') return pill(c, '↺ Fresh', { key: 'fresh', hotkey: 'n', onPress: go(() => fx.fresh()) })
+  return pill(c, '⚡ Saver on', { key: 'saver', onPress: go(() => fx.saver(true)) })
 }
 
 /** One alert: its words and the buttons that answer it. Handoff and fresh wait while Claude works. */
@@ -976,14 +1005,14 @@ function adviceRow(a: Advice, ask: string | null, c: Comps, fx: Fx) {
   const items: unknown[] = [
     el(c.Text, { key: 't', color: isWarn ? COLORS.warn : COLORS.dim }, asking && a.kind === 'peer-done' ? `Commit ${files(a.take)} on ${a.branch}? Not pushed.` : `● ${label(a)}`),
   ]
-  if (a.kind === 'shared-folder' || a.kind === 'main') items.push(el(c.Button, { key: `wt-${a.kind}`, label: '⇄ New worktree', onPress: () => fx.newWorktree() }))
-  if (a.kind === 'dirty') items.push(el(c.Button, { key: 'cp', label: a.onDefault ? '✓ Commit to new branch' : '✓ Commit checkpoint', onPress: () => fx.checkpoint(a.onDefault) }))
+  if (a.kind === 'shared-folder' || a.kind === 'main') items.push(pill(c, '⇄ New worktree', { key: `wt-${a.kind}`, onPress: () => fx.newWorktree() }))
+  if (a.kind === 'dirty') items.push(pill(c, a.onDefault ? '✓ Commit to new branch' : '✓ Commit checkpoint', { key: 'cp', onPress: () => fx.checkpoint(a.onDefault) }))
   if (a.kind === 'peer-done' && a.take > 0) {
     if (asking) {
-      items.push(el(c.Button, { key: 'yes', label: '✓ Yes, commit', onPress: () => fx.commitPeer(a.peerId) }))
-      items.push(el(c.Button, { key: 'no', label: '✕ No', onPress: () => fx.askCommit(null) }))
+      items.push(pill(c, '✓ Yes, commit', { key: 'yes', onPress: () => fx.commitPeer(a.peerId) }))
+      items.push(pill(c, '✕ No', { key: 'no', onPress: () => fx.askCommit(null) }))
     } else {
-      items.push(el(c.Button, { key: 'ask', label: '✓ Commit its files', onPress: () => fx.askCommit(a.peerId) }))
+      items.push(pill(c, '✓ Commit its files', { key: 'ask', onPress: () => fx.askCommit(a.peerId) }))
     }
   }
   return el(c.Box, { key: id, flexDirection: 'row', alignItems: 'center', gap: 1, flexWrap: 'wrap' }, ...items)
@@ -992,10 +1021,10 @@ function adviceRow(a: Advice, ask: string | null, c: Comps, fx: Fx) {
 function noticeRow(n: Notice, c: Comps, fx: Fx, surface: string) {
   const items: unknown[] = [el(c.Text, { key: 'note', color: n.isError ? COLORS.warn : COLORS.ok }, `${n.isError ? '! ' : '✓ '}${n.text}`)]
   if (n.text.startsWith('Worktree ready')) {
-    items.push(el(c.Button, { key: 'sw', label: '➜ Switch', onPress: () => fx.switchInto() }))
-    items.push(el(c.Button, { key: 'copy', label: '❐ Copy path', onPress: () => fx.copyWorktree(surface) }))
+    items.push(pill(c, '➜ Switch', { key: 'sw', onPress: () => fx.switchInto() }))
+    items.push(pill(c, '❐ Copy path', { key: 'copy', onPress: () => fx.copyWorktree(surface) }))
   }
-  items.push(el(c.Button, { key: 'ok', label: '✓ OK', onPress: () => fx.dismissNotice() }))
+  items.push(pill(c, '✓ OK', { key: 'ok', onPress: () => fx.dismissNotice() }))
   return el(c.Box, { key: 'notice', flexDirection: 'row', alignItems: 'center', gap: 1, flexWrap: 'wrap' }, ...items)
 }
 
@@ -1007,7 +1036,7 @@ function saverRow(s: Snap, c: Comps, fx: Fx) {
     { key: 'saver', flexDirection: 'row', alignItems: 'center', gap: 1, flexWrap: 'wrap' },
     el(c.Text, { key: 'dot', color: s.saver.isOn ? COLOR.green : COLOR.track }, '●'),
     el(c.Text, { key: 't', color: dim }, `Saver ${s.saver.isOn ? 'on' : 'off'}  |  answered by ${s.saver.last ? shortName(s.saver.last) : '-'}  |  saved today ${money(s.saver.usd)}`),
-    el(c.Button, { key: 'saver-toggle', label: s.saver.isOn ? '⚡ Saver off' : '⚡ Saver on', onPress: () => fx.saver(!s.saver.isOn) }),
+    pill(c, s.saver.isOn ? '⚡ Saver off' : '⚡ Saver on', { key: 'saver-toggle', onPress: () => fx.saver(!s.saver.isOn) }),
   )
 }
 
@@ -1026,7 +1055,7 @@ function controls(s: Snap, c: Comps, fx: Fx, onToggle: () => void, Svg: unknown 
       // A Button cannot hold a drawing: the flat white wand is an Svg, with a plain button of blank text laid over it.
       const wand = wandSvg(!s.enh.hasDraft)
       items.push(
-        el(c.Box, { key: 'enhance-wrap', position: 'relative' }, el(Svg as never, { key: 'wand', source: wand.source, alt: 'Enhance my draft', width: wand.width, height: wand.height }), el(c.Box, { key: 'wand-hit', position: 'absolute', top: 0, left: 0 }, el(c.Button, { key: 'enhance', plain: true, onPress: () => fx.enhance() }, '  ')), tip(tipText)),
+        el(c.Box, { key: 'enhance-wrap', position: 'relative' }, el(Svg as never, { key: 'wand', source: wand.source, alt: 'Enhance my draft', width: wand.width, height: wand.height }), el(c.Box, { key: 'wand-hit', position: 'absolute', top: 0, left: 0 }, el(c.Button, { key: 'enhance', plain: true, onPress: () => fx.enhance() }, '\u00A0\u00A0')), tip(tipText)),
       )
     } else items.push(el(c.Box, { key: 'enhance-wrap' }, el(c.Button, { key: 'enhance', dimColor: !s.enh.hasDraft, onPress: () => fx.enhance() }, el(c.Text, { color: 'white' }, WAND)), tip(tipText)))
   }
@@ -1045,7 +1074,7 @@ function details(s: Snap, c: Comps, fx: Fx, surface: string) {
     const list = s.isOpen ? s.advice : s.advice.slice(0, 1)
     for (const a of list) rows.push(adviceRow(a, s.ask, c, fx))
     if (!s.isOpen && s.advice.length > 1) rows.push(el(c.Text, { key: 'more', color: COLORS.dim }, `+${s.advice.length - 1} more`))
-    if (list.length > 0) rows.push(el(c.Button, { key: 'hide', label: '✕ Hide', onPress: () => fx.hideAdvice() }))
+    if (list.length > 0) rows.push(pill(c, '✕ Hide', { key: 'hide', onPress: () => fx.hideAdvice() }))
   }
   if (s.saver.isStripShown && (s.isOpen || s.saver.lastRouted)) rows.push(saverRow(s, c, fx))
   else if (s.isOpen) rows.push(saverRow(s, c, fx))
@@ -1258,6 +1287,7 @@ export const register: Register = (on, options) => {
   // and labels the turn for the saver; the enhancer's draft is spent. Commands and hidden prompts send nothing.
   on('prompt.submit', async ($, e, next) => {
     if (/^\s*\/(?:[\w.-]+:)?handoff\b/i.test(String(e.text ?? ''))) mood.draftTurn = true
+    if (!e.command && !e.isMeta) dismissBubble()
     await safe(async () => {
       if (!e.command && !e.isMeta) {
         const now = await $.clock.now()
@@ -1626,10 +1656,13 @@ export const register: Register = (on, options) => {
       const { Svg } = $.ui.resolve(e)
       // The bubble is drawn inside the band's own drawing, over the meters: the band never grows for it.
       const said = speaks && s.bubble ? s.bubble.text : null
-      const svg = cockpitSvg(Math.max(300, bandWidth(e.props.bodyColumns) - 90), s.m, s.mascot, said)
+      if (said) mood.lastSaid = said
+      // When it has nothing to say it fades out of the same drawing (invisible) instead of being redrawn away.
+      const speech = said ? { text: said, phase: 'in' as const } : mood.lastSaid ? { text: mood.lastSaid, phase: 'out' as const } : null
+      const svg = cockpitSvg(Math.max(300, bandWidth(e.props.bodyColumns) - 90), s.m, s.mascot, speech)
       const act = speaks && s.bubble?.action && !(s.isWorking && s.bubble.action !== 'saverOn') ? s.bubble.action : null
       // The button sits beside the bubble, laid over the row (a column is about 8 px).
-      const beside = act ? [el(c.Box, { key: 'bubble', position: 'absolute', top: 1, left: Math.round(svg.bubbleEnd / 8) + 1 }, actionButton(act, c, fx, true))] : []
+      const beside = act ? [el(c.Box, { key: 'bubble', position: 'absolute', top: Math.max(0, Math.round((svg.bubbleY + 13) / 18 - 0.5)), left: Math.round(svg.bubbleEnd / 8) + 1 }, actionButton(act, c, fx, true))] : []
       // An interactive Svg is drawn in a frame of its own: give it its real size, or the frame is far taller than the drawing.
       row = el(c.Box, { key: 'row', position: 'relative', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, el(Svg, { key: 'svg', source: svg.source, alt: `${STATES[s.state].label}. ${said ? `${said}. ` : ''}${altText(s.m)}`, isInteractive: true, width: svg.width, height: svg.height }), controls(s, c, fx, onToggle, Svg), ...beside)
     }

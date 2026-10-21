@@ -118,7 +118,7 @@ describe('the drawings', () => {
   })
   test('the alarm clock shows the wake-up time it is given', () => {
     expect(stateMarkup('asleep', '14:20').markup).not.toBe(stateMarkup('asleep', '09:05').markup)
-    expect(stateMarkup('asleep', '14:20').width).toBe(112)
+    expect(stateMarkup('asleep', '14:20').width).toBe(68) // the clock sits beneath him: no wider than any other state
   })
   test('animated states swap frames; every state starts from the same neutral pose', () => {
     expect(stateMarkup('typing').markup).toContain('attributeName="opacity"')

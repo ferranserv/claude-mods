@@ -415,10 +415,10 @@ export function bandWidth(columns: number): number {
 const LEGEND_SIZE = 9
 const LINE = 10
 
-/** The enhance wand: flat and one color (the cockpit gray), drawn as a shape so no emoji font can color or shade it. 18 px, like the controls around it. */
+/** The enhance wand: flat and one color (the cockpit gray), drawn as shapes so no emoji font can color or shade it. A stick, a gap, then the sparkle apart from it, and a small one. 18 px, like the controls around it. */
 export function wandSvg(dim: boolean): { source: string; width: number; height: number } {
   const o = dim ? 0.45 : 1
-  const out = `<g transform="scale(0.75)" fill="${C.gray}" stroke="${C.gray}" fill-opacity="${o}" stroke-opacity="${o}"><path d="M3 21L14 10" stroke-width="3" stroke-linecap="round" fill="none"/><path d="M18 2L19.6 6.4L24 8L19.6 9.6L18 14L16.4 9.6L12 8L16.4 6.4Z" stroke="none"/></g>`
+  const out = `<g transform="scale(0.75)" fill="${C.gray}" stroke="${C.gray}" fill-opacity="${o}" stroke-opacity="${o}"><path d="M3 22L12 13" stroke-width="3" stroke-linecap="round" fill="none"/><path d="M19 1L20.6 5.4L25 7L20.6 8.6L19 13L17.4 8.6L13 7L17.4 5.4Z" stroke="none"/><path d="M6 3V9M3 6H9" stroke-width="1.6" stroke-linecap="round" fill="none"/></g>`
   return { source: wrapSvg(18, 18, out), width: 18, height: 18 }
 }
 
@@ -427,15 +427,18 @@ const BUBBLE_H = 26
 export const bubbleWidth = (text: string): number => Math.min(420, Math.max(60, Math.round(text.length * 7 + 24)))
 
 /**
- * Clawd's speech bubble in pixels, drawn inside the band over the meters, so the band never grows: the cockpit
- * gray inside, a dark stepped border, a tail pointing left to Clawd, regular text. (bx, by) is its top left.
+ * Clawd's speech bubble in pixels, drawn inside the band at its foot, so it covers only the small print under the
+ * meters and the band never grows: the cockpit gray inside, a dark stepped border, a tail pointing left to Clawd,
+ * regular text. What is behind it is dimmed in a feathered halo so the bubble stands out. It slides and fades in
+ * (phase in) or out (phase out: it stays in the drawing, invisible, so leaving takes no second redraw).
  */
-function bubbleOut(text: string, bx: number, by: number, w: number): string {
+function bubbleOut(text: string, bx: number, by: number, w: number, phase: 'in' | 'out'): string {
   const h = BUBBLE_H
   const r = (x: number, y: number, rw: number, rh: number, c: string) => `<rect x="${x}" y="${y}" width="${rw}" height="${rh}" fill="${c}"/>`
   const D = '#0b0705'
   const G = C.gray
-  return [
+  const halo = [12, 9, 6, 3].map(g => `<rect x="${bx - 6 - g}" y="${by - g}" width="${w + 6 + g * 2}" height="${h + g * 2}" rx="${g + 4}" fill="#000" fill-opacity="0.17"/>`).join('')
+  const art = [
     r(bx + 2, by, w - 4, h, D), r(bx, by + 2, w, h - 4, D), // the border: a block with its corners stepped
     r(bx + 4, by + 2, w - 8, h - 4, G), r(bx + 2, by + 4, w - 4, h - 8, G), // the inside, stepped the same way
     r(bx, by + 10, 2, 6, G), // the opening in the border for the tail
@@ -444,6 +447,10 @@ function bubbleOut(text: string, bx: number, by: number, w: number): string {
     r(bx - 6, by + 12, 2, 2, D),
     `<text x="${bx + Math.round(w / 2)}" y="${by + h / 2 + 4}" text-anchor="middle" font-size="12" font-weight="400" fill="#1b1a19">${esc(text)}</text>`,
   ].join('')
+  const move = phase === 'in' ? ['0', '-10 0', '0 0'] : ['1', '0 0', '-10 0']
+  const fade = phase === 'in' ? ['0', '1'] : ['1', '0']
+  const anim = `<animate attributeName="opacity" from="${fade[0]}" to="${fade[1]}" dur="${phase === 'in' ? '0.22' : '0.3'}s" fill="freeze"/><animateTransform attributeName="transform" type="translate" from="${move[1]}" to="${move[2]}" dur="${phase === 'in' ? '0.22' : '0.3'}s" fill="freeze"/>`
+  return `<g${phase === 'out' ? ' opacity="0"' : ''}>${anim}${halo}${art}</g>`
 }
 
 /** One slim band: the meters side by side, a few lines tall. */
@@ -528,7 +535,9 @@ export function bandSvg(width: number, m: Model): { source: string; width: numbe
 export const MIN_ROW = 46
 
 /** The whole cockpit drawing: the mascot on the left (if any), the meters beside it. */
-export function cockpitSvg(width: number, m: Model, mascot: { markup: string; width: number; height: number }, bubble: string | null = null): { source: string; width: number; height: number; bubbleEnd: number } {
+export type SpeechBubble = { text: string; phase: 'in' | 'out' }
+
+export function cockpitSvg(width: number, m: Model, mascot: { markup: string; width: number; height: number }, bubble: SpeechBubble | null = null): { source: string; width: number; height: number; bubbleEnd: number; bubbleY: number } {
   const gap = mascot.width > 0 ? 12 : 0
   const bodyW = Math.max(200, width - mascot.width - gap)
   const body = bandBody(bodyW, m)
@@ -537,15 +546,18 @@ export function cockpitSvg(width: number, m: Model, mascot: { markup: string; wi
   const top = Math.max(0, Math.round((height - body.height) / 2) - 3)
   const mascotY = Math.round((height - mascot.height) / 2)
   let out = `<g transform="translate(0 ${mascotY})">${mascot.markup}</g><g transform="translate(${mascot.width + gap} ${top})">${body.out}</g>`
-  // A speech bubble covers the meters for as long as it speaks; the room for the action button beside it is left out of its width.
+  // A speech bubble sits at the foot of the band, over the small print and not the meters; the room for the action button beside it is left out of its width.
   let bubbleEnd = 0
+  let bubbleY = 0
   if (bubble) {
     const bx = mascot.width + gap + 6
-    const w = Math.min(bubbleWidth(bubble), Math.max(60, bodyW - 150))
-    out += bubbleOut(bubble, bx, Math.round((height - BUBBLE_H) / 2), w)
+    const w = Math.min(bubbleWidth(bubble.text), Math.max(60, bodyW - 150))
+    // Below the bars (a meter row is label at 11, bar to 24), so only the small print is covered.
+    bubbleY = Math.min(height - BUBBLE_H, Math.max(top + 28, height - BUBBLE_H - 4))
+    out += bubbleOut(bubble.text, bx, bubbleY, w, bubble.phase)
     bubbleEnd = bx + w
   }
-  return { source: wrapSvg(mascot.width + gap + bodyW, height, out), width: mascot.width + gap + bodyW, height, bubbleEnd }
+  return { source: wrapSvg(mascot.width + gap + bodyW, height, out), width: mascot.width + gap + bodyW, height, bubbleEnd, bubbleY }
 }
 
 /** A hairline with room above and below it, to set one band apart from the next. */

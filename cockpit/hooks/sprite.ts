@@ -43,8 +43,9 @@ function kit(W, H) {
 }
 
 function clawd(o) {
+  const OYv = OY - (o.lift || 0);   // lift raises the whole figure, legs too (asleep: the alarm clock goes under him)
   const W = o.w || W0, H = H0, k = kit(W, H), { set, fill, stamp } = k;
-  const by = o.dy || 0, X = OX + (o.dx || 0), Y = OY + by, F = OY + 16;   // F = floor row under the feet
+  const by = o.dy || 0, X = OX + (o.dx || 0), Y = OYv + by, F = OYv + 16;   // F = floor row under the feet
   const px = (pat, x, y, c) => stamp(pat, x, y, c);
   // ---- scenery behind him
   if (o.beach !== undefined) {
@@ -63,7 +64,7 @@ function clawd(o) {
   // ---- body from the canonical grid
   ART.forEach((row, cy) => [...row].forEach((ch, cx) => {
     if (ch === '.') return;
-    if (cy >= 6) { if (o.legsUp?.includes(cx) && cy === 7) return; fill(OX + cx * 2, OY + cy * 2, 2, 2, 'c'); }
+    if (cy >= 6) { if (o.legsUp?.includes(cx) && cy === 7) return; fill(OX + cx * 2, OYv + cy * 2, 2, 2, 'c'); }
     else fill(X + cx * 2, Y + cy * 2, 2, 2, 'c');
   }));
   const clearArm = (side) => { const x0 = side === 'L' ? X : X + 20; for (let j = 4; j < 8; j++) for (let i = 0; i < 4; i++) set(x0 + i, Y + j, null); return x0; };
@@ -105,6 +106,7 @@ function clawd(o) {
   if (o.mouth === 'smile') { fill(mc, my, 4, 1, 'w'); set(mc - 1, my - 1, 'w'); set(mc + 4, my - 1, 'w'); }
   if (o.mouth === 'open') { fill(mc, my - 1, 4, 3, 'w'); fill(mc + 1, my + 1, 2, 1, 'h'); }
   if (o.mouth === 'o') fill(mc + 1, my - 1, 2, 2, 'k');
+  if (o.mouth === 'yawn') { fill(mc, my - 2, 4, 5, 'k'); fill(mc + 1, my + 1, 2, 1, 'h'); }
   if (o.mouth === 'flat') fill(mc + 1, my, 2, 1, 'w');
   if (o.mouth === 'grim') { fill(mc, my, 4, 1, 'w'); set(mc - 1, my + 1, 'w'); set(mc + 4, my + 1, 'w'); }
   // ---- face props
@@ -124,7 +126,7 @@ function clawd(o) {
   }
   if (o.flask) { const t = o.flask, one = (fx, fy, liquid) => { fill(fx + 2, fy, 3, 3, 'i'); fill(fx + 1, fy + 3, 5, 1, 'i'); fill(fx, fy + 4, 7, 3, 'i'); fill(fx + 1, fy + 5, 5, 3, liquid); fill(fx + 2, fy + 8, 3, 1, liquid); fill(fx + 1, fy + 3, 1, 4, 'v'); set(fx + 3 - (t % 2), fy - 1 - t % 3, liquid); set(fx + 4, fy - 3 + (t % 2), liquid); set(fx + 2, fy + 5, 'w'); set(fx + 4, fy + 6, 'w'); }; one(X + 22, Y - 3, 'l'); one(X - 5, Y - 3, 'h'); }
   if (o.tubes) { const tx = X - 4; for (let i = 0; i < 3; i++) { fill(tx + i * 3, Y + 6, 2, 7, 'i'); fill(tx + i * 3, Y + 9 - (i % 2), 2, 4 + (i % 2), ['q', 'h', 'y'][i]); } fill(tx - 1, Y + 13, 9, 1, 'X'); }
-  if (o.laptop) { fill(X + 3, OY + 11, 18, 8, 'L'); fill(X + 3, OY + 11, 18, 1, 'M'); fill(X + 11, OY + 14, 2, 2, 'M'); }
+  if (o.laptop) { fill(X + 3, OYv + 11, 18, 8, 'L'); fill(X + 3, OYv + 11, 18, 1, 'M'); fill(X + 11, OYv + 14, 2, 2, 'M'); }
   if (o.bell !== undefined) {
     const s2 = o.bell, bx = X + 23 + s2;
     set(bx, Y + 4, 'B'); fill(bx - 1, Y + 5, 3, 1, 'b'); fill(bx - 2, Y + 6, 5, 1, 'b'); fill(bx - 3, Y + 7, 7, 2, 'b'); fill(bx - 4, Y + 9, 9, 1, 'b'); fill(bx - 4, Y + 10, 9, 1, 'B'); fill(bx - 1, Y + 11, 3, 2, 'B');
@@ -172,10 +174,12 @@ function clawd(o) {
     stamp(['......ww', '.....www', '....wwwK', '...wwwK.', '..wwKK..', '.wKK....', 'XX......'], qx, qy, 'w')
   }
   if (o.scroll) { fill(X + 3, Y + 8, 18, 9, 'o'); fill(X + 3, Y + 16, 18, 1, 'O'); for (const [yy, ww] of [[10, 12], [12, 14], [14, 9]]) fill(X + 5, Y + yy, ww, 1, 'O'); fill(X + 2, Y + 7, 20, 1, 'O'); }
-  if (o.book) {   // an open book held in front of him: brown cover, two pages, a spine, lines of text
-    const bx = X + 2, by = Y + 8;
+  if (o.book) {   // an open book held in front of him: brown cover, two pages, a spine, lines of text; 2 and 3 turn a page
+    const bx = X + 2, by = Y + 8, st = o.book;
     fill(bx, by, 20, 10, 'X'); fill(bx + 1, by + 1, 9, 8, 'o'); fill(bx + 11, by + 1, 9, 8, 'o');
-    for (const yy of [2, 4, 6]) { fill(bx + 2, by + yy, 6, 1, 'O'); fill(bx + 13, by + yy, 6, 1, 'O'); }
+    for (const yy of [2, 4, 6]) { fill(bx + 2, by + yy, 6, 1, 'O'); if (st !== 2) fill(bx + 13, by + yy, 6, 1, 'O'); }
+    if (st === 2) { fill(bx + 9, by - 2, 2, 9, 'o'); fill(bx + 8, by - 2, 1, 9, 'O'); fill(bx + 11, by + 1, 9, 8, 'O'); }   // the page stands up on the spine, the page under it is bare
+    if (st === 3) { fill(bx + 9, by + 1, 1, 8, 'O'); fill(bx + 10, by + 1, 1, 8, 'O'); }   // it lands: a thicker stack on the left
     fill(bx, by + 9, 20, 1, 'x');
   }
   if (o.stack) {   // a short stack of books on the ground beside him (right side, fixed: does not move with the body)
@@ -202,6 +206,7 @@ function clawd(o) {
   if (o.flexbolt) px(PAT.BOLT, X + 10, Y - 8, 'l');
   if (o.check) px(PAT.CHECK, X + 17, Y - 8, 'G');
   if (o.heart !== undefined) px(PAT.HEART, X + 22, Y - 5 - o.heart, 'h');
+  if (o.zzz !== undefined) { px(PAT.Z, X + 24, Y + 5 - (o.zzz % 4), 'z'); px(PAT.Z, X + 26, Y + 2 - ((o.zzz + 2) % 4), 'z'); }
   if (o.z !== undefined) px(PAT.Z, X + 24, Y - 8 - o.z + 4, 'z');
   if (o.z2 !== undefined) px(PAT.Z, X + 20, Y - 10 + o.z2 * 0 - o.z2 + 4, 'z');
   if (o.bang) px(PAT.BANG, o.bangX ?? X + 2, Y - 8, 'r');
@@ -212,11 +217,11 @@ function clawd(o) {
   if (o.ice) { fill(X - 1, F - 1, 26, 4, 'i'); fill(X - 1, F - 1, 26, 1, 'w'); fill(X + 1, F + 3, 22, 1, 'Q'); for (const x of [X + 1, X + 8, X + 15, X + 21]) { fill(x, F - 3, 2, 2, 'i'); } }
   if (o.sweat !== undefined) px(['.#.', '###', '###'], X + 22, Y + 1 + o.sweat, 'q');
   if (o.gauge !== undefined) { fill(X + 6, Y - 7, 12, 4, 'g'); fill(X + 7, Y - 6, 10, 2, 'd'); fill(X + 7, Y - 6, o.gauge, 2, 'r'); }
-  if (o.clock) {
-    const cx = X + 28, cy = F - 8, t = o.clock;
-    fill(cx + 2, cy - 3, 4, 2, 'g'); fill(cx + 15, cy - 3, 4, 2, 'g'); fill(cx, cy - 1, 23, 9, 'g'); fill(cx + 1, cy, 21, 7, 'd');
+  if (o.clock) {   // under him, inside the normal canvas: he sits raised (lift) and the alarm clock is below
+    const cx = OX, cy = F + 2, t = o.clock;
+    fill(cx + 2, cy - 2, 3, 1, 'g'); fill(cx + 18, cy - 2, 3, 1, 'g');
+    fill(cx, cy - 1, 23, 9, 'g'); fill(cx + 1, cy, 21, 7, 'd');
     let x = cx + 3; [...t].forEach(ch => { const p = PAT.DIG[ch]; px(p, x, cy + 1, 'a'); x += p[0].length + 1; });
-    fill(cx + 2, cy + 8, 2, 1, 'g'); fill(cx + 19, cy + 8, 2, 1, 'g');
   }
   if (false) { fill(X - 3, Y + 9, 30, 8, 'u'); fill(X - 3, Y + 9, 30, 1, 'U'); for (let x = X - 1; x < X + 26; x += 6) fill(x, Y + 11, 3, 5, 'J'); }
   return k;
