@@ -837,6 +837,8 @@ test('a button is drawn as a gray pill with the real Button laid over it, blank,
   expect(pill?.props?.source).not.toContain('fill-opacity')
   expect(await ui.find({ key: 'handoff' })).toBeDefined()
   expect((await ui.find({ key: 'handoff-wrap' }))?.props?.overflow).toBe('hidden') // the click area cannot reach past the drawing
+  expect((await ui.find({ key: 'hit' }))?.props).toMatchObject({ top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden' }) // and the Button layer spans the drawing's box on all four edges, whatever the host's cells are
+  expect(await ui.find({ key: 'handoff-2' })).toBeDefined() // two rows of Button cover its height
   await ui.unmount()
 })
 
