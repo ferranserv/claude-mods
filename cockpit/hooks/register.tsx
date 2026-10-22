@@ -1343,7 +1343,9 @@ const presses = new Map<string, () => void>()
 /** A press target: a Client whose drawing is its region; a pointer release on it runs `press` (the `ui.message` hook below). */
 function pressTarget(c: Comps, key: string, art: { source: string; alt: string; width: number; height: number; isInteractive: boolean }, press: () => void) {
   presses.set(key, press)
-  return el(c.Client as never, { key, module: './press.tsx', props: { source: art.source, alt: art.alt, width: art.width, height: art.height, isInteractive: art.isInteractive } })
+  // The engine reads the Client and its module off this source before anything runs: the element is named `Client` here, with its module a string literal.
+  const Client = c.Client as never
+  return el(Client, { key, module: './press.tsx', props: { source: art.source, alt: art.alt, width: art.width, height: art.height, isInteractive: art.isInteractive } })
 }
 
 /** What one action's button does: pressing it answers the bubble and closes the menu. */
