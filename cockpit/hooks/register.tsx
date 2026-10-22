@@ -17,6 +17,7 @@ import {
   cacheView,
   CELL,
   LANE_H,
+  dotsSvg,
   clockText,
   C,
   bandParts,
@@ -1263,7 +1264,7 @@ async function bandTree($: EngineInterface, e: { surface: string }, o: { isWorki
       const drawn = el(
         c.Box,
         { key: 'art', flexDirection: 'row', alignItems: 'center' },
-        ...(parts.mascot ? [pressTarget(c, 'clawd', { source: parts.mascot.source, alt: STATES[s.state].label, width: parts.mascot.width, height: parts.mascot.height, isInteractive: true, svgKey: 'mascot' }, () => fx.toggle(s.speech !== null, s.hover?.text ?? '', s.hover?.alertId))] : []),
+        ...(parts.mascot ? [clawdColumn(c, s, parts, fx)] : []),
         column,
       )
       row = el(c.Box, { key: 'row', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, drawn, controls(s, c, fx, Svg))
@@ -1332,6 +1333,25 @@ function buttonGroup(c: Comps, specs: BtnSpec[], key = 'btns') {
     row.push(pressTarget(c, `press-${b.key}`, { source: art.source, alt: b.label, width: art.width, height: art.height, isInteractive: false }, b.press))
   })
   return [el(c.Box, { key, flexDirection: 'row', alignItems: 'center', flexShrink: 0 }, ...row)]
+}
+
+/**
+ * Clawd and, under him, three small dots that show or hide his bubble. His drawing is an interactive Svg (a sandboxed frame, so
+ * it animates) and the frame keeps the pointer for itself, so the Client laid over him is not reached on the desktop; the dots are
+ * a plain drawing with a Client over it, like the pills. They take only the height the row has to spare (the meters and the lane
+ * are taller than he is), so the band never grows.
+ */
+function clawdColumn(c: Comps, s: Snap, parts: { mascot: { source: string; width: number; height: number } | null; meters: { height: number } }, fx: Fx) {
+  const m = parts.mascot!
+  const toggle = () => fx.toggle(s.speech !== null, s.hover?.text ?? '', s.hover?.alertId)
+  const room = Math.min(14, parts.meters.height + LANE_H - m.height)
+  const dots = room >= 8 ? dotsSvg(m.width, room) : null
+  return el(
+    c.Box,
+    { key: 'clawd-col', flexDirection: 'column', alignItems: 'center', flexShrink: 0 },
+    pressTarget(c, 'clawd', { source: m.source, alt: STATES[s.state].label, width: m.width, height: m.height, isInteractive: true, svgKey: 'mascot' }, toggle),
+    ...(dots ? [pressTarget(c, 'clawd-dots', { source: dots.source, alt: 'Show or hide what Clawd says', width: dots.width, height: dots.height, isInteractive: false }, toggle)] : []),
+  )
 }
 
 /**

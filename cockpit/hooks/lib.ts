@@ -537,6 +537,14 @@ export function bubbleArt(from: string, to: string, room: number): { source: str
   return { source: wrapSvg(width, LANE_H, out), width, height: LANE_H, seconds }
 }
 
+/** Three small dim dots, centered: the strip under Clawd that shows or hides his bubble. */
+export function dotsSvg(width: number, height: number): { source: string; width: number; height: number } {
+  const y = Math.floor((height - 3) / 2)
+  const x = Math.floor(width / 2) - 8
+  const dots = [0, 6, 12].map(dx => `<rect x="${x + dx}" y="${y}" width="3" height="3" fill="#8E8E93" fill-opacity="0.55"/>`).join('')
+  return { source: wrapSvg(width, height, dots), width, height }
+}
+
 /** The gap between buttons of a group, in px. */
 export const PILL_GAP = 8
 
