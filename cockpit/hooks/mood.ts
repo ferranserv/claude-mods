@@ -3,7 +3,7 @@
 // Three levels, so the general state of the account never talks over the task:
 //   1. needs you now     hand (a permission prompt is open), writing, idea (a plan waits for approval)
 //   2. the task          only while Claude works: oops, boom (a check failed), lab (a check passed), ship (a commit, push or PR), plug (events of the task), dizzy (compacting), then creating,
-//                        building, reading, browse (the tool that runs), then coffee (cycles with the work after
+//                        building, reading, browse, running (the tool that runs; running is a shell command past RUN_AFTER_MS), then coffee (cycles with the work after
 //                        COFFEE_AFTER_MS), typing, thinking. Session events (walk, hello) and the owner's own actions
 //                        (love, wand) play whenever they happen, for FLEET_MS, and are not kept.
 //   3. when it is over   bell, then coins (the saver kept money), then a notice (talk), then the status alerts, ROTATING
@@ -19,7 +19,7 @@ export const FLEET_ORDER: readonly Fleet[] = ['oops', 'boom', 'bell', 'lab', 'sh
 /** Status alerts, worst first: shown only when Claude is not working, one at a time, in turns. */
 export const ALERT_ORDER = ['asleep', 'mad', 'fire', 'gauge', 'sleepy', 'drunk', 'cold', 'hourglass', 'detective', 'plug'] as const
 export const isAlert = (id: StateId): boolean => (ALERT_ORDER as readonly string[]).includes(id)
-export type ToolKind = 'building' | 'reading' | 'browse' | 'creating'
+export type ToolKind = 'building' | 'reading' | 'browse' | 'creating' | 'running'
 
 /** How long each fleeting event plays, in ms. */
 export const FLEET_MS: Record<Fleet, number> = { oops: 5000, boom: 6500, bell: 5000, lab: 5000, ship: 6700, love: 5000, idea: 5000, wand: 5000, coins: 5000, plug: 6000 }
@@ -32,6 +32,11 @@ export const LOOP_EXIT_MS: Partial<Record<Fleet, number>> = { ship: 5200, boom: 
 export const HOLD_MS = 5000
 /** A tool's state lingers this long after it ends, so quick calls are still seen. */
 export const TOOL_LINGER_MS = 1200
+/**
+ * A shell command shows `running` (typing with code scrolling behind him) once it has run this long, so the quick ones
+ * (ls, git status) stay typing and the pose never flickers; a check, an install or a build shows it at once (register.tsx).
+ */
+export const RUN_AFTER_MS = 2000
 export const START_MS = 5000
 /** Coffee starts after this much work, then comes for COFFEE_SHOW_MS every COFFEE_CYCLE_MS and goes back to the task. */
 export const COFFEE_AFTER_MS = 420_000
@@ -161,6 +166,7 @@ export function bubbleFor(id: StateId, b: BubbleInput): Bubble | null {
     case 'coffee': return { text: 'Still on it. Coffee break.' }
     case 'talk': return null
     case 'typing':
+    case 'running':
     case 'thinking':
     case 'idle':
       return null
@@ -171,13 +177,14 @@ export function bubbleFor(id: StateId, b: BubbleInput): Bubble | null {
 export function hoverHint(id: StateId): string | null {
   if (id === 'thinking') return 'Thinking…'
   if (id === 'typing') return 'Working on it'
+  if (id === 'running') return 'Running a command'
   if (id === 'idle') return 'Ready when you are'
   return null
 }
 
 /** Every state, most important first: a shown state is only interrupted by one earlier in this list. */
 export const ORDER: readonly StateId[] = [
-  'hand', 'writing', 'idea', ...FLEET_ORDER, 'dizzy', 'creating', 'building', 'reading', 'browse', 'walk', 'hello',
+  'hand', 'writing', 'idea', ...FLEET_ORDER, 'dizzy', 'creating', 'building', 'reading', 'browse', 'running', 'walk', 'hello',
   'talk', ...ALERT_ORDER.filter(id => id !== 'plug'), 'coffee', 'typing', 'thinking', 'idle',
 ]
 export const rank = (id: StateId): number => ORDER.indexOf(id)

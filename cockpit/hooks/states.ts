@@ -6,7 +6,7 @@ import type { Pose } from './sprite'
 export type StateId =
   | 'idle' | 'typing' | 'thinking' | 'bell' | 'coins' | 'walk' | 'talk' | 'drunk' | 'fire' | 'hourglass' | 'cold'
   | 'gauge' | 'mad' | 'sleepy' | 'asleep' | 'love' | 'detective' | 'oops' | 'wand' | 'hello' | 'idea' | 'coffee'
-  | 'reading' | 'building' | 'browse' | 'plug' | 'dizzy' | 'lab' | 'hand' | 'writing' | 'creating' | 'boom' | 'ship'
+  | 'reading' | 'building' | 'browse' | 'plug' | 'dizzy' | 'lab' | 'hand' | 'writing' | 'creating' | 'boom' | 'ship' | 'running'
 
 type Def = {
   /** What a screen reader hears. */
@@ -25,6 +25,9 @@ const OX = 5
 const T: Pose = { eyes: 'half', look: 'down', laptop: 1 }
 const range = (n: number) => Array.from({ length: n }, (_, i) => i)
 
+// Typing and running are the same drawing; running adds lines of code scrolling up behind him (2 px a frame: 16 frames, one 32-row pattern).
+const TYPING: Pose[] = [0, 0, 1, 1, 2, 2, 3, 3, 3, 4, 0, 0, 0, 0, 0, 0].map((gum, i) => ({ ...T, mouth: gum === 0 ? (i % 4 < 2 ? 'focus' : 'chew') : gum === 4 ? 'o' : 'chewOpen', ...(gum === 0 ? {} : { gum }), armL: i % 2 ? 'type0' : 'type1', armR: i % 2 ? 'type1' : 'type0', ...(i === 12 || i === 13 ? { armL: 'up', armR: 'type0' } : {}) }))
+
 export const STATES: Record<StateId, Def> = {
   idle: { label: 'Clawd is relaxing in sunglasses', face: '(-_-)~', fd: 0.5, frames: [
     { shades: 1, mouth: 'smile', hold: 6 },
@@ -35,7 +38,8 @@ export const STATES: Record<StateId, Def> = {
     { shades: 1, mouth: 'smile', armR: 'half', hold: 2 },
     { shades: 1, mouth: 'smile', hold: 3 },
   ] },
-  typing: { label: 'Clawd is typing on a laptop, chewing gum and blowing bubbles', face: '[o_o]>', fd: 0.16, frames: [0, 0, 1, 1, 2, 2, 3, 3, 3, 4, 0, 0, 0, 0, 0, 0].map((gum, i) => ({ ...T, mouth: gum === 0 ? (i % 4 < 2 ? 'focus' : 'chew') : gum === 4 ? 'o' : 'chewOpen', ...(gum === 0 ? {} : { gum }), armL: i % 2 ? 'type0' : 'type1', armR: i % 2 ? 'type1' : 'type0', ...(i === 12 || i === 13 ? { armL: 'up', armR: 'type0' } : {}) })) },
+  typing: { label: 'Clawd is typing on a laptop, chewing gum and blowing bubbles', face: '[o_o]>', fd: 0.16, frames: TYPING },
+  running: { label: 'Clawd types on his laptop, chewing gum, while lines of code scroll by behind him: a command is running', face: '[o_o]>>', fd: 0.16, frames: TYPING.map((f, i) => ({ ...f, code: i * 2 })) },
   thinking: { label: 'Clawd is thinking', face: '(o_o)...', fd: 0.11, frames: range(16).map(i => ({ spinner: i % 8, look: i < 6 ? 'up' : i < 10 ? 'right' : i < 13 ? 'up' : 'left', armR: 'chin', ...(i >= 3 && i <= 12 ? { armL: i <= 4 || i >= 11 ? 'half' : 'up' } : {}) })) },
   bell: { label: 'Clawd rings a bell: the turn is finished', face: '(^o^)ding', fd: 0.1, frames: [0, -1, -1, 0, 1, 1, 0, -1, 0, 1].map((s, i) => ({ eyes: 'happy', mouth: 'open', armR: 'high', bell: s, notes: i, ...(i === 1 || i === 9 ? { armL: 'half' } : i > 1 ? { armL: 'up' } : {}) })) },
   coins: { label: 'Clawd counts coins the saver kept', face: '($_$)', fd: 0.4, frames: [0, 1, 0, 1, 0, 1].map((t, i) => ({ eyes: 'happy', mouth: 'smile', coins: t, star: t, ...(i === 1 || i === 5 ? { armL: 'half' } : i >= 2 && i <= 4 ? { armL: 'up' } : {}) })) },
@@ -225,6 +229,7 @@ type Motion = { each?: number; dx?: number[]; dy?: number[] }
 const MOTION: Partial<Record<StateId, Motion>> = {
   idle: { each: 2, dy: [0, 0, 1, 1, 1, 1, 0, 0] }, // breathes in the sun
   typing: { dy: [0, -1, 0, -1] }, // bounces with each tap
+  running: { dy: [0, -1, 0, -1] }, // the same
   thinking: { dx: [0, 0, 1, 1, 0, 0, -1, -1] }, // sways while the spinner turns
   coins: { each: 2, dy: [0, -2, 0, -1] }, // hops over the coins
   talk: { each: 2, dy: [0, -1, 0, 0, 0, -1, 0, 0] }, // nods as he talks
@@ -419,6 +424,17 @@ const SHIP_OUT: Pose[] = [
   { console: 0, consoleDy: 5, rocket: 28, look: 'right', eyes: 'open', mouth: 'smile' },
 ]
 const SHIP_IN: Pose[] = [...SHIP_OUT].reverse()
+// Running goes wherever typing goes: every hand-drawn move of typing is copied for running, with his own first (or last) frame, the one with the code.
+for (const key of Object.keys(MOVES)) {
+  const [from, to] = key.split('>')
+  const m = MOVES[key]!
+  if (from === 'typing') MOVES[`running>${to}`] = { ...m, frames: [F('running'), ...m.frames.slice(1)] }
+  if (to === 'typing') MOVES[`${from}>running`] = { ...m, frames: [...m.frames.slice(0, -1), F('running')] }
+}
+/** Typing and running differ only in the code behind him: he keeps tapping and the lines fade in (or out) a few at a time (see fadeCode). */
+const TAP = (i: number): Pose => ({ ...T, mouth: 'focus', armL: i % 2 ? 'type0' : 'type1', armR: i % 2 ? 'type1' : 'type0', dy: i % 2 ? -1 : 0 })
+MOVES['typing>running'] = { fd: 0.16, frames: [F('typing'), TAP(1), TAP(2), TAP(3), F('running')] }
+MOVES['running>typing'] = { fd: 0.16, frames: [F('running'), TAP(1), TAP(2), TAP(3), F('typing')] }
 for (const key of Object.keys(MOVES)) {
   const [from, to] = key.split('>')
   const m = MOVES[key]!
@@ -588,6 +604,7 @@ function tinted(frames: Pose[], toCold: boolean): { fd: number; frames: Pose[] }
  */
 const ENTER: Partial<Record<StateId, Pose[]>> = {
   typing: [{ look: 'down', eyes: 'half', mouth: 'focus' }],
+  running: [{ look: 'down', eyes: 'half', mouth: 'focus' }],
   thinking: [{ eyes: 'wide', armR: 'up', mouth: 'open' }],
   bell: [{ eyes: 'happy', mouth: 'smile', armR: 'half' }],
   coins: [{ eyes: 'wide', mouth: 'o', armR: 'half' }],
@@ -624,8 +641,35 @@ const leaving = (id: StateId): Pose[] => [...(ENTER[id] ?? [])].reverse()
  * starts from the same neutral pose. Null only when nothing changes.
  */
 function moveOf(from: StateId, to: StateId): (Move & { w: number }) | null {
+  const m = rawMoveOf(from, to)
+  return m ? { ...m, frames: fadeCode(m.frames, from, to) } : null
+}
+
+/**
+ * The lines of code behind running do not appear or vanish in one frame: over a move into running they come in a few
+ * at a time (`codeA`, a third of the lines, two thirds, all), and over a move out of it they go the same way. The
+ * first frame of a move out, and the last of a move in, are his own (all the lines); the rest are set here whatever
+ * the move drew, so a prop taken or fetched by hand never carries a stale line along.
+ */
+function fadeCode(frames: Pose[], from: StateId, to: StateId): Pose[] {
+  const goes = from === 'running' && to !== 'running'
+  const comes = to === 'running' && from !== 'running'
+  if (!goes && !comes) return frames
+  const n = frames.length
+  return frames.map((f, i) => {
+    if (i === (goes ? 0 : n - 1)) return f
+    const { code: _c, codeA: _a, ...rest } = f
+    const edge = goes ? i === n - 1 : i === 0
+    const level = edge ? 0 : Math.ceil(3 * (goes ? 1 - i / (n - 1) : i / (n - 1)))
+    return level > 0 ? { ...rest, code: 2 * i, codeA: level } : rest
+  })
+}
+
+function rawMoveOf(from: StateId, to: StateId): (Move & { w: number }) | null {
   if (from === to) return null
   const m = MOVES[`${from}>${to}`]
+  // Typing and running are the same body: nothing is taken or fetched, no blink and no hop, only the code.
+  if (m && (from === 'typing' || from === 'running') && (to === 'typing' || to === 'running')) return { fd: m.fd, frames: m.frames, w: 34 }
   if (m) return { ...paced(smooth(m.frames), from), w: 34 }
   const a = STATES[from]
   const b = STATES[to]

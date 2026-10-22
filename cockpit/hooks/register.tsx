@@ -35,7 +35,7 @@ import {
   windowMinutes,
 } from './lib'
 import type { ActionId, Alert, Model, Thresholds } from './lib'
-import { COFFEE_AFTER_MS, FLEET_MS, LOOP_EXIT_MS, HOLD_MS, START_MS, TOOL_LINGER_MS, bubbleFor, clockOf, hoverHint, isAlert, nextShift, pickState, rank } from './mood'
+import { COFFEE_AFTER_MS, FLEET_MS, LOOP_EXIT_MS, HOLD_MS, RUN_AFTER_MS, START_MS, TOOL_LINGER_MS, bubbleFor, clockOf, hoverHint, isAlert, nextShift, pickState, rank } from './mood'
 import type { Bubble, Fleet, MoodInput, ToolKind } from './mood'
 import {
   WRITE_TOOLS,
@@ -127,6 +127,7 @@ const mood = {
   fleet: {} as Partial<Record<Fleet, number>>, // fleeting events, by the time they end
   tool: null as { kind: ToolKind; until: number } | null,
   toolNote: '',
+  runCall: '', // a shell command that started and has not shown `running` yet (it does once it has run RUN_AFTER_MS)
   inputJson: '', // the first pieces of the arguments being streamed, to find the file's name
   failNote: '',
   shipNote: '', // what shipped: Committed, Pushed, Pull request opened...
@@ -249,6 +250,9 @@ function shipOf(tool: string, command: string): string | null {
   for (const [re, text] of SHIP_COMMANDS) if (re.test(command)) return text
   return null
 }
+/** Commands that take a while by nature: they show `running` the moment they start. Everything else shows it after RUN_AFTER_MS. */
+const SLOW_COMMAND = /\b((npm|pnpm|yarn|bun)( run)? (install|i|add|ci|build|dev|start)|pip3? install|cargo (install|run)|go (run|install)|apt(-get)? (install|update|upgrade)|brew (install|upgrade)|docker( compose)? (build|run|up|pull)|terraform (apply|plan|init)|make|sleep)\b/i
+const isShell = (tool: string) => tool === 'Bash' || tool === 'PowerShell'
 const baseName = (p: string) => p.replace(/\\/g, '/').split('/').filter(Boolean).pop() ?? ''
 
 function toolKind(tool: string): ToolKind | null {
@@ -266,6 +270,23 @@ function toolStarts($: EngineInterface, input: ToolInput): void {
   if (kind) {
     mood.tool = { kind, until: Number.MAX_SAFE_INTEGER }
     mood.toolNote = baseName(String(input.file_path ?? input.notebook_path ?? input.pattern ?? ''))
+  } else if (isShell(tool)) {
+    // A check, an install or a build is a run from the start; any other command only once it has run a while (a quick one stays typing).
+    const command = String(input.command ?? '')
+    if (VERIFY_COMMAND.test(command) || SLOW_COMMAND.test(command)) {
+      mood.tool = { kind: 'running', until: Number.MAX_SAFE_INTEGER }
+      mood.toolNote = ''
+    } else {
+      const id = String(input.tool_use_id ?? tool)
+      mood.runCall = id
+      $.clock.after(RUN_AFTER_MS, () => {
+        // Still the same call, and no other tool is showing (a Read beside it is the more specific pose).
+        if (mood.runCall !== id || (mood.tool && mood.tool.until === Number.MAX_SAFE_INTEGER)) return
+        mood.tool = { kind: 'running', until: Number.MAX_SAFE_INTEGER }
+        mood.toolNote = ''
+        poke($)
+      })
+    }
   }
   poke($)
 }
@@ -306,6 +327,7 @@ async function toolEnds($: EngineInterface, input: ToolInput, r: { isError?: boo
     mood.dialog = false
     poke($)
   }
+  if (mood.runCall === String(input.tool_use_id ?? tool)) mood.runCall = ''
   if (mood.tool) {
     mood.tool = { kind: mood.tool.kind, until: now + TOOL_LINGER_MS }
     poke($, TOOL_LINGER_MS)
@@ -1108,7 +1130,7 @@ async function snapshot($: EngineInterface, propsWorking: boolean): Promise<Snap
   const wanted: StateId = !isDemo && mood.sticky && (picked === 'idle' || picked === 'talk') ? mood.sticky.state : picked
   const shown = mood.drawn
   // Painting a file and then hammering it (or reading, then browsing) is one piece of work: those follow each other at once.
-  const isWork = (id: StateId) => id === 'creating' || id === 'building' || id === 'reading' || id === 'browse'
+  const isWork = (id: StateId) => id === 'creating' || id === 'building' || id === 'reading' || id === 'browse' || id === 'running'
   const state: StateId = !isDemo && shown && shown.id !== wanted && shown.id !== 'hand' && now - shown.since < HOLD_MS && rank(wanted) >= rank(shown.id) && !(isWorking && isAlert(shown.id)) && !(isWork(wanted) && isWork(shown.id)) ? shown.id : wanted
   if (!mood.drawn || mood.drawn.id !== state) {
     mood.move = mood.drawn ? { from: mood.drawn.id, to: state } : null
@@ -1675,6 +1697,7 @@ export const register: Register = (on, options) => {
       mood.hasTool = false
       mood.waiting = false
       mood.tool = null
+      mood.runCall = ''
       mood.toolNote = ''
       poke($, COFFEE_AFTER_MS + 500)
     }
@@ -1691,6 +1714,7 @@ export const register: Register = (on, options) => {
       mood.askId = ''
       mood.dialog = false
       mood.tool = null
+      mood.runCall = ''
       mood.compacting = false
       if (hasLog) await safe(() => logTurn($, e))
       if (hasSound && e.reason !== 'aborted') await chime($)

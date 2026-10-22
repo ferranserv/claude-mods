@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'claude-code/testing'
 
-import { COFFEE_AFTER_MS, COFFEE_CYCLE_MS, COFFEE_SHOW_MS, ROTATE_MS, activeAlerts, bubbleFor, clockOf, isAlert, nextShift, pickState } from './mood'
+import { COFFEE_AFTER_MS, COFFEE_CYCLE_MS, COFFEE_SHOW_MS, ROTATE_MS, activeAlerts, bubbleFor, clockOf, hoverHint, isAlert, nextShift, pickState, rank } from './mood'
 import type { BubbleInput, MoodInput } from './mood'
 import type { StateId } from './states'
 import { MOVES, STATES, STATE_IDS, enterMarkup, moveFrames, moveMarkup, moveMs, stateMarkup } from './states'
@@ -47,13 +47,22 @@ describe('which state wins', () => {
     expect(mood({ compacting: true, tool: { kind: 'reading', until: NOW + 1 } })).toBe('dizzy')
   })
 
+  test('a shell command that runs shows running, over coffee and typing, under the tools with a pose of their own', () => {
+    expect(mood({ busy: true, hasTool: true, tool: { kind: 'running', until: NOW + 500 } })).toBe('running')
+    expect(mood({ busy: true, hasTool: true, busyMs: COFFEE_AFTER_MS + 1000, tool: { kind: 'running', until: NOW + 500 } })).toBe('running')
+    expect(mood({ busy: true, hasTool: true, tool: { kind: 'running', until: NOW - 1 } })).toBe('typing') // it ended and the linger is over
+    expect(mood({ waiting: true, busy: true, tool: { kind: 'running', until: NOW + 500 } })).toBe('hand')
+    expect(rank('running')).toBeLessThan(rank('typing'))
+    expect(rank('running')).toBeGreaterThan(rank('browse'))
+  })
+
   test('while Claude works no status alert shows, not even a critical one', () => {
     const all = { fiveUsed: 100, weekRoom: -5, ctx: 'alert' as const, cache: 'cold' as const, hasAdvice: true, offline: true, hasNote: true }
     expect(mood({ ...all, busy: true })).toBe('thinking')
     expect(mood({ ...all, busy: true, hasTool: true })).toBe('typing')
     expect(mood({ ...all, busy: true, tool: { kind: 'reading', until: NOW + 1 } })).toBe('reading')
     for (const id of ['asleep', 'mad', 'fire', 'gauge', 'sleepy', 'drunk', 'cold', 'hourglass', 'detective', 'plug'] as const) expect(isAlert(id)).toBe(true)
-    for (const id of ['hand', 'idea', 'oops', 'boom', 'ship', 'bell', 'lab', 'typing', 'coffee', 'talk', 'idle'] as const) expect(isAlert(id)).toBe(false)
+    for (const id of ['hand', 'idea', 'oops', 'boom', 'ship', 'bell', 'lab', 'typing', 'running', 'coffee', 'talk', 'idle'] as const) expect(isAlert(id)).toBe(false)
   })
 
   test('when it is over the alerts are listed worst first and each is true only on its own range', () => {
@@ -149,8 +158,8 @@ describe('the drawings', () => {
       expect(d.label.length).toBeGreaterThan(5)
     }
   })
-  test('33 states, each with a terminal face', () => {
-    expect(STATE_IDS.length).toBe(33)
+  test('34 states, each with a terminal face', () => {
+    expect(STATE_IDS.length).toBe(34)
     for (const id of STATE_IDS) expect(STATES[id].face.length).toBeGreaterThan(2)
   })
   test('the alarm clock shows the wake-up time it is given', () => {
@@ -212,7 +221,7 @@ describe('animation with flavour', () => {
     const bad: string[] = []
     for (const id of STATE_IDS) {
       for (const d of runs(id, look)) if (d < LOOK_S && d !== Infinity && id !== 'boom') bad.push(`${id} eyes ${d.toFixed(2)}s`)
-      if (!['typing', 'fire', 'mad', 'walk', 'dizzy', 'asleep', 'ship', 'boom', 'bell'].includes(id)) for (const d of runs(id, arm)) if (d < LOOK_S && d !== Infinity) bad.push(`${id} armL ${d.toFixed(2)}s`)
+      if (!['typing', 'running', 'fire', 'mad', 'walk', 'dizzy', 'asleep', 'ship', 'boom', 'bell'].includes(id)) for (const d of runs(id, arm)) if (d < LOOK_S && d !== Infinity) bad.push(`${id} armL ${d.toFixed(2)}s`)
     }
     expect(bad).toEqual([])
   })
@@ -353,7 +362,7 @@ describe('the moves between states', () => {
     for (const key of Object.keys(MOVES)) {
       const [from, to] = key.split('>') as [StateId, StateId]
       const m = moveFrames(from, to)!
-      if (m.frames.length < 3) continue
+      if (m.frames.length < 3 || ((from === 'typing' || from === 'running') && (to === 'typing' || to === 'running'))) continue // typing <-> running is the same body, so no blink and no hop
       expect(m.frames[0]!.hold, `${key} first`).toBeLessThan(1)
       expect(m.frames[m.frames.length - 1]!.hold, `${key} last`).toBeGreaterThan(1)
       expect(m.frames.slice(1, -1).some(f => f.eyes === 'blink' || (f.eyes !== undefined && f.eyes !== 'open' && f.eyes !== 'half')), `${key} blink or an expressive look in the middle`).toBe(true)
@@ -470,5 +479,93 @@ describe('the painter moves', () => {
     }
     // the palette shows small in his hand while it is taken or fetched (a hand-drawn carry), not as a pop
     expect(moveMarkup('creating', 'typing')?.markup.length).toBeGreaterThan(moveMarkup('idle', 'typing')!.markup.length * 0.5)
+  })
+})
+
+describe('running: typing with code scrolling behind him', () => {
+  test('the same drawing as typing, frame for frame, plus the code: same eyes, laptop, gum, arms and timing', () => {
+    expect(STATES.running.frames.length).toBe(STATES.typing.frames.length)
+    expect(STATES.running.fd).toBe(STATES.typing.fd)
+    STATES.running.frames.forEach((f, i) => {
+      const { code, ...rest } = f
+      expect(rest, `frame ${i}`).toEqual(STATES.typing.frames[i])
+      expect(code, `frame ${i}`).toBe(i * 2)
+    })
+    expect(STATES.typing.frames.every(f => f.code === undefined)).toBe(true)
+  })
+  test('the lines scroll 2 px a frame and the loop closes on a whole turn of the 32-row pattern', () => {
+    expect((STATES.running.frames.length * 2) % 32).toBe(0)
+    const a = clawd({ w: 34, ...STATES.running.frames[0], code: 0 }).g
+    const b = clawd({ w: 34, ...STATES.running.frames[0], code: 32 }).g
+    expect(b).toEqual(a)
+    expect(clawd({ w: 34, ...STATES.running.frames[0], code: 2 }).g).not.toEqual(a)
+  })
+  test('the code is only ever behind him: it fills empty cells and changes nothing he draws, and stays in the canvas', () => {
+    for (const f of STATES.running.frames) {
+      const bare = clawd({ w: 34, ...f, code: undefined })
+      const full = clawd({ w: 34, ...f })
+      expect(full.oob.length).toBe(0)
+      let lines = 0
+      full.g.forEach((row: (string | null)[], y: number) => row.forEach((c, x) => {
+        if (c !== bare.g[y][x]) { expect(bare.g[y][x], `${x},${y}`).toBeNull(); lines++ }
+      }))
+      expect(lines).toBeGreaterThan(60)
+    }
+  })
+  test('a fade shows a third, then two thirds, then all of the lines, the same lines each time', () => {
+    const lit = (a: number) => clawd({ w: 34, ...STATES.running.frames[0], codeA: a }).g.flat().filter((c: string | null) => c === 'A' || c === 'G' || c === 'H').length
+    expect(lit(1)).toBeLessThan(lit(2))
+    expect(lit(2)).toBeLessThan(lit(3))
+    expect(lit(1)).toBeGreaterThan(0)
+  })
+  test('every move of typing has its twin for running, both ways, from and to his own first frame', () => {
+    const twins = Object.keys(MOVES).filter(k => /(^|>)typing(>|$)/.test(k) && !/^(typing>running|running>typing)$/.test(k))
+    expect(twins.length).toBeGreaterThanOrEqual(20)
+    for (const key of twins) {
+      const [from, to] = key.split('>')
+      const twin = `${from === 'typing' ? 'running' : from}>${to === 'typing' ? 'running' : to}`
+      expect(MOVES[twin], twin).toBeDefined()
+      expect(MOVES[twin]!.frames.length).toBe(MOVES[key]!.frames.length)
+      if (from === 'typing') expect(MOVES[twin]!.frames[0]).toEqual({ ...STATES.running.frames[0], hold: undefined })
+      if (to === 'typing') expect(MOVES[twin]!.frames.at(-1)).toEqual({ ...STATES.running.frames[0], hold: undefined })
+    }
+    for (const id of STATE_IDS) if (id !== 'typing' && id !== 'running') {
+      expect(moveMs('running', id), `running>${id}`).toBeGreaterThan(0)
+      expect(moveMs(id, 'running'), `${id}>running`).toBeGreaterThan(0)
+    }
+  })
+  test('into running the lines come in a few at a time, out of it they go the same way, and he does not blink or hop', () => {
+    const level = (f: Record<string, unknown>) => (f.code === undefined ? 0 : ((f.codeA as number | undefined) ?? 3))
+    for (const [from, to] of [['typing', 'running'], ['idle', 'running'], ['building', 'running'], ['ship', 'running']] as const) {
+      const lv = moveFrames(from, to)!.frames.map(level)
+      expect(lv[0], `${from}>${to} first`).toBe(0)
+      expect(lv.at(-1), `${from}>${to} last`).toBe(3)
+      for (let i = 1; i < lv.length; i++) expect(lv[i]!, `${from}>${to} ${i}`).toBeGreaterThanOrEqual(lv[i - 1]!)
+    }
+    for (const [from, to] of [['running', 'typing'], ['running', 'idle'], ['running', 'building'], ['running', 'ship']] as const) {
+      const lv = moveFrames(from, to)!.frames.map(level)
+      expect(lv[0], `${from}>${to} first`).toBe(3)
+      expect(lv.at(-1), `${from}>${to} last`).toBe(0)
+      for (let i = 1; i < lv.length; i++) expect(lv[i]!, `${from}>${to} ${i}`).toBeLessThanOrEqual(lv[i - 1]!)
+    }
+    for (const key of ['typing>running', 'running>typing']) {
+      const [from, to] = key.split('>') as [StateId, StateId]
+      const fr = moveFrames(from, to)!.frames
+      expect(fr.length).toBeGreaterThanOrEqual(4)
+      expect(fr.some(f => f.eyes === 'blink' || f.eyes === 'wide'), key).toBe(false)
+      expect(fr.every(f => f.laptop === 1), key).toBe(true)
+    }
+  })
+  test('hovering says what he is doing, and he has nothing to say beyond that (no bubble, like typing)', () => {
+    expect(hoverHint('running')).toBe('Running a command')
+    expect(bubbleFor('running', { ctxPercent: 10, ctxText: '', cacheLabel: '', fiveUsed: 10, fiveReset: '', weekPace: '', weekRoom: 10, saverOn: false, detail: 'x', savedUsd: '', hasAdvice: false })).toBeNull()
+  })
+  test('the drawing and its moves fit the Svg limit', () => {
+    expect(stateMarkup('running').markup.length).toBeLessThan(131_000)
+    for (const to of ['typing', 'building', 'ship', 'idle'] as const) {
+      expect(moveMarkup('running', to)!.markup.length, `running>${to}`).toBeLessThan(131_000)
+      expect(enterMarkup('running', to)!.markup.length, `running>${to}`).toBeLessThan(131_000)
+      expect(enterMarkup(to, 'running')!.markup.length, `${to}>running`).toBeLessThan(131_000)
+    }
   })
 })

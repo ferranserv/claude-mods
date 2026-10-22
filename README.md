@@ -68,7 +68,7 @@ Several things can be true at once, so there is an order. Fleeting events win ov
 | 3 | dizzy; building, reading, browsing | the conversation is being compacted; an Edit/Write, a Read/Grep/Glob, or a WebSearch/WebFetch is running (and 1 second after) |
 | 4 | walk, hello | session start; your first message (5 seconds) |
 | 5 | asleep, mad, on fire, detective, frozen, hourglass, gauge low, tipsy, sleepy | 5-hour limit reached; over today's allowance; context 80%+; a preflight finding; cache cold; cache about to expire; allowance within 2%; context 50%+; 5-hour limit 80%+ |
-| 6 | coffee, typing, thinking, talk, idle (sunglasses) | turn over 2 minutes; turn running; waiting for the model; a notice is up; nothing going on |
+| 6 | coffee, typing, running (typing with code scrolling behind him), thinking, talk, idle (sunglasses) | turn over 2 minutes; turn running; a command running; waiting for the model; a notice is up; nothing going on |
 
 The cache states show only while Claude is idle (a running turn keeps the cache warm). The speech bubble is a white pixel bubble above Clawd, with the button beside it. It says what he is reacting to and carries the button for it. A state stays at least 5 seconds unless something more important arrives; a change plays a short move (hand-drawn for the common pairs, a morph for the rest). When Claude writes into your prompt box (handoff brief, enhancer) he puts on glasses and writes with a quill; a permission ask shows a clipboard and pencil. Source of the drawings: `docs/mascot/clawd-sheet.html`.
 
@@ -77,7 +77,7 @@ The cache states show only while Claude is idle (a running turn keeps the cache 
 - Claude Code has no render site inside the prompt box, so the Enhance button sits in the band above it. The hotkey and `/enhance` work anywhere.
 - The Alt hotkeys do not work reliably in the desktop app; use the buttons or the commands.
 - The chime uses `afplay` on macOS and a PowerShell sound player on Windows (best effort: it needs the host to allow running commands). On Linux it plays nothing.
-- Clawd animates by SVG animation in a sandboxed frame; if your build does not play it, you see the first frame of each state. `/cockpit demo` shows all 33 states, 4 seconds each (`/cockpit demo typing` for one, `/cockpit demo off` to stop). In the terminal there are no drawings: a short text face and the text row. Clawd belongs to Anthropic: personal use only.
+- Clawd animates by SVG animation in a sandboxed frame; if your build does not play it, you see the first frame of each state. `/cockpit demo` shows all 34 states, 4 seconds each (`/cockpit demo typing` for one, `/cockpit demo off` to stop). In the terminal there are no drawings: a short text face and the text row. Clawd belongs to Anthropic: personal use only.
 - The Enhance sparkle is always shown (dim until you type a draft) because the desktop app may not raise draft events.
 
 ## Audit

@@ -164,3 +164,4 @@ Report anything off in plain words ("the palm tree overlaps", "no animation", "a
 | 99 | Let a bubble change text (`/cockpit demo cold` then `demo fire`) | The old words are deleted and the bubble shortens; the new ones are typed and it lengthens. No second bubble over the first | |
 | 100 | Watch Clawd typing for 10 seconds | He chews, blows a pink bubble, it pops, he chews again | |
 | 101 | Switch to another session and back | Clawd's box is not white. If it is: does it clear by itself, or on the next pose change? | |
+| 102 | Ask Claude to run a slow command (`sleep 5`) and a test run, or `/cockpit demo running` | Same Clawd as typing (eyes, laptop, gum), with green lines of code scrolling up behind him; the lines fade in over about a second and fade out when the command ends; a quick `ls` never shows them | |
