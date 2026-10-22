@@ -424,6 +424,20 @@ test('copy mode (/newsession brief, /meters brief): brief in the box and on the 
   }
 })
 
+test('copying the handoff (the Copy handoff button, /newsession brief) also shows Clawd hugging himself, like a pasted one', async ($, on) => {
+  const w = world(on, { brief: 'THE BRIEF' })
+  await started($)
+  await w.clock.advance(6000)
+  await $.command.run({ command: 'newsession', args: 'brief' } as never)
+  await w.clock.advance(300)
+  let seen = false
+  for (let t = 0; t < 12 && !seen; t++) {
+    seen = (await altOf($)).includes('hugs himself')
+    if (!seen) await w.clock.advance(500)
+  }
+  expect(seen).toBe(true)
+})
+
 test('copy mode appends to a draft instead of replacing it', async ($, on) => {
   const w = world(on, { brief: 'THE BRIEF' })
   await started($)

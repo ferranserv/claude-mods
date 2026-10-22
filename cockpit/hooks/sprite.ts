@@ -191,15 +191,18 @@ function clawd(o) {
   if (o.notes !== undefined) { const t = o.notes; px(PAT.NOTE[0], X + 26, Y - 6 + (t % 3) * 2, 'z'); px(PAT.NOTE[1], X - 3, Y - 6 + ((t + 1) % 3) * 2, 'h'); px(PAT.NOTE[0], X + 6, Y - 7 + ((t + 2) % 3) * 2, 'u'); }
   if (o.bottle) { const bx = X + 22 + (o.bottle > 1 ? 1 : 0), by2 = Y - 1; fill(bx + 1, by2, 2, 3, 'G'); fill(bx, by2 + 3, 4, 8, 'G'); fill(bx + 1, by2 + 6, 2, 3, 'K'); set(bx + 1, by2 + 4, 'l'); fill(bx + 1, by2 - 1, 2, 1, 'X'); }
   if (o.bubbles !== undefined) { const t = o.bubbles; [[X + 20, Y - 2 - (t % 3) * 2], [X + 23, Y - 3 - ((t + 1) % 3) * 2], [X + 18, Y - 4 - ((t + 2) % 3) * 2]].forEach(([x, y], i) => { set(x, y, 'v'); if (i === 0) set(x + 1, y, 'v'); }); }
-  if (o.hourglass) {
-    const hx = X + 20, hy = Y + 4, up = [7, 7, 5, 3, 1], sd = o.sand || 0;
-    fill(hx, hy, 9, 2, 'X'); fill(hx, hy + 14, 9, 2, 'X');
-    up.forEach((w, r) => { fill(hx + 1 + (7 - w) / 2, hy + 2 + r, w, 1, 'i'); fill(hx + 1 + (7 - w) / 2, hy + 11 + (4 - r), w, 1, 'i'); });
-    fill(hx + 1, hy + 2, 1, 2, 'v'); fill(hx + 7, hy + 2, 1, 2, 'v'); fill(hx + 1, hy + 12, 1, 2, 'v'); fill(hx + 7, hy + 12, 1, 2, 'v');
-    const top = [[0, 7], [1, 7], [2, 5], [3, 3]], lo = [[3, 3], [4, 5], [4, 7]];
-    top.forEach(([r, w]) => { if (r >= sd) fill(hx + 1 + (7 - w) / 2, hy + 2 + r, w, 1, 'y'); });
-    set(hx + 4, hy + 6, 'y'); set(hx + 4, hy + 7, 'y'); set(hx + 4, hy + 8, 'y');
-    [[1, 3], [2, 5], [3, 7], [4, 7]].forEach(([r, w]) => { if (r >= 4 - sd) fill(hx + 1 + (7 - w) / 2, hy + 9 + r, w, 1, 'y'); });
+  if (o.hgTurn) {   // held out at arm's length by its cap; the glass is turned over, seen edge-on for a moment
+    const hx = X + 24, hy = Y + 7;
+    fill(hx, hy, 3, 1, 'X'); fill(hx, hy + 9, 3, 1, 'X'); fill(hx, hy + 1, 3, 8, 'i'); fill(hx + 1, hy + 1, 1, 8, 'v');
+    fill(hx, hy + 1, 3, 2, 'y'); fill(hx, hy + 6, 3, 3, 'y'); fill(hx, hy - 1, 3, 1, 'f');
+  } else if (o.hourglass) {   // held out at arm's length by its cap, like a lantern; the sand runs from the top bulb to the bottom one (sand 0 to 3)
+    const hx = X + 22, hy = Y + 7, sd = o.sand || 0, WD = [5, 3, 1];
+    fill(hx, hy, 7, 1, 'X'); fill(hx, hy + 9, 7, 1, 'X'); fill(hx + 2, hy - 1, 3, 1, 'f');   // the cap, and his fist on it
+    WD.forEach((w, r) => { fill(hx + 1 + (5 - w) / 2, hy + 1 + r, w, 1, 'i'); fill(hx + 1 + (5 - w) / 2, hy + 8 - r, w, 1, 'i'); });
+    fill(hx + 3, hy + 4, 1, 2, 'i'); set(hx + 1, hy + 1, 'v'); set(hx + 1, hy + 2, 'v'); set(hx + 5, hy + 8, 'v'); set(hx + 5, hy + 7, 'v');
+    WD.forEach((w, r) => { if (r >= sd) fill(hx + 1 + (5 - w) / 2, hy + 1 + r, w, 1, 'y'); });   // what is left in the top bulb
+    WD.forEach((w, r) => { if (r < sd) fill(hx + 1 + (5 - w) / 2, hy + 8 - r, w, 1, 'y'); });   // what has landed in the bottom one
+    if (sd < 3) fill(hx + 3, hy + 4, 1, Math.max(1, 5 - sd), 'y');   // the thread of sand between them
   }
   if (o.handkerchief !== undefined) {
     const t = o.handkerchief, hx = X + 5 + t * 5;
@@ -276,7 +279,6 @@ function clawd(o) {
   }
   if (o.ice) { fill(X - 1, F - 1, 26, 4, 'i'); fill(X - 1, F - 1, 26, 1, 'w'); fill(X + 1, F + 3, 22, 1, 'Q'); for (const x of [X + 1, X + 8, X + 15, X + 21]) { fill(x, F - 3, 2, 2, 'i'); } }
   if (o.sweat !== undefined) px(['.#.', '###', '###'], X + 22, Y + 1 + o.sweat, 'q');
-  if (o.gauge !== undefined) { fill(X + 6, Y - 7, 12, 4, 'g'); fill(X + 7, Y - 6, 10, 2, 'd'); fill(X + 7, Y - 6, o.gauge, 2, 'r'); }
   // ---- ship: a launch console under his left hand (a big red button) and a rocket at the right edge that lifts off, clipped at the canvas
   const cs = (x, y, c) => { if (x >= 0 && x < W && y >= 0 && y < H) k.g[y][x] = c; };   // clipped: a rocket that flies out of the top is not "outside the canvas"
   const cstamp = (rows, x0, y0) => rows.forEach((row, j) => [...row].forEach((ch, i) => { if (ch !== '.') cs(x0 + i, y0 + j, ch); }));
@@ -343,6 +345,22 @@ function clawd(o) {
   }
   if (o.orbit !== undefined) { const P = [[-8, 0], [-6, -3], [-2, -4], [2, -4], [6, -3], [8, 0]], pp = (t) => { const m = ((t % 10) + 10) % 10; return m < 6 ? m : 10 - m; }; [pp(o.orbit), pp(o.orbit + 5)].forEach((i, k) => { const [dx, dy] = P[i]; set(X + 12 + dx, Y - 2 + dy, 'w'); set(X + 13 + dx, Y - 2 + dy, k ? 's' : 'y'); set(X + 12 + dx, Y - 1 + dy, 's'); }); }
   if (o.sweatFly) { const n = o.sweatFly; [[-1, -1], [1, -1]].forEach(([sx], i) => { const x = X + 12 + sx * (6 + n * 2), y = Y - n * 2; set(x, y, 'q'); set(x + sx, y + 1, 'q'); }); }
+  // ---- the last coin: a piggy bank held at the right (pigFlip: upside-down, shaken), and a coin that falls from its slot to the floor
+  if (o.pig) {
+    const px0 = X + 21, py0 = Y - 3, fl = !!o.pigFlip;
+    const py = (y) => (fl ? 2 * py0 + 6 - y : y);
+    const pf = (x, y, w, h, c) => { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) set(x + i, py(y + j), c); };
+    pf(px0, py0 + 1, 8, 5, 'p'); pf(px0 + 1, py0, 6, 1, 'p'); pf(px0, py0 + 5, 8, 1, 'P');
+    pf(px0 + 6, py0 + 2, 2, 2, 'P'); set(px0 + 7, py(py0 + 2), 'e'); set(px0 + 3, py(py0 + 2), 'e');   // snout and eye
+    set(px0 + 1, py(py0 - 1), 'P'); set(px0 + 2, py(py0 - 1), 'P'); set(px0 + 6, py(py0 - 1), 'P');   // ears
+    pf(px0 + 3, py0, 2, 1, 'e');   // the slot
+    pf(px0 + 1, py0 + 6, 2, 2, 'P'); pf(px0 + 5, py0 + 6, 2, 2, 'P');   // legs
+  }
+  if (o.fcy !== undefined) {   // the coin on its way down (and rolling away along the floor): clipped, so it can roll out of the canvas
+    const x0 = o.fcx ?? X + 24, y0 = o.fcy;
+    for (let j = 0; j < 3; j++) for (let i = 0; i < 3; i++) cs(x0 + i, y0 + j, 'b');
+    cs(x0 + 1, y0 + 1, 's'); cs(x0, y0, 'w'); cs(x0 + 2, y0 + 2, 'B'); cs(x0 + 1, y0 + 2, 'B');
+  }
   if (o.carry) {   // the prop in his hand: at 1 above the raised hand, at 3 just under the arm that swings out to put it behind him
     const left = o.carrySide === 'L';   // the left hand: the same two spots, mirrored
     const [cxo, cyo] = left ? (o.at === 3 ? [X - 3, Y + 7] : [X - 1, Y - 5]) : o.at === 3 ? [X + 22, Y + 7] : [X + 19, Y - 5];

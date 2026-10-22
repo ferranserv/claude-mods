@@ -262,11 +262,39 @@ describe('animation with flavour', () => {
     expect(STATES.boom.leave).toBeDefined()
     expect(STATES.boom.frames[STATES.boom.frames.length - 1]).toMatchObject(STATES.boom.leave!)
   })
-  test('cold has eyes that dart and teeth that chatter', () => {
+  test('cold has plain eyes, teeth that chatter and only a slight shiver', () => {
     const fr = STATES.cold.frames
-    expect(new Set(fr.map(f => f.look)).size).toBeGreaterThanOrEqual(4)
+    expect(fr.every(f => f.eyes === 'open' && f.brow === undefined && f.look === undefined)).toBe(true)
     expect(fr.some(f => f.mouth === 'chatter')).toBe(true)
-    expect(fr.some(f => f.brow === 'worry')).toBe(true)
+    expect(Math.max(...fr.map(f => Math.abs(f.dx ?? 0)))).toBeLessThanOrEqual(1)
+    expect(fr.filter(f => f.dx).length).toBeLessThanOrEqual(fr.length / 2)
+  })
+  test('requested clean-ups: no sweat on fire, no sparkles on drunk, no tool-failed lines, no tear or worried eyes without a connector, a smile all through the launch', () => {
+    expect(STATES.fire.frames.every(f => f.sweatFly === undefined && f.forehead === undefined)).toBe(true)
+    expect(STATES.drunk.frames.every(f => f.orbit === undefined)).toBe(true)
+    expect(STATES.oops.frames.every(f => f.lines === undefined)).toBe(true)
+    expect(STATES.plug.frames.every(f => f.tear === undefined && f.eyes !== 'sad')).toBe(true)
+    expect(STATES.ship.frames.every(f => f.mouth === 'smile')).toBe(true)
+  })
+  test('the hourglass turns over when the sand has run, so the loop does not jump', () => {
+    const fr = STATES.hourglass.frames
+    expect(fr.some(f => f.hgTurn)).toBe(true)
+    expect(Math.max(...fr.filter(f => f.hourglass).map(f => f.sand as number))).toBe(3)
+  })
+  test('almost out for today: a piggy bank shaken upside-down, the last coin falls to the floor, bounces and rolls out of the picture', () => {
+    const fr = STATES.gauge.frames
+    expect(fr.every(f => f.gauge === undefined && f.pig === 1)).toBe(true)
+    expect(fr.some(f => f.pigFlip)).toBe(true)
+    const ys = fr.filter(f => f.fcy !== undefined).map(f => f.fcy as number)
+    expect(Math.max(...ys) + 2).toBe(23) // the coin rests on the line of his feet (rows 21 to 23)
+    const land = ys.indexOf(Math.max(...ys))
+    expect(ys.slice(land + 1).some(y => y < Math.max(...ys))).toBe(true) // and it bounces
+    expect(Math.max(...fr.map(f => f.fcx ?? 0))).toBeGreaterThanOrEqual(34) // then rolls out of the canvas
+    expect(fr[fr.length - 1]!.fcy).toBeUndefined() // nothing left on the floor when the loop starts again
+  })
+  test('reading and painting have a move each way', () => {
+    expect(MOVES['reading>creating']).toBeDefined()
+    expect(MOVES['creating>reading']).toBeDefined()
   })
   test('thinking, the detective and coffee have long loops with a left hand', () => {
     expect(STATES.thinking.frames.length).toBeGreaterThanOrEqual(12)

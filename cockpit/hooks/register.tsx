@@ -1255,7 +1255,7 @@ async function bandTree($: EngineInterface, e: { surface: string }, o: { isWorki
       const drawn = el(
         c.Box,
         { key: 'art', flexDirection: 'row', alignItems: 'center' },
-        ...(parts.mascot ? [el(c.Box, { key: 'clawd', position: 'relative', flexShrink: 0 }, el(Svg, { key: 'mascot', source: parts.mascot.source, alt: STATES[s.state].label, isInteractive: true, width: parts.mascot.width, height: parts.mascot.height }), ...(s.hover ? [recallHit(c, parts.mascot.width, () => fx.recall(s.hover?.text ?? '', s.hover?.alertId))] : []))] : []),
+        ...(parts.mascot ? [el(c.Box, { key: 'clawd', flexDirection: 'column', flexShrink: 0 }, el(Svg, { key: 'mascot', source: parts.mascot.source, alt: STATES[s.state].label, isInteractive: true, width: parts.mascot.width, height: parts.mascot.height }), ...(s.hover ? [recallHit(c, parts.mascot.width, () => fx.recall(s.hover?.text ?? '', s.hover?.alertId))] : []))] : []),
         column,
       )
       row = el(c.Box, { key: 'row', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, drawn, controls(s, c, fx, Svg))
@@ -1316,7 +1316,7 @@ function buttonGroup(c: Comps, specs: BtnSpec[], key = 'btns') {
       el(
         c.Box,
         { key: `hit-${b.key}`, width: 0, flexGrow: part.w, flexShrink: 0, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center' },
-        el(c.Button, { key: b.key, plain: true, onPress: b.press }, NBSP.repeat(Math.ceil(part.w / 3))),
+        el(c.Button, { key: b.key, plain: true, onPress: b.press }, NBSP),
       ),
     )
   })
@@ -1331,14 +1331,12 @@ function buttonGroup(c: Comps, specs: BtnSpec[], key = 'btns') {
 }
 
 /**
- * Clicking Clawd: ONE real Button over him. The desktop app draws a Button as its own dark pill, which is as tall as the
- * Box lets it be (a row Box stretches it to his full height) and as wide as its label (a label too wide for the Box is
- * cut with "…", the three dots). So the label is a few blanks that fit his width with room to spare, the Box is his
- * whole square and centers the pill, and the Box cuts anything past his edges.
+ * Clicking Clawd. A Button cannot be laid over him: the desktop app draws it as its own pill, as tall as one line and cut
+ * with "…" when its label is wider than the room. So it sits in the space under him, one line tall and as wide as he is,
+ * with a one-glyph label that fits (a speech balloon): pressing it says again what his pose is about.
  */
-function recallHit(c: Comps, width: number, press: () => void) {
-  const blanks = Math.max(2, Math.floor((width - 24) / 5))
-  return el(c.Box, { key: 'recall-hit', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden', flexDirection: 'row', alignItems: 'stretch', justifyContent: 'center' }, el(c.Button, { key: 'recall', plain: true, onPress: press }, NBSP.repeat(blanks)))
+function recallHit(c: Comps, _width: number, press: () => void) {
+  return el(c.Box, { key: 'recall-row', flexDirection: 'column', alignItems: 'stretch' }, el(c.Button, { key: 'recall', plain: true, onPress: press }, '💬'))
 }
 
 /** What one action's button does: pressing it answers the bubble and closes the menu. */
