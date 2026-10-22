@@ -403,7 +403,7 @@ const rect = (x: number, y: number, w: number, h: number, fill: string, opacity 
 
 const TRACK = 0.25
 
-export function wrapSvg(width: number, height: number, body: string): string {
+function wrapSvg(width: number, height: number, body: string): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" font-family="${FONT}">${body}</svg>`
 }
 

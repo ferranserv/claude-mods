@@ -1,6 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 
 import { MIN, WED, world } from './world'
+import { enterMarkup } from './states'
 
 const text = (r: unknown) => String((r as { text: string }).text)
 
@@ -1214,44 +1215,30 @@ test('the dots under Clawd hide the bubble and show it again', async ($, on) => 
   expect(await hasButton($, 'copy')).toBe(true) // and back by the next
 })
 
-test('running never replaces his drawing: through four commands, typing and running, Clawd\'s drawing is the same one and only the code layer comes and goes', async ($, on) => {
+test('leaving running (or typing) for another pose begins on the frame of the loop he is on, not on the first', async ($, on) => {
   const w = world(on)
   let finish: () => void = () => {}
-  on('tool.call', () => new Promise(res => { finish = () => res(ok()) }) as never)
+  on('tool.call', (_$, e) => ((e as { tool?: string }).tool === 'Bash' ? (new Promise(res => { finish = () => res(ok()) }) as never) : ok()))
   await started($)
   await w.clock.advance(6000)
   const d = $ as unknown as Do
   await d.turn.start({ text: 'go', turnId: 't1' })
-  type Ui = { find: (q: unknown) => Promise<unknown>; findAll: (q: unknown) => Promise<{ props?: { alt?: string; source?: string } }[]>; unmount: () => Promise<void> }
-  const look = async () => {
-    const ui = await ($ as { ui: { mount: (i: unknown) => Promise<Ui> } }).ui.mount(band('desktop', true))
-    const clawd = (await ui.findAll({ type: 'Svg' })).find(s => String(s.props?.alt ?? '').startsWith('Clawd'))
-    const layer = (await ui.find({ key: 'code-layer' })) !== undefined
-    await ui.unmount()
-    return { alt: String(clawd?.props?.alt ?? ''), source: String(clawd?.props?.source ?? ''), layer }
-  }
-  const sources = new Set<string>()
-  const states: string[] = []
-  let layers = 0
-  const run = async (ms: number) => {
-    for (let i = 0; i < ms / 250; i++) {
-      await w.clock.advance(250)
-      const x = await look()
-      if (x.alt.includes('typing') || x.alt.includes('running')) sources.add(x.source)
-      if (states.at(-1) !== (x.alt.includes('running') ? 'running' : x.alt.includes('typing') ? 'typing' : x.alt)) states.push(x.alt.includes('running') ? 'running' : x.alt.includes('typing') ? 'typing' : x.alt)
-      if (x.layer) layers++
-    }
-  }
-  await run(250)
-  for (let k = 0; k < 3; k++) {
-    const call = d.tool.call({ tool: 'Bash', tool_use_id: `c${k}`, command: 'node slow.js' })
-    await run(3500)
-    finish()
-    await call
-    await run(1500)
-  }
-  await run(8000)
-  expect(states.filter(x => x === 'running').length).toBeGreaterThanOrEqual(2) // he did switch to running (and back) several times
-  expect(sources.size).toBe(1) // and it was the same drawing all along: nothing reloaded, nothing blinked
-  expect(layers).toBeGreaterThan(10) // while the code layer was there
+  const slow = d.tool.call({ tool: 'Bash', tool_use_id: 'a', command: 'node slow.js' })
+  await w.clock.advance(2500)
+  expect(await altOf($, true)).toContain('running')
+  await w.clock.advance(3300) // into the loop for a while (the loop starts when the swap into running ends)
+  finish()
+  await slow
+  const ui = await ($ as { ui: { mount: (i: unknown) => Promise<{ findAll: (q: unknown) => Promise<{ props?: { alt?: string; source?: string } }[]>; unmount: () => Promise<void> }> } }).ui.mount(band('desktop', true))
+  await ui.unmount()
+  await d.tool.call({ tool: 'Grep', pattern: 'x' }) // reading takes over at once
+  const again = await ($ as { ui: { mount: (i: unknown) => Promise<{ findAll: (q: unknown) => Promise<{ props?: { alt?: string; source?: string } }[]>; unmount: () => Promise<void> }> } }).ui.mount(band('desktop', true))
+  const clawd = (await again.findAll({ type: 'Svg' })).find(s => String(s.props?.alt ?? '').includes('reading'))
+  await again.unmount()
+  const source = String(clawd?.props?.source ?? '')
+  expect(source.length).toBeGreaterThan(1000)
+  const from = (id: 'running' | 'typing', p: number) => enterMarkup(id, 'reading', '', 2, p).markup
+  const phases = [...Array(16).keys()].filter(p => source.includes(from('running', p)) || source.includes(from('typing', p)))
+  expect(phases.length).toBeGreaterThan(0)
+  expect(phases).not.toContain(0) // it began where the loop was, not at its first frame
 })

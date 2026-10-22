@@ -33,7 +33,6 @@ import {
   pillGroupSvg,
   undoSvg,
   wandSvg,
-  wrapSvg,
   windowMinutes,
 } from './lib'
 import type { ActionId, Alert, Model, Thresholds } from './lib'
@@ -60,7 +59,7 @@ import type { Change, Facts, Peer, Phase, Stat } from './preflight-logic'
 import { CONTEXT_LIMIT, HAIKU_ID, dayKey, labelLocally, realSaving } from './saver-logic'
 import type { Level } from './saver-logic'
 import { logPath, turnRow, withRow } from './turnlog'
-import { STATES, STATE_IDS, codeMarkup, drawnAs, enterMarkup, moveMs, stateMarkup } from './states'
+import { STATES, STATE_IDS, enterMarkup, loopFrame, moveMs, stateMarkup } from './states'
 import type { StateId } from './states'
 
 // ======================================================================================================
@@ -159,32 +158,22 @@ const mood = {
   history: [] as string[], // the last things the bubble said, for /cockpit log
   lastLogged: '', // the text last added to the history
   askId: '', // the call that ask is for: only that call starting running again, or ending, settles it
-  drawn: null as { id: StateId; since: number } | null, // what is on screen, and since when
-  move: null as { from: StateId; to: StateId; done?: boolean } | null, // the state he left, so the drawing can play the move into the one he is in (done: it is the same drawing as before, nothing to play)
-  prev: null as StateId | null, // the state he left last, for the layer of code under him (typing and running are one drawing of him)
+  drawn: null as { id: StateId; since: number; loopAt: number } | null, // what is on screen, since when, and when its loop began (after the move into it)
+  move: null as { from: StateId; to: StateId; phase?: number } | null, // the state he left, so the drawing can play the move into the one he is in
 }
 /** A permission ask must stay open this long before Clawd raises a hand: a rule or the mode often settles it first. Set by the askSeconds option. */
 let askMs = 5000
 
 /** Clawd's drawing: the move from the state he left and the state's own loop, in one drawing (see enterMarkup). */
-function mascotFor(state: StateId, clock: string, move: { from: StateId; to: StateId } | null, scale: 1 | 2) {
-  if (move && drawnAs(move.to) === drawnAs(state)) {
+function mascotFor(state: StateId, clock: string, move: { from: StateId; to: StateId; phase?: number } | null, scale: 1 | 2) {
+  if (move && move.to === state) {
     try {
-      return enterMarkup(move.from, state, clock, scale)
+      return enterMarkup(move.from, move.to, clock, scale, move.phase ?? 0)
     } catch {
       // A move that cannot be drawn falls back to the state itself.
     }
   }
   return stateMarkup(state, clock, scale)
-}
-
-/**
- * The lines of code under Clawd while a command runs (and as they leave after it): a drawing of its own, so that going from typing
- * to running and back never replaces Clawd's drawing (a replaced drawing reloads, which showed as a blink).
- */
-function codeFor(state: StateId, prev: StateId | null, scale: 1 | 2) {
-  const m = codeMarkup(prev, state, scale)
-  return m ? { source: wrapSvg(m.width, m.height, m.markup), width: m.width, height: m.height } : null
 }
 
 /** Redraw now, and again when a timed state ends. */
@@ -1027,7 +1016,6 @@ type Snap = {
   menuOpen: boolean
   clock: string
   mascot: { markup: string; width: number; height: number }
-  code: { source: string; width: number; height: number } | null
 }
 
 /** What each answer to a warning is called. */
@@ -1146,16 +1134,15 @@ async function snapshot($: EngineInterface, propsWorking: boolean): Promise<Snap
   const isWork = (id: StateId) => id === 'creating' || id === 'building' || id === 'reading' || id === 'browse' || id === 'running'
   const state: StateId = !isDemo && shown && shown.id !== wanted && shown.id !== 'hand' && now - shown.since < HOLD_MS && rank(wanted) >= rank(shown.id) && !(isWorking && isAlert(shown.id)) && !(isWork(wanted) && isWork(shown.id)) ? shown.id : wanted
   if (!mood.drawn || mood.drawn.id !== state) {
-    // Typing and running are one drawing of him: his drawing is not replaced (nor is there a move to play), only the code layer changes.
-    const same = mood.drawn !== null && mood.move !== null && drawnAs(mood.drawn.id) === drawnAs(state)
-    mood.move = same ? { ...mood.move!, done: true } : mood.drawn ? { from: mood.drawn.id, to: state } : null
-    mood.prev = mood.drawn ? mood.drawn.id : null
-    mood.drawn = { id: state, since: now }
+    // A move out of typing or running begins on the frame of the loop he is on (see loopFrame), so nothing jumps when it starts.
+    const phase = mood.drawn ? loopFrame(mood.drawn.id, now - mood.drawn.loopAt) : 0
+    mood.move = mood.drawn ? { from: mood.drawn.id, to: state, phase } : null
+    mood.drawn = { id: state, since: now, loopAt: now + (mood.move ? moveMs(mood.move.from, state, phase) : 0) }
     $.clock.after(HOLD_MS + 80, () => $.ui.invalidate('ui.render'))
   }
   // He moves from one pose to the next over a second or two (he puts down what he held and picks up the next thing): his
   // bubble waits until he has settled, so it never talks about what he is no longer, or not yet, doing.
-  const settleAt = mood.drawn && mood.move && !mood.move.done && mood.move.to === state && !isDemo ? mood.drawn.since + moveMs(mood.move.from, mood.move.to) : 0
+  const settleAt = mood.drawn && mood.move && mood.move.to === state && !isDemo ? mood.drawn.since + moveMs(mood.move.from, mood.move.to, mood.move.phase) : 0
   const isSettled = settleAt <= now
   if (!isSettled && settleAt !== mood.settleAt) {
     mood.settleAt = settleAt
@@ -1229,7 +1216,6 @@ async function snapshot($: EngineInterface, propsWorking: boolean): Promise<Snap
     menuOpen: menuOpen && speech !== null && speech.acts.length > 1,
     clock,
     mascot: mascotMode === 'off' ? { markup: '', width: 0, height: 0 } : mascotFor(state, clock, mood.move, mascotMode === 'small' ? 1 : 2),
-    code: mascotMode === 'off' ? null : codeFor(state, mood.prev, mascotMode === 'small' ? 1 : 2),
   }
 }
 
@@ -1388,13 +1374,7 @@ function clawdColumn(c: Comps, s: Snap, parts: { mascot: { source: string; width
   return el(
     c.Box,
     { key: 'clawd-col', flexDirection: 'column', alignItems: 'center', flexShrink: 0 },
-    // His drawing is always inside this box (a box that comes and goes would remount it); the code layer, when there is one, is under him.
-    el(
-      c.Box,
-      { key: 'clawd-stack', position: 'relative', flexShrink: 0 },
-      ...(s.code ? [el(c.Box, { key: 'code-layer', position: 'absolute', top: 0, left: 0 }, el(c.Svg as never, { key: 'code', source: s.code.source, alt: '', isInteractive: true, width: s.code.width, height: s.code.height }))] : []),
-      pressTarget(c, 'clawd', { source: m.source, alt: STATES[s.state].label, width: m.width, height: m.height, isInteractive: true, svgKey: 'mascot' }, toggle),
-    ),
+    pressTarget(c, 'clawd', { source: m.source, alt: STATES[s.state].label, width: m.width, height: m.height, isInteractive: true, svgKey: 'mascot' }, toggle),
     ...(dots ? [pressTarget(c, 'clawd-dots', { source: dots.source, alt: 'Show or hide what Clawd says', width: dots.width, height: dots.height, isInteractive: false }, toggle)] : []),
   )
 }
@@ -1659,7 +1639,6 @@ async function startBand($: EngineInterface): Promise<void> {
   mood.bub = null
   mood.drawn = null
   mood.move = null
-  mood.prev = null
   mood.msg = null
   mood.isFirstPrompt = true
   poke($, START_MS)

@@ -204,4 +204,4 @@ The dialog of a question (`AskUserQuestion`) replaces the prompt area, and the b
 ## 0.26.0 to 0.27.x
 - `running`: typing with green code scrolling behind him, for a shell command past 2 s or a check, install or build (see `docs/MASCOT.md`).
 - The enhance wand and the Undo arrow are the same 26 x 26 px rounded square with a thin outline in the meters' gray, press targets like the pills (the whole drawing is the click area, no Button over it; the terminal keeps text buttons). While Enhance runs the wand button turns green and nothing else changes (no second wand, no "enhancing" text); it is gray again when it is done.
-- 0.28.0: `running` is drawn as `typing` with a separate layer of code under him, so going between them replaces nothing (no blink); see `docs/MASCOT.md`.
+- 0.28.1: moves out of typing and running begin on the loop frame he is on (no jump of the code lines or the gum); see `docs/MASCOT.md`.

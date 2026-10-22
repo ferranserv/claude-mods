@@ -3,7 +3,7 @@ import { describe, expect, test } from 'claude-code/testing'
 import { COFFEE_AFTER_MS, COFFEE_CYCLE_MS, COFFEE_SHOW_MS, ROTATE_MS, activeAlerts, bubbleFor, clockOf, hoverHint, isAlert, nextShift, pickState, rank } from './mood'
 import type { BubbleInput, MoodInput } from './mood'
 import type { StateId } from './states'
-import { CODE_SWEEP_S, MOVES, STATES, STATE_IDS, codeMarkup, drawnAs, enterMarkup, moveFrames, moveMarkup, moveMs, stateMarkup } from './states'
+import { MOVES, STATES, STATE_IDS, enterMarkup, loopFrame, moveFrames, moveMarkup, moveMs, stateMarkup } from './states'
 import { clawd, pixelsOutside } from './sprite'
 
 const NOW = 1_000_000
@@ -313,9 +313,7 @@ describe('animation with flavour', () => {
   })
   test('every pair of states has a move, hand-drawn or built from how each one begins, and over 90 are hand-drawn', () => {
     expect(Object.keys(MOVES).length).toBeGreaterThanOrEqual(90)
-    for (const a of STATE_IDS) for (const b of STATE_IDS) if (a !== b && drawnAs(a) !== drawnAs(b)) expect(moveMs(a, b), `${a}>${b}`).toBeGreaterThan(0)
-    expect(moveMs('typing', 'running')).toBe(0) // the same drawing of him: nothing to play
-    expect(moveMs('running', 'typing')).toBe(0)
+    for (const a of STATE_IDS) for (const b of STATE_IDS) if (a !== b) expect(moveMs(a, b), `${a}>${b}`).toBeGreaterThan(0)
   })
 })
 
@@ -448,7 +446,7 @@ describe('the moves between states', () => {
   test('every pair of states has a move that fits its canvas', () => {
     for (const from of STATE_IDS) {
       for (const to of STATE_IDS) {
-        if (from === to || drawnAs(from) === drawnAs(to)) continue
+        if (from === to) continue
         const m = moveFrames(from, to)!
         expect(pixelsOutside(m.frames, m.w)).toBe(0)
         const made = moveMarkup(from, to)!
@@ -484,91 +482,157 @@ describe('the painter moves', () => {
   })
 })
 
-describe('running: typing with a layer of code under him', () => {
-  test('his drawing is the same as typing, frame for frame, so changing between them replaces nothing (no blink)', () => {
-    expect(STATES.running.frames).toEqual(STATES.typing.frames)
+describe('running: typing with code scrolling behind him', () => {
+  test('the same drawing as typing, frame for frame, plus the code: same eyes, laptop, gum, arms and timing', () => {
+    expect(STATES.running.frames.length).toBe(STATES.typing.frames.length)
     expect(STATES.running.fd).toBe(STATES.typing.fd)
-    expect(drawnAs('running')).toBe('typing')
-    expect(stateMarkup('running').markup).toBe(stateMarkup('typing').markup)
-    expect(enterMarkup('typing', 'running').markup).toBe(stateMarkup('typing').markup)
-    expect(enterMarkup('running', 'typing').markup).toBe(stateMarkup('typing').markup)
-    expect(moveFrames('typing', 'running')).toBeNull()
-    expect(moveFrames('running', 'typing')).toBeNull()
-    expect(STATES.typing.frames.every(f => f.code === undefined && f.codeOnly === undefined)).toBe(true)
+    STATES.running.frames.forEach((f, i) => {
+      const { code, ...rest } = f
+      expect(rest, `frame ${i}`).toEqual(STATES.typing.frames[i])
+      expect(code, `frame ${i}`).toBe(i * 2)
+    })
+    expect(STATES.typing.frames.every(f => f.code === undefined)).toBe(true)
   })
-  test('the code is a drawing of its own: lines only, no body, in the canvas, scrolling 2 px a frame and closing a whole turn of the 32-row pattern', () => {
-    const g = (o: object) => clawd({ w: 34, codeOnly: 1, ...o })
-    const colors = new Set(g({ code: 0 }).g.flat().filter(Boolean))
-    expect([...colors].every(c => c === 'A' || c === 'C' || c === 'H')).toBe(true)
-    expect(g({ code: 0 }).oob.length).toBe(0)
-    expect(g({ code: 32 }).g).toEqual(g({ code: 0 }).g)
-    expect(g({ code: 2 }).g).not.toEqual(g({ code: 0 }).g)
-    expect(g({ code: 0 }).g.flat().filter(Boolean).length).toBeGreaterThan(20)
+  test('the lines scroll 2 px a frame and the loop closes on a whole turn of the 32-row pattern', () => {
+    expect((STATES.running.frames.length * 2) % 32).toBe(0)
+    const a = clawd({ w: 34, ...STATES.running.frames[0], code: 0 }).g
+    const b = clawd({ w: 34, ...STATES.running.frames[0], code: 32 }).g
+    expect(b).toEqual(a)
+    expect(clawd({ w: 34, ...STATES.running.frames[0], code: 2 }).g).not.toEqual(a)
   })
-  test('a sweep shows only the rows from codeLo down (coming in) or above codeHi (leaving), and a line at the edge is shorter', () => {
-    const rows = (o: object) => new Set(clawd({ w: 34, codeOnly: 1, code: 0, ...o }).g.flatMap((r: (string | null)[], y: number) => (r.some(Boolean) ? [y] : [])))
-    expect(Math.min(...rows({ codeLo: 20 }))).toBeGreaterThanOrEqual(20)
-    expect(Math.max(...rows({ codeHi: 8 }))).toBeLessThan(8)
-    expect(rows({ codeHi: 0 }).size).toBe(0)
-    const lit = (a: number) => clawd({ w: 34, codeOnly: 1, code: 0, codeA: a }).g.flat().filter(Boolean).length
+  test('the code is only ever behind him: it fills empty cells and changes nothing he draws, and stays in the canvas', () => {
+    for (const f of STATES.running.frames) {
+      const bare = clawd({ w: 34, ...f, code: undefined })
+      const full = clawd({ w: 34, ...f })
+      expect(full.oob.length).toBe(0)
+      let lines = 0
+      full.g.forEach((row: (string | null)[], y: number) => row.forEach((c, x) => {
+        if (c !== bare.g[y][x]) { expect(bare.g[y][x], `${x},${y}`).toBeNull(); lines++ }
+      }))
+      expect(lines).toBeGreaterThan(20)
+    }
+  })
+  test('a fade shrinks every dash to a third, then two thirds, then its whole length', () => {
+    const lit = (a: number) => clawd({ w: 34, ...STATES.running.frames[0], codeA: a }).g.flat().filter((c: string | null) => c === 'A' || c === 'C' || c === 'H').length
     expect(lit(1)).toBeLessThan(lit(2))
     expect(lit(2)).toBeLessThan(lit(3))
+    expect(lit(1)).toBeGreaterThan(0)
   })
-  test('coming in, the layer waits for the laptop: at once from typing, after it has opened from any other state; the lines arrive, then scroll for good', () => {
-    const delay = (from: StateId | null) => Number(/<set attributeName="display" to="none" begin="([\d.]+)s"/.exec(codeMarkup(from, 'running')!.markup)?.[1] ?? 0) - CODE_SWEEP_S // the sweep ends delay + CODE_SWEEP_S in
-    expect(delay('typing')).toBe(0)
-    expect(delay(null)).toBe(0)
-    for (const other of STATE_IDS) {
-      if (drawnAs(other) === 'typing' || other === 'cold') continue
-      const m = moveFrames(other, 'running')!
-      const opened = m.frames.reduce((a, f, i) => (f.laptop === undefined ? i : a), -1) + 1
-      const at = m.frames.slice(0, opened + 1).reduce((a, f) => a + (f.hold ?? 1) * m.fd, 0)
-      expect(Math.abs(delay(other) - at), `${other}>running starts when the laptop is open`).toBeLessThan(0.02)
-      expect(delay(other), other).toBeGreaterThan(0)
-      expect(delay(other), `${other}>running starts before the move ends`).toBeLessThanOrEqual(moveMs(other, 'running') / 1000 + 0.01)
+  test('every move of typing has its twin for running, both ways, from and to his own first frame', () => {
+    const twins = Object.keys(MOVES).filter(k => /(^|>)typing(>|$)/.test(k) && !/^(typing>running|running>typing)$/.test(k))
+    expect(twins.length).toBeGreaterThanOrEqual(20)
+    for (const key of twins) {
+      const [from, to] = key.split('>')
+      const twin = `${from === 'typing' ? 'running' : from}>${to === 'typing' ? 'running' : to}`
+      expect(MOVES[twin], twin).toBeDefined()
+      expect(MOVES[twin]!.frames.length).toBe(MOVES[key]!.frames.length)
+      if (from === 'typing') expect(MOVES[twin]!.frames[0]).toEqual({ ...STATES.running.frames[0], hold: undefined })
+      if (to === 'typing') expect(MOVES[twin]!.frames.at(-1)).toEqual({ ...STATES.running.frames[0], hold: undefined })
     }
-    const into = codeMarkup('typing', 'running')!.markup
-    expect(into).toContain('repeatCount="indefinite"') // then the loop
-    expect(into).not.toContain('NaN')
-  })
-  test('leaving, the lines go first and the laptop closes after: every move out of running keeps it open for the whole sweep', () => {
-    for (const other of STATE_IDS) {
-      if (drawnAs(other) === 'typing' || other === 'cold') continue
-      const m = moveFrames('running', other)!
-      const end = m.frames.findIndex((f, i) => i > 0 && f.laptop === undefined)
-      const open = (end < 0 ? m.frames.length : end) === m.frames.length ? Infinity : m.frames.slice(0, end).reduce((a, f) => a + (f.hold ?? 1) * m.fd, 0)
-      expect(open, `running>${other}: laptop open for the sweep`).toBeGreaterThan(CODE_SWEEP_S)
-      expect(codeMarkup('running', other), `running>${other}`).not.toBeNull()
-    }
-    expect(codeMarkup('running', 'typing')).not.toBeNull()
-    expect(codeMarkup('building', 'typing')).toBeNull() // no layer when running is not involved
-    expect(codeMarkup(null, 'typing')).toBeNull()
-    expect(codeMarkup('typing', 'building')).toBeNull()
-  })
-  test('the scroll never jumps: the sweep in ends on 0, where the loop starts, 2 px a frame', () => {
-    const marks = (from: StateId | null) => [...codeMarkup(from, 'running')!.markup.matchAll(/<g opacity="[01]"><animate/g)].length
-    expect(marks('typing')).toBe(6 + 16) // six frames of sweep, sixteen of loop
-  })
-  test('every move of typing is also the move of running (the same body leaves), and running has a move to every other state', () => {
-    for (const key of Object.keys(MOVES).filter(k => k.startsWith('typing>'))) {
-      const to = key.split('>')[1] as StateId
-      expect(moveFrames('running', to), `running>${to}`).not.toBeNull()
-    }
-    for (const id of STATE_IDS) if (drawnAs(id) !== 'typing') {
+    for (const id of STATE_IDS) if (id !== 'typing' && id !== 'running') {
       expect(moveMs('running', id), `running>${id}`).toBeGreaterThan(0)
       expect(moveMs(id, 'running'), `${id}>running`).toBeGreaterThan(0)
+    }
+  })
+  test('the code comes in from the bottom, more lines as they rise, and leaves from the bottom up, and he does not blink or hop', () => {
+    const lowest = (f: Record<string, unknown>) => (f.code === undefined ? 28 : ((f.codeLo as number | undefined) ?? 0)) // the highest row where lines start
+    const highest = (f: Record<string, unknown>) => (f.code === undefined ? 0 : ((f.codeHi as number | undefined) ?? 28)) // the rows still shown, counted from the top
+    for (const [from, to] of [['typing', 'running'], ['idle', 'running'], ['building', 'running'], ['ship', 'running']] as const) {
+      const fr = moveFrames(from, to)!.frames
+      expect(fr[0]!.code, `${from}>${to} first`).toBeUndefined()
+      expect(fr.at(-1)!.codeLo, `${from}>${to} last`).toBeUndefined()
+      const lo = fr.map(lowest)
+      for (let i = 1; i < lo.length; i++) expect(lo[i]!, `${from}>${to} ${i}`).toBeLessThanOrEqual(lo[i - 1]!)
+      expect(lo.some(v => v > 0 && v < 28), `${from}>${to} a partial sweep is seen`).toBe(true)
+    }
+    for (const [from, to] of [['running', 'typing'], ['running', 'idle'], ['running', 'building'], ['running', 'ship']] as const) {
+      const fr = moveFrames(from, to)!.frames
+      expect(fr[0]!.code, `${from}>${to} first`).toBe(0)
+      expect(fr.at(-1)!.code, `${from}>${to} last`).toBeUndefined()
+      const hi = fr.map(highest)
+      for (let i = 2; i < hi.length; i++) expect(hi[i]!, `${from}>${to} ${i}`).toBeLessThanOrEqual(hi[i - 1]!)
+      expect(hi.some(v => v > 0 && v < 28), `${from}>${to} a partial sweep is seen`).toBe(true)
+      expect(fr.at(-2)!.code, `${from}>${to} gone before the end`).toBeUndefined()
+    }
+    for (const key of ['typing>running', 'running>typing']) {
+      const [from, to] = key.split('>') as [StateId, StateId]
+      const fr = moveFrames(from, to)!.frames
+      expect(fr.length).toBeGreaterThanOrEqual(6)
+      expect(fr.some(f => f.eyes === 'blink' || f.eyes === 'wide'), key).toBe(false)
+      expect(fr.every(f => f.laptop === 1), key).toBe(true)
+    }
+  })
+  test('the scroll never jumps: into running it ends on 0, the loop\'s first frame, 2 px a frame all the way', () => {
+    for (const other of STATE_IDS) {
+      if (other === 'running' || other === 'cold') continue
+      const fr = moveFrames(other, 'running')!.frames.slice(0, -1).filter(f => f.code !== undefined)
+      const scroll = [...fr.map(f => f.code as number), 0]
+      for (let i = 1; i < scroll.length; i++) expect(scroll[i]! - scroll[i - 1]!, `${other}>running`).toBe(2)
+    }
+  })
+  test('the code only lives while his laptop is open: it starts after the laptop opens and is gone before it closes', () => {
+    for (const other of STATE_IDS) {
+      if (other === 'running' || other === 'cold') continue
+      const into = moveFrames(other, 'running')!.frames
+      const opened = into.findIndex((f, i) => f.laptop !== undefined && into.slice(i).every(g => g.laptop !== undefined))
+      into.forEach((f, i) => { if (f.code !== undefined && i < into.length - 1) expect(i, `${other}>running frame ${i}`).toBeGreaterThan(opened) })
+      expect(into.filter(f => f.code !== undefined).length, `${other}>running`).toBeGreaterThanOrEqual(3)
+      const out = moveFrames('running', other)!.frames
+      const closes = out.findIndex((f, i) => i > 0 && f.laptop === undefined)
+      out.forEach((f, i) => { if (f.code !== undefined) expect(i, `running>${other} frame ${i}`).toBeLessThan(closes < 0 ? out.length : closes - 1) })
+      expect(out.filter((f, i) => i > 0 && f.code !== undefined).length, `running>${other}`).toBeGreaterThanOrEqual(closes < 0 ? 0 : 2)
     }
   })
   test('hovering says what he is doing, and he has nothing to say beyond that (no bubble, like typing)', () => {
     expect(hoverHint('running')).toBe('Running a command')
     expect(bubbleFor('running', { ctxPercent: 10, ctxText: '', cacheLabel: '', fiveUsed: 10, fiveReset: '', weekPace: '', weekRoom: 10, saverOn: false, detail: 'x', savedUsd: '', hasAdvice: false })).toBeNull()
   })
-  test('the drawings fit the Svg limit', () => {
+  test('the drawing and its moves fit the Svg limit', () => {
     expect(stateMarkup('running').markup.length).toBeLessThan(131_000)
     for (const to of ['typing', 'building', 'ship', 'idle'] as const) {
-      expect(codeMarkup('running', to)!.markup.length, `running>${to}`).toBeLessThan(131_000)
-      expect(codeMarkup(to, 'running')!.markup.length, `${to}>running`).toBeLessThan(131_000)
+      expect(moveMarkup('running', to)!.markup.length, `running>${to}`).toBeLessThan(131_000)
       expect(enterMarkup('running', to)!.markup.length, `running>${to}`).toBeLessThan(131_000)
+      expect(enterMarkup(to, 'running')!.markup.length, `${to}>running`).toBeLessThan(131_000)
     }
   })
+
+  test('a move out of typing or running begins on the frame of the loop he is on, so the lines of code and the gum do not jump', () => {
+    expect(loopFrame('running', 0)).toBe(0)
+    expect(loopFrame('running', -50)).toBe(0)
+    expect(loopFrame('running', 160 * 5 + 10)).toBe(5)
+    expect(loopFrame('typing', 160 * 16 + 20)).toBe(0) // the loop wraps
+    expect(loopFrame('typing', 160 * 21)).toBe(5)
+    expect(loopFrame('building', 5000)).toBe(0) // only the tapping loop has a phase
+    for (const phase of [1, 5, 9, 15]) {
+      for (const to of ['building', 'reading', 'idle', 'ship', 'bell', 'oops'] as const) {
+        const out = moveFrames('running', to, phase)!.frames
+        const { hold: _h, ...want } = STATES.running.frames[phase]!
+        const { hold: _g, ...got } = out[0]!
+        expect(got, `running>${to} @${phase}`).toEqual(want)
+        // the lines keep scrolling from where they were, 2 px a frame, until they are gone
+        out.forEach((f, i) => { if (f.code !== undefined) expect(f.code, `running>${to} @${phase} frame ${i}`).toBe(2 * phase + 2 * i) })
+        const { hold: _t, ...typ } = STATES.typing.frames[phase]!
+        const { hold: _u, ...gotT } = moveFrames('typing', to, phase)!.frames[0]!
+        expect(gotT, `typing>${to} @${phase}`).toEqual(typ)
+        expect(moveMs('running', to, phase), `running>${to} @${phase}`).toBe(moveMs('running', to))
+      }
+    }
+    // from the first frame, as before
+    expect(moveFrames('running', 'building', 0)!.frames[0]).toMatchObject({ code: 0 })
+  })
+  test('between typing and running he keeps tapping from the frame he is on: the arms alternate all the way into his first frame', () => {
+    for (const phase of [0, 1, 2, 3, 6, 7, 14, 15]) {
+      for (const [from, to] of [['typing', 'running'], ['running', 'typing']] as const) {
+        const fr = moveFrames(from, to, phase)!.frames
+        expect(fr.length, `${from}>${to} @${phase}`).toBeGreaterThanOrEqual(6)
+        for (let i = 1; i < fr.length; i++) expect(fr[i]!.armL, `${from}>${to} @${phase} frame ${i}`).not.toBe(fr[i - 1]!.armL)
+        expect(fr.at(-1)!.armL).toBe('type1') // his first frame
+        expect(fr.every(f => f.laptop === 1)).toBe(true)
+        if (phase > 0) expect(fr[0]!.armL).toBe(STATES.typing.frames[phase]!.armL)
+      }
+    }
+    expect(enterMarkup('running', 'building', '', 2, 7).markup).not.toBe(enterMarkup('running', 'building', '', 2, 0).markup)
+    expect(enterMarkup('running', 'building', '', 2, 7).markup).toBe(enterMarkup('running', 'building', '', 2, 7).markup)
+  })
 })
+
