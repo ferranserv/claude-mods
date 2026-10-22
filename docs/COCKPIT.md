@@ -71,7 +71,7 @@ Checked against the code (0.11.0). "Resets by itself" means no new measurement o
 | fire, drunk | the context drops (new session, `/clear`, compaction) |
 | cold, hourglass | a new message is sent (the cache restarts), or a reply arrives. Only while idle. Going to cold turns him blue over 2 s, leaving it warms him over 1.2 s |
 | detective | the advice is dismissed or fixed |
-| coffee, typing, thinking | the turn ends |
+| coffee, typing, running, thinking | the turn ends |
 | talk | the notice is dismissed |
 
 | Bubble | Ends when |

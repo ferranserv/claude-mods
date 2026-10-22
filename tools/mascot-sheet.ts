@@ -8,7 +8,7 @@ import { clawd } from '../cockpit/hooks/sprite'
 
 const TIERS: { title: string; note: string; ids: StateId[] }[] = [
   { title: '1. Needs you now', note: 'Over everything else: a question or a plan waits for you.', ids: ['hand', 'writing', 'idea'] },
-  { title: '2. The task (only while Claude works)', note: 'Events of the task, then the tool that runs, then the background of the work.', ids: ['oops', 'boom', 'lab', 'ship', 'dizzy', 'creating', 'building', 'reading', 'browse', 'coffee', 'typing', 'thinking'] },
+  { title: '2. The task (only while Claude works)', note: 'Events of the task, then the tool that runs, then the background of the work.', ids: ['oops', 'boom', 'lab', 'ship', 'dizzy', 'creating', 'building', 'reading', 'browse', 'running', 'coffee', 'typing', 'thinking'] },
   { title: '3. Session and your own actions', note: 'They play when they happen, about 5 s, and are not kept.', ids: ['walk', 'hello', 'love', 'wand', 'talk'] },
   { title: '4. When the turn is over', note: 'The bell, then the saver’s coins.', ids: ['bell', 'coins'] },
   { title: '5. Status alerts (never while Claude works)', note: 'They take turns every 6 s, worst first.', ids: ['asleep', 'mad', 'fire', 'gauge', 'sleepy', 'drunk', 'cold', 'hourglass', 'detective', 'plug'] },

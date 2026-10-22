@@ -816,6 +816,37 @@ test('thinking before any tool, typing after, coffee after seven minutes of work
   expect(await altOf($, true)).toContain('typing') // and back to the work
 })
 
+test('a shell command shows running once it has run two seconds, a check or a build at once, a quick one stays typing', async ($, on) => {
+  const w = world(on)
+  let finish: () => void = () => {}
+  on('tool.call', () => new Promise(res => { finish = () => res(ok()) }) as never)
+  await started($)
+  await w.clock.advance(6000)
+  await ($ as unknown as Do).turn.start({ text: 'go', turnId: 't1' })
+  const d = $ as unknown as Do
+  const slow = d.tool.call({ tool: 'Bash', tool_use_id: 'a', command: 'node build-report.js' })
+  await w.clock.advance(1000)
+  expect(await altOf($, true)).toContain('typing') // one second in: a quick command so far
+  await w.clock.advance(1500)
+  expect(await altOf($, true)).toContain('running') // two seconds in: it runs
+  finish()
+  await slow
+  await w.clock.advance(1500)
+  await w.clock.advance(5000)
+  expect(await altOf($, true)).toContain('typing') // it ended, the linger and the hold are over
+  const check = d.tool.call({ tool: 'Bash', tool_use_id: 'b', command: 'pnpm test' })
+  expect(await altOf($, true)).toContain('running') // a check is a run from the start
+  finish()
+  await check
+  await w.clock.advance(7000)
+  const quick = d.tool.call({ tool: 'Bash', tool_use_id: 'c', command: 'ls' })
+  await w.clock.advance(500)
+  finish()
+  await quick
+  await w.clock.advance(2500)
+  expect(await altOf($, true)).not.toContain('running') // it ended before two seconds: it never ran
+})
+
 test('/cockpit demo shows a state you ask for, and says when it does not know one', async ($, on) => {
   world(on)
   await started($)
