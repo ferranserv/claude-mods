@@ -191,15 +191,18 @@ function clawd(o) {
   if (o.notes !== undefined) { const t = o.notes; px(PAT.NOTE[0], X + 26, Y - 6 + (t % 3) * 2, 'z'); px(PAT.NOTE[1], X - 3, Y - 6 + ((t + 1) % 3) * 2, 'h'); px(PAT.NOTE[0], X + 6, Y - 7 + ((t + 2) % 3) * 2, 'u'); }
   if (o.bottle) { const bx = X + 22 + (o.bottle > 1 ? 1 : 0), by2 = Y - 1; fill(bx + 1, by2, 2, 3, 'G'); fill(bx, by2 + 3, 4, 8, 'G'); fill(bx + 1, by2 + 6, 2, 3, 'K'); set(bx + 1, by2 + 4, 'l'); fill(bx + 1, by2 - 1, 2, 1, 'X'); }
   if (o.bubbles !== undefined) { const t = o.bubbles; [[X + 20, Y - 2 - (t % 3) * 2], [X + 23, Y - 3 - ((t + 1) % 3) * 2], [X + 18, Y - 4 - ((t + 2) % 3) * 2]].forEach(([x, y], i) => { set(x, y, 'v'); if (i === 0) set(x + 1, y, 'v'); }); }
-  if (o.hourglass) {
-    const hx = X + 20, hy = Y + 4, up = [7, 7, 5, 3, 1], sd = o.sand || 0;
-    fill(hx, hy, 9, 2, 'X'); fill(hx, hy + 14, 9, 2, 'X');
-    up.forEach((w, r) => { fill(hx + 1 + (7 - w) / 2, hy + 2 + r, w, 1, 'i'); fill(hx + 1 + (7 - w) / 2, hy + 11 + (4 - r), w, 1, 'i'); });
-    fill(hx + 1, hy + 2, 1, 2, 'v'); fill(hx + 7, hy + 2, 1, 2, 'v'); fill(hx + 1, hy + 12, 1, 2, 'v'); fill(hx + 7, hy + 12, 1, 2, 'v');
-    const top = [[0, 7], [1, 7], [2, 5], [3, 3]], lo = [[3, 3], [4, 5], [4, 7]];
-    top.forEach(([r, w]) => { if (r >= sd) fill(hx + 1 + (7 - w) / 2, hy + 2 + r, w, 1, 'y'); });
-    set(hx + 4, hy + 6, 'y'); set(hx + 4, hy + 7, 'y'); set(hx + 4, hy + 8, 'y');
-    [[1, 3], [2, 5], [3, 7], [4, 7]].forEach(([r, w]) => { if (r >= 4 - sd) fill(hx + 1 + (7 - w) / 2, hy + 9 + r, w, 1, 'y'); });
+  if (o.hgTurn) {   // held out at arm's length by its cap; the glass is turned over, seen edge-on for a moment
+    const hx = X + 24, hy = Y + 7;
+    fill(hx, hy, 3, 1, 'X'); fill(hx, hy + 9, 3, 1, 'X'); fill(hx, hy + 1, 3, 8, 'i'); fill(hx + 1, hy + 1, 1, 8, 'v');
+    fill(hx, hy + 1, 3, 2, 'y'); fill(hx, hy + 6, 3, 3, 'y'); fill(hx, hy - 1, 3, 1, 'f');
+  } else if (o.hourglass) {   // held out at arm's length by its cap, like a lantern; the sand runs from the top bulb to the bottom one (sand 0 to 3)
+    const hx = X + 22, hy = Y + 7, sd = o.sand || 0, WD = [5, 3, 1];
+    fill(hx, hy, 7, 1, 'X'); fill(hx, hy + 9, 7, 1, 'X'); fill(hx + 2, hy - 1, 3, 1, 'f');   // the cap, and his fist on it
+    WD.forEach((w, r) => { fill(hx + 1 + (5 - w) / 2, hy + 1 + r, w, 1, 'i'); fill(hx + 1 + (5 - w) / 2, hy + 8 - r, w, 1, 'i'); });
+    fill(hx + 3, hy + 4, 1, 2, 'i'); set(hx + 1, hy + 1, 'v'); set(hx + 1, hy + 2, 'v'); set(hx + 5, hy + 8, 'v'); set(hx + 5, hy + 7, 'v');
+    WD.forEach((w, r) => { if (r >= sd) fill(hx + 1 + (5 - w) / 2, hy + 1 + r, w, 1, 'y'); });   // what is left in the top bulb
+    WD.forEach((w, r) => { if (r < sd) fill(hx + 1 + (5 - w) / 2, hy + 8 - r, w, 1, 'y'); });   // what has landed in the bottom one
+    if (sd < 3) fill(hx + 3, hy + 4, 1, Math.max(1, 5 - sd), 'y');   // the thread of sand between them
   }
   if (o.handkerchief !== undefined) {
     const t = o.handkerchief, hx = X + 5 + t * 5;
