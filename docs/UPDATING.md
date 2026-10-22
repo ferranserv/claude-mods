@@ -22,4 +22,4 @@ If the versions are still old, `git -C <that folder> log --oneline -1` should sa
 
 When you finish building or changing a mod in a session, end by telling the user to do these four steps once the pull request is merged, and remind them that every change must bump the plugin's version (otherwise **Update** will not appear).
 
-The `claude-mods` marketplace lives in `~/mods` (a git clone of `ferranserv/claude-mods`). Every mod there is installed at user scope, so it loads in every session.
+The app keeps its copy of the `claude-mods` marketplace under `~/.claude/plugins/marketplaces/claude-mods` (a git clone of `ferranserv/claude-mods`). `cockpit` is installed at user scope, so it loads in every session.
