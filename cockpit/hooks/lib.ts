@@ -541,14 +541,15 @@ export function bubbleArt(from: string, to: string, room: number): { source: str
 export const PILL_GAP = 8
 
 /**
- * A group of buttons drawn as ONE picture: pills in the cockpit gray of the bubble, as tall as the bubble, dark text, the
+ * A group of buttons drawn as ONE picture: pills in the cockpit gray of the bubble, one Button row tall (CELL.h), dark text, the
  * same stepped border, a gap between. One picture means the buttons can never be drawn over one another, whatever the host
  * does with its layout. `parts` gives each pill's x and width in px: the Buttons laid over it share the picture's width by
  * these same numbers (as flex ratios, so no unit of the host's counts), see buttonGroup in register.tsx.
  */
 export function pillGroupSvg(labels: string[]): { source: string; width: number; height: number; parts: { x: number; w: number }[] } {
   const size = 12
-  const h = BUBBLE_H
+  // One Button row tall: a desktop Button is one line, so the pill's whole drawing is its click area (not the middle 18 of 26 px).
+  const h = CELL.h
   const r = (x: number, y: number, rw: number, rh: number, c: string) => `<rect x="${x}" y="${y}" width="${rw}" height="${rh}" fill="${c}"/>`
   let x = 0
   const parts: { x: number; w: number }[] = []

@@ -1331,12 +1331,11 @@ function buttonGroup(c: Comps, specs: BtnSpec[], key = 'btns') {
 }
 
 /**
- * Clicking Clawd. A Button cannot be laid over him: the desktop app draws it as its own pill, as tall as one line and cut
- * with "…" when its label is wider than the room. So it sits in the space under him, one line tall and as wide as he is,
- * with a one-glyph label that fits (a speech balloon): pressing it says again what his pose is about.
+ * Clicking Clawd. A Button cannot be laid over him: the desktop app draws it as its own pill, as tall as one line. So it sits
+ * in the space under him, centered, with a "…" label: pressing it says again what his pose is about.
  */
 function recallHit(c: Comps, _width: number, press: () => void) {
-  return el(c.Box, { key: 'recall-row', flexDirection: 'column', alignItems: 'stretch' }, el(c.Button, { key: 'recall', plain: true, onPress: press }, '💬'))
+  return el(c.Box, { key: 'recall-row', flexDirection: 'column', alignItems: 'center' }, el(c.Button, { key: 'recall', plain: true, onPress: press }, '…'))
 }
 
 /** What one action's button does: pressing it answers the bubble and closes the menu. */
