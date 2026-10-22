@@ -1,6 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 
 import { MIN, WED, world } from './world'
+import { enterMarkup } from './states'
 
 const text = (r: unknown) => String((r as { text: string }).text)
 
@@ -1212,4 +1213,32 @@ test('the dots under Clawd hide the bubble and show it again', async ($, on) => 
   await ui.unmount()
   await settle($, w)
   expect(await hasButton($, 'copy')).toBe(true) // and back by the next
+})
+
+test('leaving running (or typing) for another pose begins on the frame of the loop he is on, not on the first', async ($, on) => {
+  const w = world(on)
+  let finish: () => void = () => {}
+  on('tool.call', (_$, e) => ((e as { tool?: string }).tool === 'Bash' ? (new Promise(res => { finish = () => res(ok()) }) as never) : ok()))
+  await started($)
+  await w.clock.advance(6000)
+  const d = $ as unknown as Do
+  await d.turn.start({ text: 'go', turnId: 't1' })
+  const slow = d.tool.call({ tool: 'Bash', tool_use_id: 'a', command: 'node slow.js' })
+  await w.clock.advance(2500)
+  expect(await altOf($, true)).toContain('running')
+  await w.clock.advance(3300) // into the loop for a while (the loop starts when the swap into running ends)
+  finish()
+  await slow
+  const ui = await ($ as { ui: { mount: (i: unknown) => Promise<{ findAll: (q: unknown) => Promise<{ props?: { alt?: string; source?: string } }[]>; unmount: () => Promise<void> }> } }).ui.mount(band('desktop', true))
+  await ui.unmount()
+  await d.tool.call({ tool: 'Grep', pattern: 'x' }) // reading takes over at once
+  const again = await ($ as { ui: { mount: (i: unknown) => Promise<{ findAll: (q: unknown) => Promise<{ props?: { alt?: string; source?: string } }[]>; unmount: () => Promise<void> }> } }).ui.mount(band('desktop', true))
+  const clawd = (await again.findAll({ type: 'Svg' })).find(s => String(s.props?.alt ?? '').includes('reading'))
+  await again.unmount()
+  const source = String(clawd?.props?.source ?? '')
+  expect(source.length).toBeGreaterThan(1000)
+  const from = (id: 'running' | 'typing', p: number) => enterMarkup(id, 'reading', '', 2, p).markup
+  const phases = [...Array(16).keys()].filter(p => source.includes(from('running', p)) || source.includes(from('typing', p)))
+  expect(phases.length).toBeGreaterThan(0)
+  expect(phases).not.toContain(0) // it began where the loop was, not at its first frame
 })

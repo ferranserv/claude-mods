@@ -59,7 +59,7 @@ import type { Change, Facts, Peer, Phase, Stat } from './preflight-logic'
 import { CONTEXT_LIMIT, HAIKU_ID, dayKey, labelLocally, realSaving } from './saver-logic'
 import type { Level } from './saver-logic'
 import { logPath, turnRow, withRow } from './turnlog'
-import { STATES, STATE_IDS, enterMarkup, moveMs, stateMarkup } from './states'
+import { STATES, STATE_IDS, enterMarkup, loopFrame, moveMs, stateMarkup } from './states'
 import type { StateId } from './states'
 
 // ======================================================================================================
@@ -158,17 +158,17 @@ const mood = {
   history: [] as string[], // the last things the bubble said, for /cockpit log
   lastLogged: '', // the text last added to the history
   askId: '', // the call that ask is for: only that call starting running again, or ending, settles it
-  drawn: null as { id: StateId; since: number } | null, // what is on screen, and since when
-  move: null as { from: StateId; to: StateId } | null, // the state he left, so the drawing can play the move into the one he is in
+  drawn: null as { id: StateId; since: number; loopAt: number } | null, // what is on screen, since when, and when its loop began (after the move into it)
+  move: null as { from: StateId; to: StateId; phase?: number } | null, // the state he left, so the drawing can play the move into the one he is in
 }
 /** A permission ask must stay open this long before Clawd raises a hand: a rule or the mode often settles it first. Set by the askSeconds option. */
 let askMs = 5000
 
 /** Clawd's drawing: the move from the state he left and the state's own loop, in one drawing (see enterMarkup). */
-function mascotFor(state: StateId, clock: string, move: { from: StateId; to: StateId } | null, scale: 1 | 2) {
+function mascotFor(state: StateId, clock: string, move: { from: StateId; to: StateId; phase?: number } | null, scale: 1 | 2) {
   if (move && move.to === state) {
     try {
-      return enterMarkup(move.from, move.to, clock, scale)
+      return enterMarkup(move.from, move.to, clock, scale, move.phase ?? 0)
     } catch {
       // A move that cannot be drawn falls back to the state itself.
     }
@@ -1134,13 +1134,15 @@ async function snapshot($: EngineInterface, propsWorking: boolean): Promise<Snap
   const isWork = (id: StateId) => id === 'creating' || id === 'building' || id === 'reading' || id === 'browse' || id === 'running'
   const state: StateId = !isDemo && shown && shown.id !== wanted && shown.id !== 'hand' && now - shown.since < HOLD_MS && rank(wanted) >= rank(shown.id) && !(isWorking && isAlert(shown.id)) && !(isWork(wanted) && isWork(shown.id)) ? shown.id : wanted
   if (!mood.drawn || mood.drawn.id !== state) {
-    mood.move = mood.drawn ? { from: mood.drawn.id, to: state } : null
-    mood.drawn = { id: state, since: now }
+    // A move out of typing or running begins on the frame of the loop he is on (see loopFrame), so nothing jumps when it starts.
+    const phase = mood.drawn ? loopFrame(mood.drawn.id, now - mood.drawn.loopAt) : 0
+    mood.move = mood.drawn ? { from: mood.drawn.id, to: state, phase } : null
+    mood.drawn = { id: state, since: now, loopAt: now + (mood.move ? moveMs(mood.move.from, state, phase) : 0) }
     $.clock.after(HOLD_MS + 80, () => $.ui.invalidate('ui.render'))
   }
   // He moves from one pose to the next over a second or two (he puts down what he held and picks up the next thing): his
   // bubble waits until he has settled, so it never talks about what he is no longer, or not yet, doing.
-  const settleAt = mood.drawn && mood.move && mood.move.to === state && !isDemo ? mood.drawn.since + moveMs(mood.move.from, mood.move.to) : 0
+  const settleAt = mood.drawn && mood.move && mood.move.to === state && !isDemo ? mood.drawn.since + moveMs(mood.move.from, mood.move.to, mood.move.phase) : 0
   const isSettled = settleAt <= now
   if (!isSettled && settleAt !== mood.settleAt) {
     mood.settleAt = settleAt

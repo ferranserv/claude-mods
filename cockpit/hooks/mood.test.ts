@@ -3,7 +3,7 @@ import { describe, expect, test } from 'claude-code/testing'
 import { COFFEE_AFTER_MS, COFFEE_CYCLE_MS, COFFEE_SHOW_MS, ROTATE_MS, activeAlerts, bubbleFor, clockOf, hoverHint, isAlert, nextShift, pickState, rank } from './mood'
 import type { BubbleInput, MoodInput } from './mood'
 import type { StateId } from './states'
-import { MOVES, STATES, STATE_IDS, enterMarkup, moveFrames, moveMarkup, moveMs, stateMarkup } from './states'
+import { MOVES, STATES, STATE_IDS, enterMarkup, loopFrame, moveFrames, moveMarkup, moveMs, stateMarkup } from './states'
 import { clawd, pixelsOutside } from './sprite'
 
 const NOW = 1_000_000
@@ -595,4 +595,44 @@ describe('running: typing with code scrolling behind him', () => {
       expect(enterMarkup(to, 'running')!.markup.length, `${to}>running`).toBeLessThan(131_000)
     }
   })
+
+  test('a move out of typing or running begins on the frame of the loop he is on, so the lines of code and the gum do not jump', () => {
+    expect(loopFrame('running', 0)).toBe(0)
+    expect(loopFrame('running', -50)).toBe(0)
+    expect(loopFrame('running', 160 * 5 + 10)).toBe(5)
+    expect(loopFrame('typing', 160 * 16 + 20)).toBe(0) // the loop wraps
+    expect(loopFrame('typing', 160 * 21)).toBe(5)
+    expect(loopFrame('building', 5000)).toBe(0) // only the tapping loop has a phase
+    for (const phase of [1, 5, 9, 15]) {
+      for (const to of ['building', 'reading', 'idle', 'ship', 'bell', 'oops'] as const) {
+        const out = moveFrames('running', to, phase)!.frames
+        const { hold: _h, ...want } = STATES.running.frames[phase]!
+        const { hold: _g, ...got } = out[0]!
+        expect(got, `running>${to} @${phase}`).toEqual(want)
+        // the lines keep scrolling from where they were, 2 px a frame, until they are gone
+        out.forEach((f, i) => { if (f.code !== undefined) expect(f.code, `running>${to} @${phase} frame ${i}`).toBe(2 * phase + 2 * i) })
+        const { hold: _t, ...typ } = STATES.typing.frames[phase]!
+        const { hold: _u, ...gotT } = moveFrames('typing', to, phase)!.frames[0]!
+        expect(gotT, `typing>${to} @${phase}`).toEqual(typ)
+        expect(moveMs('running', to, phase), `running>${to} @${phase}`).toBe(moveMs('running', to))
+      }
+    }
+    // from the first frame, as before
+    expect(moveFrames('running', 'building', 0)!.frames[0]).toMatchObject({ code: 0 })
+  })
+  test('between typing and running he keeps tapping from the frame he is on: the arms alternate all the way into his first frame', () => {
+    for (const phase of [0, 1, 2, 3, 6, 7, 14, 15]) {
+      for (const [from, to] of [['typing', 'running'], ['running', 'typing']] as const) {
+        const fr = moveFrames(from, to, phase)!.frames
+        expect(fr.length, `${from}>${to} @${phase}`).toBeGreaterThanOrEqual(6)
+        for (let i = 1; i < fr.length; i++) expect(fr[i]!.armL, `${from}>${to} @${phase} frame ${i}`).not.toBe(fr[i - 1]!.armL)
+        expect(fr.at(-1)!.armL).toBe('type1') // his first frame
+        expect(fr.every(f => f.laptop === 1)).toBe(true)
+        if (phase > 0) expect(fr[0]!.armL).toBe(STATES.typing.frames[phase]!.armL)
+      }
+    }
+    expect(enterMarkup('running', 'building', '', 2, 7).markup).not.toBe(enterMarkup('running', 'building', '', 2, 0).markup)
+    expect(enterMarkup('running', 'building', '', 2, 7).markup).toBe(enterMarkup('running', 'building', '', 2, 7).markup)
+  })
 })
+

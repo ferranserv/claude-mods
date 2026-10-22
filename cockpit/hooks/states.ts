@@ -640,10 +640,27 @@ const leaving = (id: StateId): Pose[] => [...(ENTER[id] ?? [])].reverse()
  * he holds (a bare, blinking Clawd) and picks up the next thing, which works for any pair because every state
  * starts from the same neutral pose. Null only when nothing changes.
  */
-function moveOf(from: StateId, to: StateId): (Move & { w: number }) | null {
-  const m = rawMoveOf(from, to)
+function moveOf(from: StateId, to: StateId, phase = 0): (Move & { w: number }) | null {
+  const m = rawMoveOf(from, to, phase)
   return m ? { ...m, frames: fadeCode(m.frames, from, to) } : null
 }
+
+/** Typing and running share one loop of 16 frames, each the same time. */
+const isTapping = (id: StateId): boolean => id === 'typing' || id === 'running'
+
+/**
+ * The frame of that loop on screen `msSinceLoop` after the loop began (0 for any other state). A move out of typing or running
+ * begins on THIS frame, not on the first: starting from frame 0 jumped the lines of code (they are part of every frame) and the
+ * gum, which showed as a blink every time he left, or went from typing to running.
+ */
+export function loopFrame(id: StateId, msSinceLoop: number): number {
+  if (!isTapping(id) || msSinceLoop <= 0) return 0
+  const d = STATES[id]
+  return Math.floor(msSinceLoop / (d.fd * 1000)) % d.frames.length
+}
+
+/** Where a move out of `id` begins: the loop frame he is on (his first frame for any state but typing and running). */
+const startOf = (id: StateId, phase: number): Pose => (isTapping(id) && phase > 0 ? unheld(STATES[id].frames[phase] ?? STATES[id].frames[0] ?? {}) : F(id))
 
 /**
  * The lines of code behind running only live while his laptop is open, and they come and go like real output scrolling by:
@@ -684,7 +701,7 @@ function fadeCode(frames: Pose[], from: StateId, to: StateId): Pose[] {
     return fr.map((f, i) => {
       if (i === 0) return f
       const hi = Math.round(CODE_H * (1 - i / (end * CODE_OUT)))
-      return i < end && hi > 0 ? { ...strip(f), code: 2 * i, codeHi: hi } : strip(f)
+      return i < end && hi > 0 ? { ...strip(f), code: (fr[0]!.code ?? 0) + 2 * i, codeHi: hi } : strip(f)
     })
   }
   // the laptop is open from the first frame after which none lacks it
@@ -703,17 +720,22 @@ function fadeCode(frames: Pose[], from: StateId, to: StateId): Pose[] {
   })
 }
 
-function rawMoveOf(from: StateId, to: StateId): (Move & { w: number }) | null {
+function rawMoveOf(from: StateId, to: StateId, phase = 0): (Move & { w: number }) | null {
   if (from === to) return null
   const m = MOVES[`${from}>${to}`]
-  // Typing and running are the same body: nothing is taken or fetched, no blink and no hop, only the code.
-  if (m && (from === 'typing' || from === 'running') && (to === 'typing' || to === 'running')) return { fd: m.fd, frames: m.frames, w: 34 }
-  if (m) return { ...paced(smooth(m.frames), from), w: 34 }
+  // Typing and running are the same body: nothing is taken or fetched, no blink and no hop, only the code. He keeps tapping from
+  // the frame he is on (the last tap before the end is the odd one, so the arms alternate into his first frame).
+  if (m && isTapping(from) && isTapping(to)) {
+    if (phase <= 0) return { fd: m.fd, frames: m.frames, w: 34 }
+    const taps = Array.from({ length: (phase + 5) % 2 === 1 ? 5 : 6 }, (_, k) => TAP(phase + k + 1))
+    return { fd: m.fd, frames: [startOf(from, phase), ...taps, m.frames[m.frames.length - 1]!], w: 34 }
+  }
+  if (m) return { ...paced(smooth([startOf(from, phase), ...m.frames.slice(1)]), from), w: 34 }
   const a = STATES[from]
   const b = STATES[to]
   // Drawn on the canvas of the state he enters (the band's layout is fixed by it); a wider scene he leaves is skipped.
   const w = b.w ?? 34
-  const first = (a.w ?? 34) <= w ? [L(from)] : []
+  const first = (a.w ?? 34) <= w ? [isTapping(from) && phase > 0 ? startOf(from, phase) : L(from)] : []
   if (to === 'cold' || from === 'cold') {
     const mid: Pose[] = [{ ...NEUTRAL }, { eyes: 'half', mouth: 'grim' }, { eyes: 'half', mouth: 'grim', armL: 'half', armR: 'half' }, { eyes: 'half', mouth: 'grim', armL: 'half', armR: 'half' }]
     return { ...tinted(smooth([...first, ...mid, b.frames[0] ?? {}]), to === 'cold'), w }
@@ -726,19 +748,19 @@ function rawMoveOf(from: StateId, to: StateId): (Move & { w: number }) | null {
 }
 
 /** How long a move plays, in ms; 0 when nothing changes. */
-export function moveMs(from: StateId, to: StateId): number {
-  const m = moveOf(from, to)
+export function moveMs(from: StateId, to: StateId, phase = 0): number {
+  const m = moveOf(from, to, phase)
   return m ? Math.round(onceSeconds(m.frames, m.fd) * 1000) : 0
 }
 
 const moveCache = new Map<string, Mascot>()
 
 /** The markup of one move at 2x (or 1x for the small size), or null when nothing changes. */
-export function moveMarkup(from: StateId, to: StateId, scale: 1 | 2 = 2): Mascot | null {
-  const key = `${from}>${to}@${scale}`
+export function moveMarkup(from: StateId, to: StateId, scale: 1 | 2 = 2, phase = 0): Mascot | null {
+  const key = `${from}>${to}${isTapping(from) ? `#${phase}` : ''}@${scale}`
   const hit = moveCache.get(key)
   if (hit) return hit
-  const m = moveOf(from, to)
+  const m = moveOf(from, to, phase)
   if (!m) return null
   const made = { markup: renderOnce(m.frames, m.fd, m.w, scale), width: m.w * scale, height: 28 * scale }
   moveCache.set(key, made)
@@ -752,10 +774,10 @@ const enterCache = new Map<string, Mascot>()
  * when the move ends, so the drawing is replaced once per change, not twice (a replaced drawing reloads the whole
  * band, meters included, which showed as a blink).
  */
-export function enterMarkup(from: StateId, to: StateId, clock = '', scale: 1 | 2 = 2): Mascot {
-  const m = moveOf(from, to)
+export function enterMarkup(from: StateId, to: StateId, clock = '', scale: 1 | 2 = 2, phase = 0): Mascot {
+  const m = moveOf(from, to, phase)
   if (!m) return stateMarkup(to, clock, scale)
-  const key = `${from}>${to}${to === 'asleep' ? `:${clock}` : ''}@${scale}`
+  const key = `${from}>${to}${isTapping(from) ? `#${phase}` : ''}${to === 'asleep' ? `:${clock}` : ''}@${scale}`
   const hit = enterCache.get(key)
   if (hit) return hit
   const d = STATES[to]
@@ -769,7 +791,7 @@ export function enterMarkup(from: StateId, to: StateId, clock = '', scale: 1 | 2
 }
 
 /** The frames and canvas width of a move, for checking that it fits. */
-export const moveFrames = (from: StateId, to: StateId): { frames: Pose[]; w: number } | null => moveOf(from, to)
+export const moveFrames = (from: StateId, to: StateId, phase = 0): { frames: Pose[]; w: number } | null => moveOf(from, to, phase)
 
 const cache = new Map<string, Mascot>()
 
