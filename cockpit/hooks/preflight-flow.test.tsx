@@ -62,13 +62,13 @@ test('on main with changes the band warns and the checkpoint goes to a new branc
   await clock.advance(6000)
   let ui = await band($)
   expect(await says(ui)).toMatch(/You are on main.*\(\+1\)/) // the first finding in the bubble, the count of the others
-  await ui.press({ key: 'more' } as never)
+  await ui.pointer({ type: 'up', x: 0, y: 0, in: 'press-more-press' } as never)
   await ui.unmount()
   ui = await band($)
-  expect(await ui.find({ key: 'worktree' } as never)).toBeDefined() // the first finding's button stays on the bubble
+  expect(await ui.find({ key: 'press-worktree' } as never)).toBeDefined() // the first finding's button stays on the bubble
   expect(await ui.find({ key: 'menu' } as never)).toBeDefined()
-  expect(await ui.find({ key: 'checkpoint' } as never)).toBeDefined() // the other finding is in the menu
-  await ui.press({ key: 'checkpoint' } as never)
+  expect(await ui.find({ key: 'press-checkpoint' } as never)).toBeDefined() // the other finding is in the menu
+  await ui.pointer({ type: 'up', x: 0, y: 0, in: 'press-checkpoint-press' } as never)
   const cmds = log.git.map(a => a.slice(3).join(' '))
   expect(cmds.some(c => c.startsWith('switch -c checkpoint/'))).toBe(true)
   expect(cmds.some(c => c.startsWith('add -A -- a.ts') && !c.includes('.env'))).toBe(true)
@@ -85,12 +85,12 @@ test('a finished session: first click only asks, the second commits only its fil
   await clock.advance(6000)
   let ui = await band($)
   expect(await says(ui)).toMatch(/Session p1abcd finished: 1 file \(\+5 −2\)/)
-  await ui.press({ key: 'askCommit-p1abcdef' } as never)
+  await ui.pointer({ type: 'up', x: 0, y: 0, in: 'press-askCommit-p1abcdef-press' } as never)
   expect(log.git.some(a => a.includes('commit'))).toBe(false)
   await ui.unmount()
   ui = await band($)
   expect(await says(ui)).toContain('Commit 1 file on claude/a? Not pushed.')
-  await ui.press({ key: 'commitPeer-p1abcdef' } as never)
+  await ui.pointer({ type: 'up', x: 0, y: 0, in: 'press-commitPeer-p1abcdef-press' } as never)
   const commit = log.git.find(a => a.includes('commit'))
   expect(commit?.[2]).toBe('/r/.claude/worktrees/a')
   expect(commit?.at(-1)).toBe('a.ts')
@@ -107,7 +107,7 @@ test('a session still working offers no commit button', async ($, on) => {
   await clock.advance(6000)
   const ui = await band($)
   expect(await says(ui)).toMatch(/Session p1abcd is working/)
-  expect(await ui.find({ key: 'askCommit-p1abcdef' } as never)).toBeUndefined()
+  expect(await ui.find({ key: 'press-askCommit-p1abcdef' } as never)).toBeUndefined()
   await ui.unmount()
 })
 
@@ -119,7 +119,7 @@ test('another session in the same folder: New worktree is offered and creates a 
   await clock.advance(6000)
   const ui = await band($)
   expect(await says(ui)).toMatch(/Another session is in this folder/)
-  await ui.press({ key: 'worktree' } as never)
+  await ui.pointer({ type: 'up', x: 0, y: 0, in: 'press-worktree-press' } as never)
   const add = log.git.find(a => a.includes('worktree'))
   expect(add?.join(' ')).toMatch(/worktree add -b claude\/s-me0000-\d{4}-\d{4} \/r\/\.claude\/worktrees\/s-me0000-/)
   await ui.unmount()
