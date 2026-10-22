@@ -558,6 +558,19 @@ describe('running: typing with code scrolling behind him', () => {
       expect(fr.every(f => f.laptop === 1), key).toBe(true)
     }
   })
+  test('the code only lives while his laptop is open: it starts after the laptop opens and is gone before it closes', () => {
+    for (const other of STATE_IDS) {
+      if (other === 'running' || other === 'cold') continue
+      const into = moveFrames(other, 'running')!.frames
+      const opened = into.findIndex((f, i) => f.laptop !== undefined && into.slice(i).every(g => g.laptop !== undefined))
+      into.forEach((f, i) => { if (f.code !== undefined && i < into.length - 1) expect(i, `${other}>running frame ${i}`).toBeGreaterThan(opened) })
+      expect(into.filter(f => f.code !== undefined).length, `${other}>running`).toBeGreaterThanOrEqual(3)
+      const out = moveFrames('running', other)!.frames
+      const closes = out.findIndex((f, i) => i > 0 && f.laptop === undefined)
+      out.forEach((f, i) => { if (f.code !== undefined) expect(i, `running>${other} frame ${i}`).toBeLessThan(closes < 0 ? out.length : closes - 1) })
+      expect(out.filter((f, i) => i > 0 && f.code !== undefined).length, `running>${other}`).toBeGreaterThanOrEqual(closes < 0 ? 0 : 2)
+    }
+  })
   test('hovering says what he is doing, and he has nothing to say beyond that (no bubble, like typing)', () => {
     expect(hoverHint('running')).toBe('Running a command')
     expect(bubbleFor('running', { ctxPercent: 10, ctxText: '', cacheLabel: '', fiveUsed: 10, fiveReset: '', weekPace: '', weekRoom: 10, saverOn: false, detail: 'x', savedUsd: '', hasAdvice: false })).toBeNull()

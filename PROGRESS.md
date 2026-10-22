@@ -198,3 +198,5 @@ Not verifiable from the cloud: the lane's px height in the app (blank drawing in
 ## 0.26.0: `running` = typing plus green code scrolling behind him (shell command past 2 s, or a check/install/build at once); moves typing<->running and a twin of every typing move. Tests: `claude plugin test cockpit`.
 
 ## 0.26.1: running calmer: half the lines, softer greens; in moves the dashes shrink away / grow, and finish at 60% / 70% of the move.
+
+## 0.26.2: running's code starts after the laptop opens and ends before it closes; the dissolve stays.

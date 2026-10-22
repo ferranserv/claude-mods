@@ -646,25 +646,56 @@ function moveOf(from: StateId, to: StateId): (Move & { w: number }) | null {
 }
 
 /**
- * The lines of code behind running do not appear or vanish in one frame: over a move into running each dash grows from
- * a third of its length to all of it, and over a move out of it each shrinks away (`codeA`, 1 to 3). They finish before
- * the move does: gone by CODE_OUT of the way out, all grown by CODE_IN of the way in, so he settles without them
- * in the way. The first frame of a move out, and the last of a move in, are his own (all the lines); the rest are set
- * here whatever the move drew, so a prop taken or fetched by hand never carries a stale line along.
+ * The lines of code behind running only live while his laptop is open: over a move into running they start after it has
+ * opened, each dash growing from a third of its length to all of it (`codeA`, 1 to 3); over a move out of it they are gone
+ * before it closes, each shrinking away. They finish early (gone by CODE_OUT of the laptop's open time on the way out,
+ * all grown by CODE_IN on the way in). When the laptop is open for only a moment of the move (a prop swap takes it away at
+ * once) his own frame is held a few frames, laptop open, so the dissolve is always seen. The first frame of a move out,
+ * and the last of a move in, are his own (all the lines); the rest are set here whatever the move drew, so a prop taken
+ * or fetched by hand never carries a stale line along.
  */
 const CODE_OUT = 0.6
 const CODE_IN = 0.7
+const CODE_FRAMES = 4
 function fadeCode(frames: Pose[], from: StateId, to: StateId): Pose[] {
   const goes = from === 'running' && to !== 'running'
   const comes = to === 'running' && from !== 'running'
   if (!goes && !comes) return frames
-  const n = frames.length
-  return frames.map((f, i) => {
-    if (i === (goes ? 0 : n - 1)) return f
+  const strip = (f: Pose): Pose => {
     const { code: _c, codeA: _a, ...rest } = f
-    const p = i / (n - 1)
-    const level = comes && i === 0 ? 0 : goes ? (p >= CODE_OUT ? 0 : Math.ceil(3 * (1 - p / CODE_OUT))) : p >= CODE_IN ? 3 : Math.max(1, Math.ceil((3 * p) / CODE_IN - 0.5))
-    return level > 0 ? { ...rest, code: 2 * i, codeA: level } : rest
+    return rest
+  }
+  const held = (f: Pose): Pose => {
+    const { hold: _h, ...rest } = strip(f)
+    return rest
+  }
+  const pad = from !== 'cold' && to !== 'cold' // a move with the cold has a fixed time: nothing is added to it
+  let fr = frames
+  if (goes) {
+    // the laptop is open up to the frame before it goes
+    let open = fr.findIndex((f, i) => i > 0 && f.laptop === undefined)
+    open = open < 0 ? fr.length : open
+    if (pad && open - 1 < CODE_FRAMES) fr = [fr[0]!, ...Array.from({ length: CODE_FRAMES - (open - 1) }, () => held(fr[0]!)), ...fr.slice(1)]
+    const last = fr.findIndex((f, i) => i > 0 && f.laptop === undefined)
+    const end = (last < 0 ? fr.length : last) - 1 // the last frame with the laptop open
+    return fr.map((f, i) => {
+      if (i === 0) return f
+      const level = i >= end ? 0 : Math.ceil(3 * (1 - i / end / CODE_OUT))
+      return level > 0 ? { ...strip(f), code: 2 * i, codeA: level } : strip(f)
+    })
+  }
+  // the laptop is open from the first frame after which none lacks it
+  const lacks = fr.reduce((a, f, i) => (f.laptop === undefined ? i : a), -1)
+  const n0 = fr.length
+  if (pad && n0 - 2 - lacks < CODE_FRAMES) fr = [...fr.slice(0, -1), ...Array.from({ length: CODE_FRAMES - (n0 - 2 - lacks) }, () => held(fr[n0 - 1]!)), fr[n0 - 1]!]
+  const open = fr.reduce((a, f, i) => (f.laptop === undefined ? i : a), -1) + 1 // first frame with the laptop open for good
+  const n = fr.length
+  return fr.map((f, i) => {
+    if (i === n - 1) return f
+    if (i <= open) return strip(f)
+    const p = (i - open) / (n - 1 - open)
+    const level = p >= CODE_IN ? 3 : Math.max(1, Math.ceil((3 * p) / CODE_IN - 0.5))
+    return { ...strip(f), code: 2 * i, codeA: level }
   })
 }
 
