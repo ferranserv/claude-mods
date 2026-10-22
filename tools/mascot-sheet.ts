@@ -2,7 +2,7 @@
 //   bun tools/mascot-sheet.ts
 // One card per state (animated), grouped by the hierarchy of cockpit/hooks/mood.ts, with the pixels that fall outside the
 // canvas counted (must be zero) and the hand-drawn moves counted.
-import { MOVES, STATES, STATE_IDS, stateMarkup } from '../cockpit/hooks/states'
+import { MOVES, STATES, STATE_IDS, codeMarkup, stateMarkup } from '../cockpit/hooks/states'
 import type { StateId } from '../cockpit/hooks/states'
 import { clawd } from '../cockpit/hooks/sprite'
 
@@ -23,7 +23,7 @@ const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;')
 const card = (id: StateId) => {
   const m = stateMarkup(id, id === 'asleep' ? '07:30' : '')
   const out = cut(id)
-  return `<article class="card"><div class="stage"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${m.width} ${m.height}" role="img" aria-label="${esc(STATES[id].label)}">${m.markup}</svg></div>
+  return `<article class="card"><div class="stage"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${m.width} ${m.height}" role="img" aria-label="${esc(STATES[id].label)}">${id === 'running' ? (codeMarkup(null, 'running')?.markup ?? '') : ''}${m.markup}</svg></div>
 <h3>${id}${out ? `<span class="oob">${out} px cut</span>` : ''}</h3><p>${esc(STATES[id].label)}</p><p class="meta">${STATES[id].frames.length} frames · ${esc(STATES[id].face)}</p></article>`
 }
 
