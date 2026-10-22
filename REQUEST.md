@@ -1,16 +1,26 @@
 # REQUEST
 
-Owner: Ferran (Efform, Operational Transformation). Repo: ferranserv/claude-mods. Desktop app on Windows, local sessions.
+Owner: Ferran (Efform, Operational Transformation). Repo: ferranserv/claude-mods. Claude desktop app on Windows, local sessions. The owner writes in Spanish and works by short rounds: a change, a look on screen, the next change.
 
-## Done (sessions 1-6)
-Mods `meters`, `saver`, `preflight-guard`, `prompt-enhancer` shipped; `plan-progress` archived (its chime now in `meters` 0.4.0). History: PROGRESS.md.
+## Goal
+One band above the prompt instead of four strips, with a mascot (Clawd) that shows what is happening, and no warning without the action that answers it. One plugin: `cockpit`.
 
-## Now: the Cockpit (decided 2026-10-20)
-Goal: one band above the prompt instead of four strips, with a mascot (Clawd) that shows state, and no warning without an action.
-1. PR 1 (built, awaiting the owner's check on screen), plugin `cockpit`: merges meters + saver + preflight-guard + prompt-enhancer; collapsed row always shows the core meters, arrow expands everything, auto-opens when something needs you; every warning carries its action; trims. Old four archived.
-2. PR 2, mascot: Clawd with 18 animated states, speech bubble, bell on turn finish.
-3. PR 3, polish from the owner's screenshots.
-Not wanted: exceptions-only view, turn-timer/toast extras (mascot covers it), daily money glance.
-Constraints: no model calls where avoidable; each PR verified by the owner on the app before the next; bump versions and regenerate the marketplace file on every mod change.
-Success: owner confirms on screen; `claude plugin validate|test` pass; one reinstall step only.
-Design: ARCHITECTURE.md (INDEX) -> docs/COCKPIT.md, docs/MASCOT.md.
+## Status (cockpit 0.27.x, shipped)
+- Meters (context, 5-hour, weekly, cache countdown), saver (easy prompts to Haiku 5.5), preflight (main, dirty tree, parallel sessions), prompt enhancer (wand and Undo squares, `meta+e`), handoff, chime, turn log: all inside `cockpit`. The old four mods are in `archive/`.
+- Clawd: 34 states, a speech bubble that is the only channel for messages, hand-drawn moves between states. Latest: `running` (typing with green code scrolling behind him while a shell command runs).
+- What it does today: `README.md`. How it got here: `docs/COCKPIT.md`, `docs/MASCOT.md`, `PROGRESS.md`.
+
+## Not wanted
+An exceptions-only view, turn-timer or toast extras (the mascot covers them), a daily money glance, scenery that spans the whole canvas (it gets cut off), a Button laid over a drawing.
+
+## Constraints
+- No model calls where avoidable (the enhancer's one call is the exception).
+- Bump `version` in `cockpit/.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` on every change, or the app never offers **Update**.
+- The owner checks each change on the desktop app; a cloud session cannot see it (`docs/VERIFY.md` lists what only the app can confirm).
+
+## Success
+`claude plugin validate cockpit` and `claude plugin test cockpit` pass; the owner confirms on screen; one step to update after a merge (`docs/UPDATING.md`).
+
+## Open
+- The owner is about to share the mod. There is no LICENSE file; Clawd belongs to Anthropic (`docs/MASCOT.md`), so check Anthropic's brand terms and say in the README what may be reused.
+- Not seen by any cloud session: how SMIL animation, the code behind `running` and the buttons look on the real band, and whether a state change shows a brief flash when the host replaces Clawd's drawing.

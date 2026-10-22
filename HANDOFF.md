@@ -1,37 +1,25 @@
-# HANDOFF for a cloud session: claude-mods (2026-10-19)
+# HANDOFF for a new session: claude-mods (updated 2026-10-22)
 
-You are continuing work on two Claude Code mods in this repo (`ferranserv/claude-mods`, branch `main`). A local session built them; you cannot see its machine, so everything you need is in this repo. Paths below are relative to the repo root.
-
-Also read `REQUEST.md` and `PROGRESS.md`: they hold the owner's wider list (cache countdown, Handoff & Clear, hotkeys, context-bar colors). `meters` is the merged successor of the owner's context-bar and usage-limits mods.
+You are continuing work on one Claude Code mod, `cockpit`, in `ferranserv/claude-mods` (branch `main`). A cloud session cannot see the owner's screen: everything you need is in this repo. Paths are relative to the repo root. Read `CLAUDE.md` first (rules for this repo), then `REQUEST.md` (goal, constraints, what is open) and `PROGRESS.md` (history, newest last).
 
 ## What exists
-- `saver/` : routes "easy" prompts to Haiku 5.5 (every request of the turn) while context < 100K tokens; hard prompts stay on the user's model. Unclear prompts are labelled by Haiku 5.5 via `$.model.classify`. `/saver on|off`. A centered strip above the prompt shows the model that answered last and "saved today" (list prices: Haiku 5.5 $0.10 in / $0.50 out per MTok vs the main model's price; every input-side token, cached or not, is counted at the plain input price, so savings are an estimate).
-  - `saver/hooks/register.tsx` (hooks), `saver/hooks/lib.ts` (pure logic: labelling, prices, savings), `saver/hooks/lib.test.ts` (7 tests, passing).
-- `meters/` : context window bar (red past 80%, legend suggesting a fresh session: warn at 150k tokens, alert past 80%), 5-hour limit bar, weekly limit bar split into five 20% weekday slots (fills with what is used, Monday first, day letters centered under each slot, pace line like `Mon 14% under`). On the desktop surface it is drawn as SVG in one ~46px band above the prompt; on the terminal it is a one-line text fallback. `/meters side` opens a vertical side panel (bars rise from the bottom), `/meters top` returns to the band. It replaces two earlier mods (`context-bar`, `usage-limits`) that are not in this repo.
-  - `meters/hooks/register.tsx`, `meters/hooks/lib.ts` (model + SVG builders).
-- Each mod: `.claude-plugin/plugin.json`, `hooks/hooks.json` -> `hooks/register.tsx`, `types/index.d.ts` (state contract). `.claude-plugin/marketplace.json` at the root lists both.
+- `cockpit/` (version in `cockpit/.claude-plugin/plugin.json`, mirrored in `.claude-plugin/marketplace.json`): the band above the prompt. Clawd (34 animated states), Context / 5-hour / Weekly / Cache meters, a speech bubble with the button for each warning, saver, preflight, prompt enhancer (wand and Undo), handoff, chime, turn log. What it does for a user: `README.md`.
+- `archive/`: the four mods it replaced, `mods-manager`, `plan-progress`, and the beach idle (`archive/README.md`).
+- `docs/`: `COCKPIT.md` (design record, one section per version), `MASCOT.md` (Clawd: states, hierarchy, drawing rules, a dated entry per version), `VERIFY.md` (what only the desktop app can confirm), `UPDATING.md`, `mascot/clawd-sheet.html` (generated).
+- `tools/`: see `tools/README.md`.
+- Where each thing lives in the code: `ARCHITECTURE.md`.
 
-## State
-- Both mods pass `claude plugin validate`. `saver` tests pass. **`meters` has no tests.**
-- The SVG layout of `meters` has never been seen on screen. The previous text-bar version wrapped on the desktop app's proportional font, which is why it was rebuilt as SVG.
-- No type-check has run (no Node/tsc on the author's machine).
+## How to work
+1. Branch `claude/...`, change, run `claude plugin validate cockpit` and `claude plugin test cockpit` (from outside the repo directory, e.g. `cd /tmp`). The suite is about 275 tests and takes ~25 s.
+2. After any drawing change: `bun tools/mascot-sheet.ts` (no "px cut" may show).
+3. Bump the version in both JSON files, add the dated entries (docs/MASCOT.md, PROGRESS.md, VERIFY.md row if the screen shows something new), commit, push, open a pull request. Merge only when the owner says so.
+4. End by telling the owner the three steps after the merge (CLAUDE.md).
 
-## Your tasks
-1. If the Claude Code CLI is available, run `claude plugin validate saver`, `claude plugin validate meters` and `claude plugin test saver`. If not, review by reading.
-2. Add `meters/hooks/lib.test.ts` (pure tests: `model`, `bandSvg`, `sideSvg`, `legendFor`, `line`, `sliceFrac`, `pace`, `resetShort`; check the SVG has no `NaN`, one `<svg>` root, five weekday slots, day letters centered) and `meters/hooks/mount.test.ts`. The mount test needs, inside `test(name, async ($, on) => {...})`: `on('session.measure', (_, e) => ({ changed: e.changed }))`, `on('ui.render', () => ({ type: 'engine', ref: 0 }))`, and `mock.clock(on, { now })` (from `claude-code/testing`), then `$.ui.mount({ plugin: 'meters', surface: 'desktop' | 'terminal', component: 'AbovePrompt', props: { hasSurvey: false, isWorking: false, maxRows: 12, bodyColumns: 100, scroll: { bodyRows: 10 }, view: {} } })`. Seed data by calling `$.session.measure({ context: {...}, rateLimits: [...], changed: [...] })`.
-3. Review `meters/hooks/register.tsx` for the `Pane` path (`/meters side`): the app, not the mod, decides where a docked pane appears, so do not promise a left side.
-4. Known choices to keep or question: the 150k-token legend threshold is arbitrary; the weekly reset time was dropped from the band; weekdays Mon-Fri only (a weekend counts as Friday).
-5. Commit small, push to a branch, and report what you changed and what you could not verify.
+## Rules for the API (this build)
+- A hook is `($, e, next)`; the module may not shadow `on`, `$` or `next`; `$` is used only as `$.noun.method(...)` and never passed to a function from another file. One hook per event per plugin.
+- Drawings are `Svg` elements (width and height in CSS px) and only exist on the desktop; the terminal gets text. A tree that does not validate is silently replaced by the engine's own drawing, so test with `$.ui.mount` and `ui.find` / `ui.findAll`.
+- A clickable drawing is a press target (a Client laid over it, called with a literal module path); never a Button over a drawing.
+- Tests may load only the plugin under test (`hooks/world.ts` is the shared fake world).
 
-## Rules for the API (this build, Claude Code 2.1.299)
-- A hook is `($, e, next)`; the module may not shadow `on`, `$` or `next`; `$` may only be used as `$.noun.method(...)` (do not pass `$` to helper functions: `claude plugin validate` rejects it).
-- Bars on the desktop are SVG (`Svg` element, width/height in CSS pixels); the terminal has no `Svg`.
-- A tree that does not validate is silently replaced by the engine's own drawing, so test with `$.ui.mount` and `ui.find`.
-
-
-## Session 2 result (cloud session)
-1. Validate + tests ran: saver 7 -> 14 tests, meters 0 -> 85. tsc strict is clean on all four band mods.
-2. `meters/hooks/lib.test.ts`, `mount.test.tsx`, `behavior.test.tsx`, `bands.test.tsx` added (tests need `hooks/world.ts`). The mount test pattern from this file works as written.
-3. Pane path reviewed: no side is promised; an inline (not docked) pane now draws the horizontal layout; closing the pane is remembered.
-4. 150k threshold is now an option (`warnTokens`); weekday and reset-time choices kept.
-5. Stacking: tested one mod at a time with a foreign tree beneath (a test may load only its own plugin folder; inline plugins go through a stricter loader that rejects the mods). Result and fix: see PROGRESS.md.
+## Open
+See `REQUEST.md` (sharing: license and Anthropic's terms for Clawd; what no cloud session can verify). Ideas the owner has not asked for are not started.
