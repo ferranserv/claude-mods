@@ -1263,7 +1263,7 @@ async function bandTree($: EngineInterface, e: { surface: string }, o: { isWorki
       const drawn = el(
         c.Box,
         { key: 'art', flexDirection: 'row', alignItems: 'center' },
-        ...(parts.mascot ? [pressTarget(c, 'clawd', { source: parts.mascot.source, alt: STATES[s.state].label, width: parts.mascot.width, height: parts.mascot.height, isInteractive: true }, () => fx.toggle(s.speech !== null, s.hover?.text ?? '', s.hover?.alertId))] : []),
+        ...(parts.mascot ? [pressTarget(c, 'clawd', { source: parts.mascot.source, alt: STATES[s.state].label, width: parts.mascot.width, height: parts.mascot.height, isInteractive: true, svgKey: 'mascot' }, () => fx.toggle(s.speech !== null, s.hover?.text ?? '', s.hover?.alertId))] : []),
         column,
       )
       row = el(c.Box, { key: 'row', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, drawn, controls(s, c, fx, Svg))
@@ -1284,14 +1284,14 @@ async function recallNow($: EngineInterface, text: string, alertId?: string): Pr
   } else if (text !== '') await tell($, text)
 }
 
-/** A click on Clawd: shows the words he would say (and their warning, if any), or hides the bubble on screen. */
-async function toggleBubble($: EngineInterface, showing: boolean, text: string, alertId?: string): Promise<void> {
-  if (showing) {
-    mood.bubbleOff = false
-    await recallNow($, text, alertId)
-  } else {
+/** A click on Clawd: hides the bubble on screen, or (when none is) shows the words he would say and their warning, if any. */
+async function toggleBubble($: EngineInterface, visible: boolean, text: string, alertId?: string): Promise<void> {
+  if (visible) {
     mood.bubbleOff = true
     dismissBubble()
+  } else {
+    mood.bubbleOff = false
+    await recallNow($, text, alertId)
   }
   $.ui.invalidate('ui.render')
 }
@@ -1341,11 +1341,19 @@ function buttonGroup(c: Comps, specs: BtnSpec[], key = 'btns') {
 const presses = new Map<string, () => void>()
 
 /** A press target: a Client whose drawing is its region; a pointer release on it runs `press` (the `ui.message` hook below). */
-function pressTarget(c: Comps, key: string, art: { source: string; alt: string; width: number; height: number; isInteractive: boolean }, press: () => void) {
-  presses.set(key, press)
-  // The engine reads the Client and its module off this source before anything runs: the element is named `Client` here, with its module a string literal.
-  const Client = c.Client as never
-  return el(Client, { key, module: './press.tsx', props: { source: art.source, alt: art.alt, width: art.width, height: art.height, isInteractive: art.isInteractive } })
+function pressTarget(c: Comps, key: string, art: { source: string; alt: string; width: number; height: number; isInteractive: boolean; svgKey?: string }, press: () => void) {
+  const clientKey = `${key}-press`
+  presses.set(clientKey, press)
+  // The engine reads the Client and its module off this source before anything runs: it is called here with its module a string literal.
+  // A Client's module cannot draw an Svg (its table has none), so the drawing stays out here and the Client, an empty region, is laid
+  // over it at 100% of the drawing's own box: the region is the drawing's size whatever the host's cells are.
+  const Client = c.Client as (props: Record<string, unknown>) => never
+  return el(
+    c.Box,
+    { key, position: 'relative', flexShrink: 0 },
+    el(c.Svg as never, { key: art.svgKey ?? `${key}-art`, source: art.source, alt: art.alt, isInteractive: art.isInteractive, width: art.width, height: art.height }),
+    el(c.Box, { key: `${key}-hit`, position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden' }, Client({ key: clientKey, module: './press.tsx', width: '100%', height: '100%' })),
+  )
 }
 
 /** What one action's button does: pressing it answers the bubble and closes the menu. */
@@ -1479,7 +1487,7 @@ type Fx = {
   hideAdvice: () => void
   dismissNotice: () => void
   menu: (open: boolean) => void
-  toggle: (showing: boolean, text: string, alertId?: string) => void
+  toggle: (visible: boolean, text: string, alertId?: string) => void
 }
 
 /** What the band's buttons do; every one passes `$` only to a function declared above. */
@@ -1506,7 +1514,7 @@ function makeFx($: EngineInterface): Fx {
     hideAdvice: () => void update($, isDismissed, () => true),
     dismissNotice: () => void update($, notice, () => null),
     menu: open => void update($, menuState, () => open),
-    toggle: (showing, text, alertId) => void toggleBubble($, showing, text, alertId),
+    toggle: (visible, text, alertId) => void toggleBubble($, visible, text, alertId),
   }
 }
 

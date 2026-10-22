@@ -236,31 +236,32 @@ test('buttons: shown from the first warning, hidden when calm or while working; 
 
   for (const surface of ['desktop', 'terminal'] as const) {
     await at(20)
+    const pill = (key: string) => (surface === 'desktop' ? `press-${key}` : key) // the terminal keeps plain Buttons
     let ui = await $.ui.mount(band(surface))
-    expect(await ui.find({ key: 'copy' })).toBeUndefined()
+    expect(await ui.find({ key: pill('copy') })).toBeUndefined()
     await ui.unmount()
 
     await at(55)
     await settle($, w) // he settles into the pose before the bubble speaks
     ui = await $.ui.mount(band(surface))
-    expect(await ui.find({ key: 'copy' })).toBeDefined()
-    expect(await ui.find({ key: 'more' })).toBeDefined()
-    expect(await ui.find({ key: 'fresh' })).toBeUndefined() // in the menu, not on the bubble
+    expect(await ui.find({ key: pill('copy') })).toBeDefined()
+    expect(await ui.find({ key: pill('more') })).toBeDefined()
+    expect(await ui.find({ key: pill('fresh') })).toBeUndefined() // in the menu, not on the bubble
     await ui.unmount()
 
     ui = await $.ui.mount(band(surface, true))
-    expect(await ui.find({ key: 'copy' })).toBeUndefined()
+    expect(await ui.find({ key: pill('copy') })).toBeUndefined()
     await ui.unmount()
   }
 
   await at(55)
   await settle($, w)
   let ui = await $.ui.mount(band('desktop'))
-  await ui.press({ key: 'more' })
+  await ui.pointer({ type: 'up', x: 0, y: 0, in: 'press-more-press' })
   await ui.unmount()
   ui = await $.ui.mount(band('desktop'))
-  for (const key of ['handoff', 'compact', 'fresh']) expect(await ui.find({ key })).toBeDefined()
-  await ui.press({ key: 'fresh' })
+  for (const key of ['handoff', 'compact', 'fresh']) expect(await ui.find({ key: `press-${key}` })).toBeDefined()
+  await ui.pointer({ type: 'up', x: 0, y: 0, in: 'press-fresh-press' })
   await w.clock.advance(100)
   expect(w.commands).toEqual(['clear'])
   await ui.unmount()
@@ -331,14 +332,14 @@ test('/meters warn, red, tokens: change the context warning levels without the o
 
   await at(10)
   let ui = await $.ui.mount(band('desktop'))
-  expect(await ui.find({ key: 'copy' })).toBeUndefined() // 10% is calm at the default 50
+  expect(await ui.find({ key: 'press-copy' })).toBeUndefined() // 10% is calm at the default 50
   await ui.unmount()
 
   expect(text(await $.command.run({ command: 'meters', args: 'warn 5' } as never))).toContain('orange from 5%')
   expect(w.writes.limitOverrides).toEqual({ warnPercent: 5 })
   await settle($, w)
   ui = await $.ui.mount(band('desktop'))
-  expect(await ui.find({ key: 'copy' })).toBeDefined() // now it warns
+  expect(await ui.find({ key: 'press-copy' })).toBeDefined() // now it warns
   await ui.unmount()
 
   expect(text(await $.command.run({ command: 'meters', args: 'red 8' } as never))).toContain('red past 8%')
@@ -454,13 +455,13 @@ test('buttons hide while a turn runs even when the app does not set isWorking; t
   await w.clock.advance(6000)
   await $.session.measure({ context: { tokens: 600, window: 1000, percent: 60 }, rateLimits: [], changed: ['context'] } as never)
   let ui = await $.ui.mount(band('desktop'))
-  for (const key of ['copy', 'more']) expect(await ui.find({ key })).toBeDefined()
+  for (const key of ['copy', 'more']) expect(await ui.find({ key: `press-${key}` })).toBeDefined()
   await ui.unmount()
 
   await ($ as unknown as { turn: { start: (i: unknown) => Promise<unknown> } }).turn.start({ text: 'go', turnId: 't1' })
   ui = await $.ui.mount(band('desktop', false))
-  expect(await ui.find({ key: 'copy' })).toBeUndefined()
-  expect(await ui.find({ key: 'more' })).toBeUndefined()
+  expect(await ui.find({ key: 'press-copy' })).toBeUndefined()
+  expect(await ui.find({ key: 'press-more' })).toBeUndefined()
   await ui.unmount()
   expect(w.commands).toEqual([])
 })
@@ -499,14 +500,14 @@ test('a warning speaks in one bubble: Copy handoff on it, Handoff, Compact and F
   await w.clock.advance(6000)
   let ui = await $.ui.mount(band('desktop'))
   expect(await ui.find({ key: 'lane' })).toBeDefined()
-  expect(await ui.find({ key: 'copy' })).toBeDefined()
+  expect(await ui.find({ key: 'press-copy' })).toBeDefined()
   expect(await ui.find({ key: 'row' })).toBeDefined() // the band's own row is always there, with the meters
   expect(await ui.find({ key: 'menu' })).toBeUndefined()
-  await ui.press({ key: 'more' })
+  await ui.pointer({ type: 'up', x: 0, y: 0, in: 'press-more-press' })
   await ui.unmount()
   ui = await $.ui.mount(band('desktop'))
   expect(await ui.find({ key: 'menu' })).toBeDefined()
-  for (const key of ['handoff', 'compact', 'fresh']) expect(await ui.find({ key })).toBeDefined()
+  for (const key of ['handoff', 'compact', 'fresh']) expect(await ui.find({ key: `press-${key}` })).toBeDefined()
   await ui.unmount()
 })
 test('the expand arrow and /cockpit open|close|auto are gone: the band is one row', async ($, on) => {
@@ -522,8 +523,8 @@ test('5-hour limit at 80%: the bubble offers Turn saver on, and pressing it turn
   await w.clock.advance(6000)
   await ($ as unknown as { session: { measure: (i: unknown) => Promise<unknown> } }).session.measure({ context: { tokens: 100, window: 1000, percent: 10 }, rateLimits: [{ kind: 'five_hour', percentUsed: 85 }], changed: ['context', 'rateLimits'] })
   const ui = await $.ui.mount(band('desktop'))
-  expect(await ui.find({ key: 'saver' })).toBeDefined()
-  await ui.press({ key: 'saver' })
+  expect(await ui.find({ key: 'press-saver' })).toBeDefined()
+  await ui.pointer({ type: 'up', x: 0, y: 0, in: 'press-saver-press' })
   expect(w.writes.saverOn).toBe(true)
   await ui.unmount()
 })
@@ -710,9 +711,8 @@ test('a bubble that asks for a decision stays until you answer it, and clicking 
   await w.clock.advance(10_000)
   expect(await hasButton($, 'copy')).toBe(false) // sending something else answers it: the bubble is gone...
   let ui = await $.ui.mount(band('desktop'))
-  expect(await ui.find({ key: 'recall' })).toBeDefined()
-  expect(await ui.find({ key: 'recall-1' })).toBeUndefined() // one button over the whole of him, not a stack // ...but Clawd is a button: one click on him says it again (the app has no hover to count on)
-  await ui.press({ key: 'recall' })
+  expect(await ui.find({ key: 'clawd' })).toBeDefined()
+  await ui.pointer({ type: 'up', x: 0, y: 0, in: 'clawd-press' })
   await ui.unmount()
   await settle($, w, 4000)
   expect(await hasButton($, 'copy')).toBe(true) // the warning is back, with its button, until it is answered again
@@ -831,7 +831,7 @@ test('/cockpit demo shows a state you ask for, and says when it does not know on
 /** Whether the band holds a real button with this key. */
 const hasButton = async ($: unknown, key: string): Promise<boolean> => {
   const ui = await ($ as { ui: { mount: (i: unknown) => Promise<{ find: (q: unknown) => Promise<unknown>; unmount: () => Promise<void> }> } }).ui.mount(band('desktop'))
-  const found = (await ui.find({ key })) !== undefined
+  const found = (await ui.find({ key: `press-${key}` })) !== undefined
   await ui.unmount()
   return found
 }
@@ -893,18 +893,18 @@ test('the buttons are ONE gray picture with one real Button per pill laid over i
   await settle($, w)
   type Mounted = { find: (q: unknown) => Promise<{ props?: Record<string, unknown> } | undefined>; findAll: (q: unknown) => Promise<{ props?: { alt?: string; source?: string; width?: number; height?: number } }[]>; unmount: () => Promise<void> }
   const ui = (await $.ui.mount(band('desktop'))) as unknown as Mounted
-  const group = (await ui.findAll({ type: 'Svg' })).find(v => v.props?.alt === 'Copy handoff, …')
-  expect(group).toBeDefined() // the primary button and the "…" are one drawing
-  expect(group?.props?.source).toContain('#8E8E93') // the bubble's own gray, opaque
-  expect(group?.props?.source).not.toContain('fill-opacity')
-  expect(group?.props?.height).toBe(26) // as tall as the bubble
-  expect(await ui.find({ key: 'copy' })).toBeDefined()
-  expect(await ui.find({ key: 'more' })).toBeDefined()
-  expect((await ui.find({ key: 'btns-wrap' }))?.props?.overflow).toBe('hidden')
-  expect((await ui.find({ key: 'hit' }))?.props).toMatchObject({ top: 0, left: 0, right: 0, bottom: 0, flexDirection: 'row', overflow: 'hidden' }) // the Button layer is the picture's own box
-  expect((await ui.find({ key: 'hit-copy' }))?.props?.width).toBe(0) // each Button's piece shares the picture by flex ratio, in no unit of the host's
-  expect(Number((await ui.find({ key: 'hit-copy' }))?.props?.flexGrow)).toBeGreaterThan(Number((await ui.find({ key: 'gap-1' }))?.props?.flexGrow))
-  expect(await ui.find({ key: 'copy-2' })).toBeUndefined() // one Button per pill
+  const copy = (await ui.findAll({ type: 'Svg' })).find(v => v.props?.alt === 'Copy handoff')
+  expect(copy).toBeDefined() // each pill is its own drawing
+  expect(copy?.props?.source).toContain('#8E8E93') // the bubble's own gray, opaque
+  expect(copy?.props?.source).not.toContain('fill-opacity')
+  expect(copy?.props?.height).toBe(26) // as tall as the bubble
+  expect((await ui.findAll({ type: 'Svg' })).find(v => v.props?.alt === '…')?.props?.height).toBe(26)
+  expect(await ui.find({ key: 'press-copy' })).toBeDefined()
+  expect(await ui.find({ key: 'press-more' })).toBeDefined()
+  // The click area is a Client laid over the drawing at 100% of its own box: no Button, so no host unit of height or width counts.
+  expect((await ui.find({ key: 'press-copy-hit' }))?.props).toMatchObject({ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden' })
+  expect((await ui.find({ key: 'press-copy-press' }))?.props).toMatchObject({ width: '100%', height: '100%' })
+  expect(await ui.find({ key: 'copy' })).toBeUndefined() // no Button of that name any more
   await ui.unmount()
 })
 
@@ -952,7 +952,7 @@ test('with Clawd hidden the bubble still speaks and still carries its button', a
   await $.command.run({ command: 'cockpit', args: 'close' } as never)
   const ui = await $.ui.mount(band('desktop'))
   expect(await ui.find({ key: 'lane' })).toBeDefined()
-  expect(await ui.find({ key: 'copy' })).toBeDefined()
+  expect(await ui.find({ key: 'press-copy' })).toBeDefined()
   await ui.unmount()
 })
 
@@ -1108,7 +1108,7 @@ test('while Claude works the detective waits: he thinks (findings are only offer
   await settle($, w, 1000)
   expect(await altOf($, true)).toContain('thinking')
   const ui = await $.ui.mount(band('desktop', true))
-  expect(await ui.find({ key: 'recall' })).toBeDefined() // a click on him says "Thinking…"
+  expect(await ui.find({ key: 'clawd' })).toBeDefined() // a click on him says "Thinking…"
   await ui.unmount()
 })
 
