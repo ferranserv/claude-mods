@@ -210,3 +210,5 @@ Not verifiable from the cloud: the lane's px height in the app (blank drawing in
 ## 0.27.3: the plugin and marketplace descriptions (what the app shows) say what the cockpit is today (no expand arrow, 34 states); the raised-hand option says questions, not permission prompts.
 
 ## 0.28.1: reverted 0.28.0 (the separate code layer did not show); moves out of typing/running begin on the loop frame he is on, so the code lines and the gum no longer jump.
+
+## 0.29.0: `fishing` (background task pose, 23 s loop, hat, rod, thin ripple, moves to the common states); drawings 37-56 % smaller and pixel-identical (base + deltas, rectangles, strokes) to shorten the host's blank frames on every pose change.

@@ -36,7 +36,7 @@ const MINI = {
   shades: ['ddddd', '.d.d.'], glasses: ['nnnnn', 'n.n.n'], laptop: ['LLLLL', 'LdddL', 'LLLLL'],
   book: ['XXXXX', 'XoooX', 'XXXXX'], stack: ['hhhhh', 'lllll', 'uuuuu'], scroll: ['ooooo', 'OOOOO', 'ooooo'], clipboard: ['.gg.', 'KKKK', 'KwwK', 'KwwK'],
   cup: ['www', 'w.w', 'www'], flask: ['.q.', 'qqq', 'qqq'], beaker: ['.i.', 'iii', 'rrr'], bell: ['.bb.', 'bbbb', '.bb.'], paper: ['wwww', 'wOOw', 'wwww'], bulb: ['.s.', 'sss', '.s.'],
-  'hat-hard': ['.EEE.', 'EEEEE'], 'hat-fedora': ['.XXX.', 'XXXXX'], 'hat-wizard': ['..n..', '.nnn.', 'NNNNN'],
+  'hat-hard': ['.EEE.', 'EEEEE'], 'hat-fisher': ['.KKK.', 'TTTTT'], rod: ['..xx', '.x..', 'x...'], 'hat-fedora': ['.XXX.', 'XXXXX'], 'hat-wizard': ['..n..', '.nnn.', 'NNNNN'],
   wrench: ['ggg', '.x.', '.x.'], wand: ['..s', '.w.', 'w..'], glass: ['ggg', 'gig', 'ggg', '..X'], browser: ['GGGG', 'ybbb', 'ybbb'],
   thing: ['ggg', 'ggg'],
   palette: ['.KKK.', 'KKKKK', 'KhKqK', '.KKK.'], brush: ['..h', '.x.', 'x..'], magnifier: ['ggg', 'gig', 'ggg', '..X'],
@@ -168,6 +168,7 @@ function clawd(o) {
   if (o.forehead !== undefined) { const t = o.forehead; [X + 8, X + 12, X + 17].forEach((x, i) => { const yy = Y + ((t + i) % 2); set(x, yy, 'q'); if ((t + i) % 2 === 0) set(x + 1, yy, 'Q'); }); }
   // ---- hats
   if (o.hat === 'hard') { fill(X + 4, Y - 3, 16, 3, 'E'); fill(X + 7, Y - 4, 10, 1, 'E'); fill(X + 2, Y, 20, 1, 'D'); fill(X + 11, Y - 4, 2, 4, 'D'); }
+  if (o.hat === 'fisher') { fill(X + 6, Y - 3, 12, 3, 'K'); fill(X + 7, Y - 4, 10, 1, 'K'); fill(X + 6, Y - 1, 12, 1, 'X'); fill(X + 3, Y, 18, 1, 'T'); fill(X + 3, Y + 1, 3, 1, 'T'); fill(X + 18, Y + 1, 3, 1, 'T'); set(X + 8, Y - 2, 'h'); set(X + 9, Y - 2, 'w'); }   // a bucket hat: crown, band with a lure, a brim that droops at the sides
   if (o.hat === 'fedora') { fill(X + 6, Y - 4, 12, 4, 'X'); fill(X + 6, Y - 1, 12, 1, 'B'); fill(X + 2, Y, 20, 1, 'X'); set(X + 7, Y - 5, 'X'); fill(X + 8, Y - 5, 8, 1, 'X'); }
   if (o.hat === 'wizard') { fill(X + 3, Y, 18, 1, 'N'); fill(X + 6, Y - 1, 12, 1, 'n'); fill(X + 7, Y - 2, 10, 1, 'n'); fill(X + 8, Y - 3, 8, 1, 'n'); fill(X + 9, Y - 4, 6, 1, 'n'); fill(X + 10, Y - 5, 4, 1, 'n'); fill(X + 11, Y - 6, 3, 1, 'n'); fill(X + 12, Y - 7, 2, 1, 'n'); set(X + 14, Y - 7, 'n'); set(X + 15, Y - 6, 'n'); set(X + 9, Y - 2, 's'); set(X + 13, Y - 4, 's'); set(X + 11, Y - 1, 's'); fill(X + 6, Y - 1, 12, 1, 'N'); }
   // ---- hand props
@@ -380,6 +381,24 @@ function clawd(o) {
     for (let j = 0; j < 3; j++) for (let i = 0; i < 3; i++) cs(x0 + i, y0 + j, 'b');
     cs(x0 + 1, y0 + 1, 's'); cs(x0, y0, 'w'); cs(x0 + 2, y0 + 2, 'B'); cs(x0 + 1, y0 + 2, 'B');
   }
+  // ---- fishing: the rod in his right hand, its line, the hook with a worm, the bobber and a little water around where the line goes in
+  if (o.rod) {
+    const [tx, ty] = o.rod, gx = X + 22, gy = Y + 6;   // the grip is at his right hand
+    const plot = (x0, y0, x1, y1, c) => { const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)); for (let i = 0; i <= n; i++) set(Math.round(x0 + ((x1 - x0) * i) / (n || 1)), Math.round(y0 + ((y1 - y0) * i) / (n || 1)), c); };
+    if (o.water) {   // a thin ripple, 7 px wide, two rows, that slides: only around where the line goes in
+      const [wx, wy, ph] = o.water;
+      for (let i = 0; i < 7; i++) { if ((i + ph) % 4 < 2) set(wx - 3 + i, wy, 'Q'); if ((i + ph + 2) % 4 < 2) set(wx - 3 + i, wy + 1, 'q'); }
+      if (o.splash) [[-2, -2], [2, -2], [-3, -1], [3, -1], [0, -3], [-1, -4], [1, -4]].slice(0, o.splash === 1 ? 3 : o.splash === 2 ? 7 : 4).forEach(([dx, dy]) => set(wx + dx, wy + dy, 'Q'));
+    }
+    plot(gx, gy, tx, ty, 'x'); set(gx, gy, 'X'); set(gx - 1, gy + 1, 'X');
+    if (o.line) {   // from the tip to [x, y]: the bobber, or the hook
+      const [lx, ly] = o.line;
+      plot(tx, ty + (ty < ly ? 1 : -1), lx, ly, 'v');
+    }
+    if (o.bobber) { const [bx, by] = o.bobber; fill(bx, by, 2, 1, 'r'); fill(bx, by + 1, 2, 1, 'w'); if (o.hook) plot(bx + 1, by + 2, o.hook[0], o.hook[1], 'L'); }
+    if (o.hook) { const [hx, hy] = o.hook; set(hx, hy, 'g'); set(hx - 1, hy + 1, 'g'); set(hx, hy + 1, 'g'); if (o.worm !== undefined) { const w = o.worm; [[0, 0], [1, w % 2 ? -1 : 1], [2, 0]].forEach(([dx, dy]) => set(hx - 1 + dx, hy + 2 + dy, w >= 2 ? 'P' : 'p')); } }
+  }
+  if (o.wormAt) { const [wx, wy, w] = o.wormAt; [[0, 0], [1, w % 2 ? -1 : 1], [2, 0], [3, w % 2 ? 1 : -1]].forEach(([dx, dy]) => set(wx + dx, wy + dy, 'p')); }   // a worm in his hand
   if (o.carry) {   // the prop in his hand: at 1 above the raised hand, at 3 just under the arm that swings out to put it behind him
     const left = o.carrySide === 'L';   // the left hand: the same two spots, mirrored
     const [cxo, cyo] = left ? (o.at === 3 ? [X - 3, Y + 7] : [X - 1, Y - 5]) : o.at === 3 ? [X + 22, Y + 7] : [X + 19, Y - 5];
@@ -420,8 +439,18 @@ export { clawd, PAL, W0, H0 }
 
 /** One color at a time, one run of pixels per segment: small enough for the Svg limit (131072 characters). */
 function pathsOf(grid, pal) {
+  // One color at a time; a run of pixels in a row that repeats unchanged in the rows under it is one rectangle, not one run per row.
+  // A rectangle one pixel wide or tall is a stroke of width 1 (`M5.5 3v4`, a third of the characters of `M5 3h1v4h-1z`).
   const by = {}
+  const open = {}
+  const done = (c, r) => {
+    const e = (by[c] ??= { fill: [], line: [] })
+    if (r.n === 1) e.line.push(`M${r.x + 0.5} ${r.y}v${r.h}`)
+    else if (r.h === 1) e.line.push(`M${r.x} ${r.y + 0.5}h${r.n}`)
+    else e.fill.push(`M${r.x} ${r.y}h${r.n}v${r.h}h-${r.n}z`)
+  }
   grid.forEach((row, y) => {
+    const now = {}
     let x = 0
     while (x < row.length) {
       const c = row[x]
@@ -431,34 +460,82 @@ function pathsOf(grid, pal) {
       }
       let n = 1
       while (row[x + n] === c) n++
-      ;(by[c] ??= []).push(`M${x} ${y}h${n}v1h-${n}z`)
+      const key = `${c}:${x}:${n}`
+      const up = open[key]
+      if (up) {
+        up.h++
+        now[key] = up
+        delete open[key]
+      } else now[key] = { c, x, y, n, h: 1 }
       x += n
     }
+    for (const key of Object.keys(open)) done(open[key].c, open[key])
+    for (const key of Object.keys(open)) delete open[key]
+    Object.assign(open, now)
   })
+  for (const key of Object.keys(open)) done(open[key].c, open[key])
   return Object.entries(by)
-    .map(([c, d]) => `<path fill="${pal[c]}" d="${d.join('')}"/>`)
+    .map(([c, e]) => (e.fill.length ? `<path fill="${pal[c]}" d="${e.fill.join('')}"/>` : '') + (e.line.length ? `<path stroke="${pal[c]}" d="${e.line.join('')}"/>` : ''))
     .join('')
+}
+
+/**
+ * The frames as drawings. What every frame has in common (his body, the laptop, the legs...) is drawn once, as a base that is always
+ * there, and each frame draws only what is its own: the same picture at every moment with a fraction of the markup to load. A frame
+ * equal to the one before it is not drawn twice (its time is added to the first). Frames that recolor him (the cold) share no base.
+ */
+function drawings(frames: Pose[], w: number): { base: string; items: { body: string; hold: number }[] } {
+  const grids = frames.map(o => clawd({ w, ...o }).g)
+  const recolored = frames.some(o => o.pal)
+  let base = null
+  if (!recolored && frames.length > 1) {
+    base = grids[0].map((row, y) => row.map((c, x) => (c && grids.every(g => g[y][x] === c) ? c : null)))
+  }
+  const items: { body: string; hold: number }[] = []
+  frames.forEach((o, i) => {
+    const own = base ? grids[i].map((row, y) => row.map((c, x) => (base[y][x] ? null : c))) : grids[i]
+    const body = pathsOf(own, { ...PAL, ...(o.pal || {}) })
+    const hold = o.hold ?? 1
+    const last = items[items.length - 1]
+    if (last && last.body === body) last.hold += hold
+    else items.push({ body, hold })
+  })
+  return { base: base ? pathsOf(base, PAL) : '', items }
+}
+
+/** How long frame i shows: a discrete animation of its opacity over the cycle, 1 only from its time to the next (values and key times of three, not one per frame). */
+function showAt(i: number, times: string[]): { values: string; keyTimes: string } {
+  const n = times.length
+  if (i === 0) return { values: '1;0', keyTimes: `0;${times[1]}` }
+  if (i === n - 1) return { values: '0;1', keyTimes: `0;${times[i]}` }
+  return { values: '0;1;0', keyTimes: `0;${times[i]};${times[i + 1]}` }
+}
+const timesOf = (holds: number[]): string[] => {
+  const total = holds.reduce((a, h) => a + h, 0)
+  let acc = 0
+  return holds.map(h => { const t = String(Number((acc / total).toFixed(4))); acc += h; return t })
 }
 
 /** The frames of one state, swapped by SMIL opacity (a sandboxed Svg with isInteractive plays it; elsewhere frame one shows). */
 export function renderFrames(frames: Pose[], fd: number, w: number, drift: boolean, scale = 2, delay = 0): string {
-  const n = frames.length
+  const { base, items: ds } = drawings(frames, w)
+  const n = ds.length
   // A frame's `hold` (1 by default) is its share of the time: poses that rest are held, quick moves are not.
   const total = frames.reduce((a, f) => a + (f.hold ?? 1), 0)
-  let acc = 0
-  const keyTimes = frames.map(f => { const t = (acc / total).toFixed(4); acc += f.hold ?? 1; return t }).join(';')
+  const times = timesOf(ds.map(d => d.hold))
   const dur = (total * fd).toFixed(2)
   // A delay starts the loop after a move that plays first in the same drawing: nothing shows until then.
   const begin = delay > 0 ? ` begin="${delay.toFixed(2)}s"` : ''
-  const groups = frames
-    .map((o, i) => {
-      const k = clawd({ w, ...o })
-      const anim = n > 1 ? `<animate attributeName="opacity" values="${frames.map((_, j) => (j === i ? 1 : 0)).join(';')}" keyTimes="${keyTimes}" dur="${dur}s" calcMode="discrete"${begin} repeatCount="indefinite"/>` : delay > 0 ? `<set attributeName="opacity" to="1"${begin}/>` : ''
-      return `<g opacity="${delay > 0 ? 0 : i === 0 ? 1 : 0}">${anim}${pathsOf(k.g, { ...PAL, ...(o.pal || {}) })}</g>`
+  const own = base === '' ? '' : `<g opacity="${delay > 0 ? 0 : 1}">${delay > 0 ? `<set attributeName="opacity" to="1"${begin}/>` : ''}${base}</g>`
+  const groups = own + ds
+    .map((d, i) => {
+      const a = n > 1 ? showAt(i, times) : null
+      const anim = a ? `<animate attributeName="opacity" values="${a.values}" keyTimes="${a.keyTimes}" dur="${dur}s" calcMode="discrete"${begin} repeatCount="indefinite"/>` : delay > 0 ? `<set attributeName="opacity" to="1"${begin}/>` : ''
+      return `<g opacity="${delay > 0 ? 0 : i === 0 ? 1 : 0}">${anim}${d.body}</g>`
     })
     .join('')
   const move = drift ? `<animateTransform attributeName="transform" type="translate" values="-4 0;4 0;-4 0" dur="${(total * fd * 4).toFixed(2)}s"${begin} repeatCount="indefinite"/>` : ''
-  return `<g shape-rendering="crispEdges" transform="scale(${scale})"><g>${move}${groups}</g></g>`
+  return `<g shape-rendering="crispEdges" stroke-width="1" fill="none" transform="scale(${scale})"><g>${move}${groups}</g></g>`
 }
 
 /** Frames that play once, in order, then hold the last one: a move between two states. */
@@ -468,19 +545,19 @@ export function onceSeconds(frames: Pose[], fd: number): number {
 }
 
 export function renderOnce(frames: Pose[], fd: number, w: number, scale = 2): string {
-  const total = frames.reduce((a, f) => a + (f.hold ?? 1), 0)
-  let acc = 0
-  const keyTimes = frames.map(f => { const t = (acc / total).toFixed(4); acc += f.hold ?? 1; return t }).join(';')
+  const { base, items: ds } = drawings(frames, w)
+  const n = ds.length
+  const times = timesOf(ds.map(d => d.hold))
   const dur = onceSeconds(frames, fd).toFixed(2)
-  const groups = frames
-    .map((o, i) => {
-      const k = clawd({ w, ...o })
-      const anim = `<animate attributeName="opacity" values="${frames.map((_, j) => (j === i ? 1 : 0)).join(';')}" keyTimes="${keyTimes}" dur="${dur}s" calcMode="discrete" repeatCount="1" fill="freeze"/>`
-      return `<g opacity="${i === 0 ? 1 : 0}">${anim}${pathsOf(k.g, { ...PAL, ...(o.pal || {}) })}</g>`
+  const groups = (base === '' ? '' : `<g>${base}</g>`) + ds
+    .map((d, i) => {
+      const a = n > 1 ? showAt(i, times) : { values: '1', keyTimes: '0' }
+      const anim = n > 1 ? `<animate attributeName="opacity" values="${a.values}" keyTimes="${a.keyTimes}" dur="${dur}s" calcMode="discrete" repeatCount="1" fill="freeze"/>` : ''
+      return `<g opacity="${i === 0 ? 1 : 0}">${anim}${d.body}</g>`
     })
     .join('')
   // Once the move is over the whole group is hidden for good, so the loop that follows has the drawing to itself.
-  return `<g shape-rendering="crispEdges" transform="scale(${scale})"><g><set attributeName="display" to="none" begin="${dur}s"/>${groups}</g></g>`
+  return `<g shape-rendering="crispEdges" stroke-width="1" fill="none" transform="scale(${scale})"><g><set attributeName="display" to="none" begin="${dur}s"/>${groups}</g></g>`
 }
 
 /** Pixels any frame of the state draws outside the canvas (must be none). */

@@ -6,7 +6,7 @@ import type { Pose } from './sprite'
 export type StateId =
   | 'idle' | 'typing' | 'thinking' | 'bell' | 'coins' | 'walk' | 'talk' | 'drunk' | 'fire' | 'hourglass' | 'cold'
   | 'gauge' | 'mad' | 'sleepy' | 'asleep' | 'love' | 'detective' | 'oops' | 'wand' | 'hello' | 'idea' | 'coffee'
-  | 'reading' | 'building' | 'browse' | 'plug' | 'dizzy' | 'lab' | 'hand' | 'writing' | 'creating' | 'boom' | 'ship' | 'running'
+  | 'reading' | 'building' | 'browse' | 'plug' | 'dizzy' | 'lab' | 'hand' | 'writing' | 'creating' | 'boom' | 'ship' | 'running' | 'fishing'
 
 type Def = {
   /** What a screen reader hears. */
@@ -40,6 +40,7 @@ export const STATES: Record<StateId, Def> = {
   ] },
   typing: { label: 'Clawd is typing on a laptop, chewing gum and blowing bubbles', face: '[o_o]>', fd: 0.16, frames: TYPING },
   running: { label: 'Clawd types on his laptop, chewing gum, while lines of code scroll by behind him: a command is running', face: '[o_o]>>', fd: 0.16, frames: TYPING.map((f, i) => ({ ...f, code: i * 2 })) },
+  fishing: { label: 'Clawd goes fishing in a bucket hat: a background task is still running', face: '(o_o)J', fd: 0.2, frames: fishingLoop() },
   thinking: { label: 'Clawd is thinking', face: '(o_o)...', fd: 0.11, frames: range(16).map(i => ({ spinner: i % 8, look: i < 6 ? 'up' : i < 10 ? 'right' : i < 13 ? 'up' : 'left', armR: 'chin', ...(i >= 3 && i <= 12 ? { armL: i <= 4 || i >= 11 ? 'half' : 'up' } : {}) })) },
   bell: { label: 'Clawd rings a bell: the turn is finished', face: '(^o^)ding', fd: 0.1, frames: [0, -1, -1, 0, 1, 1, 0, -1, 0, 1].map((s, i) => ({ eyes: 'happy', mouth: 'open', armR: 'high', bell: s, notes: i, ...(i === 1 || i === 9 ? { armL: 'half' } : i > 1 ? { armL: 'up' } : {}) })) },
   coins: { label: 'Clawd counts coins the saver kept', face: '($_$)', fd: 0.4, frames: [0, 1, 0, 1, 0, 1].map((t, i) => ({ eyes: 'happy', mouth: 'smile', coins: t, star: t, ...(i === 1 || i === 5 ? { armL: 'half' } : i >= 2 && i <= 4 ? { armL: 'up' } : {}) })) },
@@ -424,6 +425,11 @@ const SHIP_OUT: Pose[] = [
   { console: 0, consoleDy: 5, rocket: 28, look: 'right', eyes: 'open', mouth: 'smile' },
 ]
 const SHIP_IN: Pose[] = [...SHIP_OUT].reverse()
+// Fishing: the hat and the rod are fetched (or put away) one at a time by hand, so a move is his first frame, a bare pose, the hat, and his.
+for (const x of ['typing', 'thinking', 'idle', 'bell', 'hand', 'coffee', 'building', 'reading'] as StateId[]) {
+  MOVES[`${x}>fishing`] = { fd: 0.16, frames: [F(x), { look: 'right', eyes: 'open', mouth: 'smile' }, { hat: 'fisher', look: 'right', eyes: 'open', mouth: 'smile' }, F('fishing')] }
+  MOVES[`fishing>${x}`] = { fd: 0.16, frames: [L('fishing'), { hat: 'fisher', look: 'down', eyes: 'half', mouth: 'smile' }, { look: 'down', eyes: 'half', mouth: 'smile' }, F(x)] }
+}
 // Running goes wherever typing goes: every hand-drawn move of typing is copied for running, with his own first (or last) frame, the one with the code.
 for (const key of Object.keys(MOVES)) {
   const [from, to] = key.split('>')
@@ -456,7 +462,7 @@ const RISE: Pose[] = [
 ]
 
 /** Props he wears or holds: when one goes or comes, his hand takes it or fetches it. */
-const HELD = ['magnifier', 'brush', 'palette', 'shades', 'hat', 'glasses', 'laptop', 'book', 'stack', 'scroll', 'clipboard', 'cup', 'flask', 'glass', 'browser', 'bell', 'wrench', 'paper', 'bulb', 'wand', 'beaker']
+const HELD = ['rod', 'magnifier', 'brush', 'palette', 'shades', 'hat', 'glasses', 'laptop', 'book', 'stack', 'scroll', 'clipboard', 'cup', 'flask', 'glass', 'browser', 'bell', 'wrench', 'paper', 'bulb', 'wand', 'beaker']
 /** The drawing of a prop in his hand: a hat is told apart by its kind (hard hat, fedora, wizard hat). */
 const carried = (k: string, p: Pose): string => (k === 'hat' ? `hat-${p.hat}` : k)
 const without = (p: Pose, ks: string[]): Pose => {
@@ -604,6 +610,7 @@ function tinted(frames: Pose[], toCold: boolean): { fd: number; frames: Pose[] }
  */
 const ENTER: Partial<Record<StateId, Pose[]>> = {
   typing: [{ look: 'down', eyes: 'half', mouth: 'focus' }],
+  fishing: [{ look: 'right', eyes: 'open', mouth: 'smile' }],
   running: [{ look: 'down', eyes: 'half', mouth: 'focus' }],
   thinking: [{ eyes: 'wide', armR: 'up', mouth: 'open' }],
   bell: [{ eyes: 'happy', mouth: 'smile', armR: 'half' }],
@@ -643,6 +650,63 @@ const leaving = (id: StateId): Pose[] => [...(ENTER[id] ?? [])].reverse()
 function moveOf(from: StateId, to: StateId, phase = 0): (Move & { w: number }) | null {
   const m = rawMoveOf(from, to, phase)
   return m ? { ...m, frames: fadeCode(m.frames, from, to) } : null
+}
+
+/**
+ * Fishing, while a background task runs and Claude is not: a long loop, so he does not check the line too often. He puts a worm on
+ * the hook, swings the rod back, casts, waits a long time (the bobber bobs on a thin ripple, he yawns, a nibble that comes to nothing),
+ * reels in, looks at the hook, finds the worm gone, shrugs, and starts again with a new worm. The water is only a thin ripple where
+ * the line goes in. Positions: his grip is at (27, 14); a rod is its tip, a line is where it ends.
+ */
+function fishingLoop(): Pose[] {
+  const base: Pose = { hat: 'fisher', armR: 'hold', mouth: 'smile', eyes: 'open' }
+  const ACROSS: [number, number] = [18, 16]
+  const WAIT: [number, number] = [31, 10]
+  const f = (p: Pose, hold = 1): Pose => ({ ...base, ...p, hold })
+  const out: Pose[] = []
+  const add = (p: Pose, hold = 1) => out.push(f(p, hold))
+  // ---- a worm on the hook: the rod lies across his belly, the hook hangs between his legs, his left hand brings the worm
+  const bait = { rod: ACROSS, line: [18, 18] as [number, number], hook: [18, 19] as [number, number] }
+  add({ ...bait, look: 'down', eyes: 'half', mouth: 'flat', armL: 'half' }, 4)
+  add({ ...bait, look: 'down', eyes: 'half', armL: 'half', wormAt: [4, 16, 0] }, 2)
+  add({ ...bait, look: 'down', eyes: 'half', armL: 'half', wormAt: [4, 16, 1] }, 2)
+  add({ ...bait, look: 'down', eyes: 'half', armL: 'cross', wormAt: [14, 17, 0] }, 2)
+  add({ ...bait, look: 'down', eyes: 'half', armL: 'cross', wormAt: [16, 21, 1] }, 2)
+  add({ ...bait, look: 'down', eyes: 'half', armL: 'half', worm: 2 }, 2)
+  add({ ...bait, look: 'down', eyes: 'happy', armL: 'half', worm: 3 }, 4)
+  // ---- the swing back and the cast
+  add({ rod: [25, 3], line: [25, 8], hook: [25, 9], worm: 2, look: 'up', eyes: 'open' }, 2)
+  add({ rod: [22, 2], line: [20, 6], hook: [20, 7], worm: 3, look: 'up', eyes: 'wide', mouth: 'flat' }, 3)
+  add({ rod: [32, 9], line: [32, 13], hook: [32, 14], worm: 2, look: 'right', eyes: 'wide', mouth: 'open' }, 1)
+  add({ rod: [32, 9], bobber: [31, 14], line: [32, 13], hook: [32, 19], worm: 3, look: 'right', eyes: 'open' }, 1)
+  add({ rod: WAIT, bobber: [30, 18], line: [31, 17], hook: [31, 23], worm: 2, look: 'right', eyes: 'open', water: [30, 21, 0], splash: 1 }, 1)
+  add({ rod: WAIT, bobber: [30, 19], line: [31, 18], hook: [31, 23], worm: 3, look: 'right', eyes: 'open', water: [30, 21, 1], splash: 2 }, 1)
+  // ---- the wait: the bobber bobs on the ripple, he watches it, yawns, looks about, blinks
+  const wait = (ph: number, bob: number, p: Pose = {}, hold = 3) => add({ rod: WAIT, bobber: [30, 19 + bob], line: [31, 18 + bob], hook: [31, 23], worm: ph % 2 ? 2 : 3, look: 'right', eyes: 'half', water: [30, 21, ph % 4], ...p }, hold)
+  for (let i = 0; i < 4; i++) wait(i, i % 2, { mouth: 'smile' }, 4)
+  wait(0, 0, { eyes: 'blink' }, 1)
+  for (let i = 0; i < 3; i++) wait(i + 1, i % 2, { mouth: 'smile' }, 4)
+  wait(0, 0, { mouth: 'o', eyes: 'blink', armL: 'half' }, 3) // a yawn
+  wait(1, 1, { mouth: 'o', eyes: 'blink', armL: 'up' }, 3)
+  wait(2, 0, { mouth: 'o', eyes: 'blink', armL: 'half' }, 3)
+  for (let i = 0; i < 3; i++) wait(i, i % 2, { look: 'down', mouth: 'smile' }, 4)
+  // a nibble: the bobber dips, he leans in, and it comes to nothing
+  add({ rod: WAIT, bobber: [30, 20], line: [31, 19], hook: [31, 23], worm: 2, look: 'right', eyes: 'wide', mouth: 'o', water: [30, 21, 2], splash: 3 }, 2)
+  add({ rod: WAIT, bobber: [30, 21], line: [31, 20], hook: [31, 24], worm: 3, look: 'right', eyes: 'wide', mouth: 'o', water: [30, 21, 3], splash: 1 }, 2)
+  add({ rod: WAIT, bobber: [30, 19], line: [31, 18], hook: [31, 23], worm: 2, look: 'right', eyes: 'open', mouth: 'flat', water: [30, 21, 0] }, 3)
+  for (let i = 0; i < 3; i++) wait(i + 1, i % 2, { mouth: 'smile', eyes: i === 1 ? 'blink' : 'half' }, 4)
+  // ---- reel in: the rod lifts, the line comes up with the bobber, the hook is out of the water
+  add({ rod: [31, 8], bobber: [30, 15], line: [31, 14], hook: [31, 20], worm: 2, look: 'right', eyes: 'wide', mouth: 'open', water: [30, 21, 1], splash: 2 }, 1)
+  add({ rod: [31, 6], bobber: [30, 11], line: [31, 10], hook: [31, 16], worm: 3, look: 'up', eyes: 'wide', mouth: 'open' }, 1)
+  add({ rod: [29, 4], line: [29, 7], hook: [29, 8], look: 'up', eyes: 'open', mouth: 'flat' }, 2)
+  // ---- he looks at the hook: the rod lies across his belly again and the hook is empty
+  add({ ...bait, look: 'down', eyes: 'half', mouth: 'flat', armL: 'cross' }, 4)
+  add({ ...bait, look: 'left', eyes: 'half', mouth: 'flat', armL: 'cross' }, 3)
+  add({ ...bait, look: 'down', eyes: 'open', mouth: 'o', armL: 'cross' }, 3)
+  // ...nothing: a shrug, then the next worm
+  add({ ...bait, look: 'right', eyes: 'half', mouth: 'grim', armL: 'up', armR: 'hold' }, 5)
+  add({ ...bait, look: 'right', eyes: 'half', mouth: 'grim', armL: 'half' }, 2)
+  return out
 }
 
 /** Typing and running share one loop of 16 frames, each the same time. */

@@ -128,6 +128,9 @@ const mood = {
   fleet: {} as Partial<Record<Fleet, number>>, // fleeting events, by the time they end
   tool: null as { kind: ToolKind; until: number } | null,
   toolNote: '',
+  bg: 0, // background tasks (a command or an agent that runs on after the turn): counted when they start, one less at each task notification
+  bgCheck: 0, // when the next look at the agents is booked
+  bgSince: 0, // when the count went above zero (a task that never reports does not keep him fishing for ever)
   runCall: '', // a shell command that started and has not shown `running` yet (it does once it has run RUN_AFTER_MS)
   inputJson: '', // the first pieces of the arguments being streamed, to find the file's name
   failNote: '',
@@ -176,6 +179,30 @@ function mascotFor(state: StateId, clock: string, move: { from: StateId; to: Sta
   return stateMarkup(state, clock, scale)
 }
 
+/** How many agents (subagents, background or not) have a loop running or waiting: they keep going after the turn that started them. */
+async function agentsRunning($: EngineInterface): Promise<number> {
+  try {
+    return (await $.agent.list()).filter(a => a.teammateId === undefined && (a.status === 'running' || a.status === 'waiting')).length
+  } catch {
+    return 0
+  }
+}
+
+/** A background task is still running, as far as the count says (it gives up after BG_MAX_MS). */
+function backgroundWaiting(now: number): boolean {
+  if (mood.bg <= 0) {
+    mood.bgSince = 0
+    return false
+  }
+  if (mood.bgSince === 0) mood.bgSince = now
+  if (now - mood.bgSince > BG_MAX_MS) {
+    mood.bg = 0
+    mood.bgSince = 0
+    return false
+  }
+  return true
+}
+
 /** Redraw now, and again when a timed state ends. */
 function poke($: EngineInterface, ms = 0): void {
   $.ui.invalidate('ui.render')
@@ -214,7 +241,13 @@ async function flash($: EngineInterface, id: Fleet): Promise<void> {
   poke($, ms)
 }
 
-type ToolInput = { tool?: string; tool_use_id?: string; file_path?: string; notebook_path?: string; pattern?: string; command?: string }
+type ToolInput = { tool?: string; tool_use_id?: string; file_path?: string; notebook_path?: string; pattern?: string; command?: string; run_in_background?: boolean }
+/** A command asked to run in the background: counted until a task notification (or a kill) says it is over. Agents are not counted: `$.agent.list()` says which ones run. */
+const startsBackground = (tool: string, i: ToolInput): boolean => (tool === 'Bash' || tool === 'PowerShell') && i.run_in_background === true
+/** The calls that end one. */
+const KILLS_BACKGROUND = ['KillShell', 'KillBash', 'TaskStop']
+/** A background task that has not reported in this long is not waited for any more. */
+const BG_MAX_MS = 4 * 60 * 60_000
 /** Claude checking its own work: tests, linters, type checks, builds, validators. A pass shows the lab, a failure the blast. */
 const VERIFY_COMMAND = new RegExp(
   '\\b(' +
@@ -267,6 +300,7 @@ function toolKind(tool: string): ToolKind | null {
 function toolStarts($: EngineInterface, input: ToolInput): void {
   const tool = String(input.tool ?? '')
   mood.hasTool = true
+  if (startsBackground(tool, input)) mood.bg++
   const kind = toolKind(tool)
   if (kind) {
     mood.tool = { kind, until: Number.MAX_SAFE_INTEGER }
@@ -333,6 +367,8 @@ async function toolEnds($: EngineInterface, input: ToolInput, r: { isError?: boo
     mood.tool = { kind: mood.tool.kind, until: now + TOOL_LINGER_MS }
     poke($, TOOL_LINGER_MS)
   }
+  if (startsBackground(tool, input) && r?.isError) mood.bg = Math.max(0, mood.bg - 1) // it never started
+  if (KILLS_BACKGROUND.includes(tool) && !r?.isError) mood.bg = Math.max(0, mood.bg - 1)
   const command = String(input.command ?? '')
   const isCheck = (tool === 'Bash' || tool === 'PowerShell') && VERIFY_COMMAND.test(command)
   if (r?.isError) {
@@ -1118,6 +1154,12 @@ async function snapshot($: EngineInterface, propsWorking: boolean): Promise<Snap
     busyMs: mood.busySince > 0 ? now - mood.busySince : 0,
     hasTool: mood.hasTool,
     offline: mood.offline,
+    bg: backgroundWaiting(now) || (!isWorking && (await agentsRunning($)) > 0),
+  }
+  // While something runs in the background, look again every so often (an agent that ends leaves no event of its own).
+  if (moodInput.bg && now >= mood.bgCheck) {
+    mood.bgCheck = now + 15_000
+    $.clock.after(15_000 + 60, () => $.ui.invalidate('ui.render'))
   }
   const picked: StateId = mood.demo && mood.demo.until > now ? mood.demo.id : pickState(moodInput)
   // Coffee comes and goes while he works, and the status alerts take turns when he is done: book a redraw for the next change.
@@ -1639,6 +1681,8 @@ async function startBand($: EngineInterface): Promise<void> {
   mood.bub = null
   mood.drawn = null
   mood.move = null
+  mood.bg = 0
+  mood.bgSince = 0
   mood.msg = null
   mood.isFirstPrompt = true
   poke($, START_MS)
@@ -1739,6 +1783,7 @@ export const register: Register = (on, options) => {
   // Sending a message restarts the cache countdown (the next request re-reads or re-writes the whole prefix)
   // and labels the turn for the saver; the enhancer's draft is spent. Commands and hidden prompts send nothing.
   on('prompt.submit', async ($, e, next) => {
+    if (e.origin?.kind === 'task-notification') mood.bg = Math.max(0, mood.bg - 1) // a background task reported
     if (/^\s*\/(?:[\w.-]+:)?handoff\b/i.test(String(e.text ?? ''))) mood.draftTurn = true
     if (!e.command && !e.isMeta) dismissBubble()
     await safe(async () => {
