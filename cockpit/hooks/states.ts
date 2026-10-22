@@ -25,8 +25,7 @@ const OX = 5
 const T: Pose = { eyes: 'half', look: 'down', laptop: 1 }
 const range = (n: number) => Array.from({ length: n }, (_, i) => i)
 
-// Typing and running are the SAME drawing of Clawd (so a change between them never replaces his drawing: no blink). Running adds a layer of its
-// own under him, lines of code scrolling up (2 px a frame: 16 frames, one 32-row pattern): see codeMarkup.
+// Typing and running are the same drawing; running adds lines of code scrolling up behind him (2 px a frame: 16 frames, one 32-row pattern).
 const TYPING: Pose[] = [0, 0, 1, 1, 2, 2, 3, 3, 3, 4, 0, 0, 0, 0, 0, 0].map((gum, i) => ({ ...T, mouth: gum === 0 ? (i % 4 < 2 ? 'focus' : 'chew') : gum === 4 ? 'o' : 'chewOpen', ...(gum === 0 ? {} : { gum }), armL: i % 2 ? 'type0' : 'type1', armR: i % 2 ? 'type1' : 'type0', ...(i === 12 || i === 13 ? { armL: 'up', armR: 'type0' } : {}) }))
 
 export const STATES: Record<StateId, Def> = {
@@ -40,7 +39,7 @@ export const STATES: Record<StateId, Def> = {
     { shades: 1, mouth: 'smile', hold: 3 },
   ] },
   typing: { label: 'Clawd is typing on a laptop, chewing gum and blowing bubbles', face: '[o_o]>', fd: 0.16, frames: TYPING },
-  running: { label: 'Clawd types on his laptop, chewing gum, while lines of code scroll by behind him: a command is running', face: '[o_o]>>', fd: 0.16, frames: TYPING },
+  running: { label: 'Clawd types on his laptop, chewing gum, while lines of code scroll by behind him: a command is running', face: '[o_o]>>', fd: 0.16, frames: TYPING.map((f, i) => ({ ...f, code: i * 2 })) },
   thinking: { label: 'Clawd is thinking', face: '(o_o)...', fd: 0.11, frames: range(16).map(i => ({ spinner: i % 8, look: i < 6 ? 'up' : i < 10 ? 'right' : i < 13 ? 'up' : 'left', armR: 'chin', ...(i >= 3 && i <= 12 ? { armL: i <= 4 || i >= 11 ? 'half' : 'up' } : {}) })) },
   bell: { label: 'Clawd rings a bell: the turn is finished', face: '(^o^)ding', fd: 0.1, frames: [0, -1, -1, 0, 1, 1, 0, -1, 0, 1].map((s, i) => ({ eyes: 'happy', mouth: 'open', armR: 'high', bell: s, notes: i, ...(i === 1 || i === 9 ? { armL: 'half' } : i > 1 ? { armL: 'up' } : {}) })) },
   coins: { label: 'Clawd counts coins the saver kept', face: '($_$)', fd: 0.4, frames: [0, 1, 0, 1, 0, 1].map((t, i) => ({ eyes: 'happy', mouth: 'smile', coins: t, star: t, ...(i === 1 || i === 5 ? { armL: 'half' } : i >= 2 && i <= 4 ? { armL: 'up' } : {}) })) },
@@ -230,6 +229,7 @@ type Motion = { each?: number; dx?: number[]; dy?: number[] }
 const MOTION: Partial<Record<StateId, Motion>> = {
   idle: { each: 2, dy: [0, 0, 1, 1, 1, 1, 0, 0] }, // breathes in the sun
   typing: { dy: [0, -1, 0, -1] }, // bounces with each tap
+  running: { dy: [0, -1, 0, -1] }, // the same
   thinking: { dx: [0, 0, 1, 1, 0, 0, -1, -1] }, // sways while the spinner turns
   coins: { each: 2, dy: [0, -2, 0, -1] }, // hops over the coins
   talk: { each: 2, dy: [0, -1, 0, 0, 0, -1, 0, 0] }, // nods as he talks
@@ -268,9 +268,6 @@ for (const [id, m] of Object.entries(MOTION) as [StateId, Motion][]) {
   })
   d.fd = d.fd / each
 }
-
-// Running is typing as he is drawn: the very same frames (the code is a layer of its own, see codeMarkup).
-STATES.running.frames = STATES.typing.frames
 
 export const STATE_IDS = Object.keys(STATES) as StateId[]
 
@@ -427,6 +424,17 @@ const SHIP_OUT: Pose[] = [
   { console: 0, consoleDy: 5, rocket: 28, look: 'right', eyes: 'open', mouth: 'smile' },
 ]
 const SHIP_IN: Pose[] = [...SHIP_OUT].reverse()
+// Running goes wherever typing goes: every hand-drawn move of typing is copied for running, with his own first (or last) frame, the one with the code.
+for (const key of Object.keys(MOVES)) {
+  const [from, to] = key.split('>')
+  const m = MOVES[key]!
+  if (from === 'typing') MOVES[`running>${to}`] = { ...m, frames: [F('running'), ...m.frames.slice(1)] }
+  if (to === 'typing') MOVES[`${from}>running`] = { ...m, frames: [...m.frames.slice(0, -1), F('running')] }
+}
+/** Typing and running differ only in the code behind him: he keeps tapping and the lines fade in (or out) a few at a time (see fadeCode). */
+const TAP = (i: number): Pose => ({ ...T, mouth: 'focus', armL: i % 2 ? 'type0' : 'type1', armR: i % 2 ? 'type1' : 'type0', dy: i % 2 ? -1 : 0 })
+MOVES['typing>running'] = { fd: 0.14, frames: [F('typing'), TAP(1), TAP(2), TAP(3), TAP(4), TAP(5), F('running')] }
+MOVES['running>typing'] = { fd: 0.14, frames: [F('running'), TAP(1), TAP(2), TAP(3), TAP(4), TAP(5), F('typing')] }
 for (const key of Object.keys(MOVES)) {
   const [from, to] = key.split('>')
   const m = MOVES[key]!
@@ -596,6 +604,7 @@ function tinted(frames: Pose[], toCold: boolean): { fd: number; frames: Pose[] }
  */
 const ENTER: Partial<Record<StateId, Pose[]>> = {
   typing: [{ look: 'down', eyes: 'half', mouth: 'focus' }],
+  running: [{ look: 'down', eyes: 'half', mouth: 'focus' }],
   thinking: [{ eyes: 'wide', armR: 'up', mouth: 'open' }],
   bell: [{ eyes: 'happy', mouth: 'smile', armR: 'half' }],
   coins: [{ eyes: 'wide', mouth: 'o', armR: 'half' }],
@@ -632,85 +641,73 @@ const leaving = (id: StateId): Pose[] => [...(ENTER[id] ?? [])].reverse()
  * starts from the same neutral pose. Null only when nothing changes.
  */
 function moveOf(from: StateId, to: StateId): (Move & { w: number }) | null {
-  const f = drawnAs(from)
-  const t = drawnAs(to)
-  const m = rawMoveOf(f, t)
-  return m && from === 'running' && t !== 'cold' ? padOpen(m) : m
+  const m = rawMoveOf(from, to)
+  return m ? { ...m, frames: fadeCode(m.frames, from, to) } : null
 }
 
-/** Running is drawn as typing (his drawing is the same; only the layer of code under him differs), so a move of running is typing's. */
-export const drawnAs = (id: StateId): StateId => (id === 'running' ? 'typing' : id)
-
 /**
- * The lines of code of running are a layer of their own under Clawd (`codeMarkup`), so a change between typing and running never
- * replaces his drawing (a replaced drawing reloads and shows as a blink). They come and go like real output scrolling by: into
- * running they start after the laptop has opened, the first lines at the bottom and more added as they rise (`codeLo`, the
- * highest row shown, climbs to the top); out of it the bottom lines finish first and the rest follow upward (`codeHi`) until
- * nothing is left, before the laptop closes. A line at the edge is short and grows (or shrinks) as it is passed (sprite.ts).
+ * The lines of code behind running only live while his laptop is open, and they come and go like real output scrolling by:
+ * into running they start after the laptop has opened, the first lines at the bottom and more of them added as they rise
+ * (`codeLo`, the highest row shown, climbs to the top); out of it the bottom lines finish first and the rest follow upward
+ * (`codeHi`, the lowest row shown, climbs to the top) until nothing is left, before the laptop closes. A line at the edge is
+ * short and grows (or shrinks) as it is passed (sprite.ts). They finish early (CODE_OUT, CODE_IN of the laptop's open time).
+ * When the laptop is open for only a moment of the move (a prop swap takes it away at once) his own frame is held a few
+ * frames, laptop open, so the sweep is always seen. The first frame of a move out, and the last of a move in, are his own
+ * (all the lines); the rest are set here whatever the move drew, so a prop never carries a stale line along. The scroll
+ * runs on from the frame before and ends on his own scroll (0) at the loop's first frame, so no line ever jumps.
  */
-export const CODE_SWEEP_S = 0.6
-const CODE_STEPS = 6
-const CODE_MARGIN_S = 0.12
+const CODE_OUT = 0.8
+const CODE_IN = 0.8
+const CODE_FRAMES = 5
 const CODE_H = 28
-
-/** Seconds the laptop stays open at the start of a move (it is open from frame 0 until the first frame without it); Infinity when it never closes. */
-function openSeconds(m: Move): number {
-  const end = m.frames.findIndex((f, i) => i > 0 && f.laptop === undefined)
-  if (end < 0) return Infinity
-  return m.frames.slice(0, end).reduce((a, f) => a + (f.hold ?? 1) * m.fd, 0)
-}
-
-/**
- * A move out of running keeps the laptop open long enough for the code to leave first: his own first frame is held a few frames,
- * laptop open, until CODE_SWEEP_S and a margin have passed. (A move with the cold has a fixed time and is left as it is.)
- */
-function padOpen(m: Move & { w: number }): Move & { w: number } {
-  const open = openSeconds(m)
-  const need = CODE_SWEEP_S + CODE_MARGIN_S
-  if (open >= need) return m
-  const k = Math.ceil((need - open) / m.fd)
-  const { hold: _h, ...first } = m.frames[0]!
-  return { ...m, frames: [m.frames[0]!, ...Array.from({ length: k }, () => ({ ...first })), ...m.frames.slice(1)] }
-}
-
-/** When the laptop is open for good in a move, in seconds from its start (0 when there is no move): the code starts then. */
-function opensAt(m: Move | null): number {
-  if (!m) return 0
-  const fr = m.frames
-  const lacks = fr.reduce((a, f, i) => (f.laptop === undefined ? i : a), -1)
-  const at = lacks + 1
-  return at <= 0 ? 0 : fr.slice(0, at + 1).reduce((a, f) => a + (f.hold ?? 1) * m.fd, 0)
-}
-
-const CODE_IN: Pose[] = Array.from({ length: CODE_STEPS }, (_, j) => ({ codeOnly: 1, code: 2 * (j - CODE_STEPS), codeLo: Math.round(CODE_H * (1 - (j + 1) / (CODE_STEPS + 1))) }))
-const CODE_OUT: Pose[] = Array.from({ length: CODE_STEPS }, (_, j) => ({ codeOnly: 1, code: 2 * j, codeHi: Math.round(CODE_H * (1 - (j + 1) / (CODE_STEPS + 1))) }))
-const CODE_LOOP: Pose[] = range(16).map(i => ({ codeOnly: 1, code: 2 * i }))
-
-const codeCache = new Map<string, Mascot | null>()
-
-/**
- * The layer of code under Clawd for `to`, given the state he left: running (after the laptop is open, the lines arrive and then
- * scroll for good), or the state after running (the lines leave, then nothing). Null when there is no layer. The layer is drawn
- * apart from Clawd and laid under him, so it comes and goes without touching his drawing.
- */
-export function codeMarkup(from: StateId | null, to: StateId, scale: 1 | 2 = 2): Mascot | null {
-  const key = `${from ?? ''}>${to}@${scale}`
-  if (codeCache.has(key)) return codeCache.get(key)!
-  let made: Mascot | null = null
-  const step = CODE_SWEEP_S / CODE_STEPS
-  if (to === 'running') {
-    const delay = from !== null && from !== 'running' ? opensAt(moveOf(from, 'running')) : 0
-    made = { markup: renderOnce(CODE_IN, step, 34, scale, delay) + renderFrames(CODE_LOOP, STATES.typing.fd, 34, false, scale, delay + CODE_SWEEP_S), width: 34 * scale, height: 28 * scale }
-  } else if (from === 'running') {
-    made = { markup: renderOnce([...CODE_OUT, { codeOnly: 1, code: 2 * CODE_STEPS, codeHi: 0 }], step, 34, scale), width: 34 * scale, height: 28 * scale }
+function fadeCode(frames: Pose[], from: StateId, to: StateId): Pose[] {
+  const goes = from === 'running' && to !== 'running'
+  const comes = to === 'running' && from !== 'running'
+  if (!goes && !comes) return frames
+  const strip = (f: Pose): Pose => {
+    const { code: _c, codeA: _a, codeLo: _l, codeHi: _h, ...rest } = f
+    return rest
   }
-  codeCache.set(key, made)
-  return made
+  const held = (f: Pose): Pose => {
+    const { hold: _h, ...rest } = strip(f)
+    return rest
+  }
+  const pad = from !== 'cold' && to !== 'cold' // a move with the cold has a fixed time: nothing is added to it
+  let fr = frames
+  if (goes) {
+    // the laptop is open up to the frame before it goes
+    let open = fr.findIndex((f, i) => i > 0 && f.laptop === undefined)
+    open = open < 0 ? fr.length : open
+    if (pad && open - 1 < CODE_FRAMES) fr = [fr[0]!, ...Array.from({ length: CODE_FRAMES - (open - 1) }, () => held(fr[0]!)), ...fr.slice(1)]
+    const last = fr.findIndex((f, i) => i > 0 && f.laptop === undefined)
+    const end = (last < 0 ? fr.length : last) - 1 // the last frame with the laptop open
+    return fr.map((f, i) => {
+      if (i === 0) return f
+      const hi = Math.round(CODE_H * (1 - i / (end * CODE_OUT)))
+      return i < end && hi > 0 ? { ...strip(f), code: 2 * i, codeHi: hi } : strip(f)
+    })
+  }
+  // the laptop is open from the first frame after which none lacks it
+  const lacks = fr.reduce((a, f, i) => (f.laptop === undefined ? i : a), -1)
+  const n0 = fr.length
+  if (pad && n0 - 2 - lacks < CODE_FRAMES) fr = [...fr.slice(0, -1), ...Array.from({ length: CODE_FRAMES - (n0 - 2 - lacks) }, () => held(fr[n0 - 1]!)), fr[n0 - 1]!]
+  const open = fr.reduce((a, f, i) => (f.laptop === undefined ? i : a), -1) + 1 // first frame with the laptop open for good
+  const n = fr.length
+  return fr.map((f, i) => {
+    if (i === n - 1) return f
+    if (i <= open) return strip(f)
+    const p = (i - open) / (n - 1 - open)
+    const lo = Math.round(CODE_H * (1 - p / CODE_IN))
+    // the scroll ends on 0 at the last frame, so the loop that follows takes it on without a jump
+    return { ...strip(f), code: 2 * (i - (n - 1)), ...(lo > 0 ? { codeLo: lo } : {}) }
+  })
 }
 
 function rawMoveOf(from: StateId, to: StateId): (Move & { w: number }) | null {
   if (from === to) return null
   const m = MOVES[`${from}>${to}`]
+  // Typing and running are the same body: nothing is taken or fetched, no blink and no hop, only the code.
+  if (m && (from === 'typing' || from === 'running') && (to === 'typing' || to === 'running')) return { fd: m.fd, frames: m.frames, w: 34 }
   if (m) return { ...paced(smooth(m.frames), from), w: 34 }
   const a = STATES[from]
   const b = STATES[to]
@@ -761,7 +758,7 @@ export function enterMarkup(from: StateId, to: StateId, clock = '', scale: 1 | 2
   const key = `${from}>${to}${to === 'asleep' ? `:${clock}` : ''}@${scale}`
   const hit = enterCache.get(key)
   if (hit) return hit
-  const d = STATES[drawnAs(to)]
+  const d = STATES[to]
   const frames = to === 'asleep' && clock !== '' ? d.frames.map(f => ({ ...f, clock })) : d.frames
   const w = d.w ?? 34
   const rise = to === 'asleep' && clock !== '' ? m.frames.map(f => (f.clock ? { ...f, clock } : f)) : m.frames
@@ -778,10 +775,10 @@ const cache = new Map<string, Mascot>()
 
 /** The markup of one state at 2x (or 1x for the small size). `clock` is the wake-up time the alarm shows while he sleeps. */
 export function stateMarkup(id: StateId, clock = '', scale: 1 | 2 = 2): Mascot {
-  const key = `${id === 'asleep' ? `${id}:${clock}` : drawnAs(id)}@${scale}`
+  const key = `${id === 'asleep' ? `${id}:${clock}` : id}@${scale}`
   const hit = cache.get(key)
   if (hit) return hit
-  const d = STATES[drawnAs(id)]
+  const d = STATES[id]
   const frames = id === 'asleep' && clock !== '' ? d.frames.map(f => ({ ...f, clock })) : d.frames
   const w = d.w ?? 34
   const made = { markup: renderFrames(frames, d.fd, w, d.drift === true, scale), width: w * scale, height: 28 * scale }
