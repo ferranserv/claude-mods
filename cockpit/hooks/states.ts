@@ -69,11 +69,21 @@ export const STATES: Record<StateId, Def> = {
     { eyes: 'half', look: 'right', mouth: 'flat', armR: 'out', hgTurn: 1, hold: 2 },
   ] },
   cold: { label: 'Clawd is frozen: the prompt cache is cold', face: '(-_-)*', fd: 0.16, frames: range(16).map(i => ({ pal: { c: '#8fb9d9', k: '#6d97b8', f: '#b6d5ea' }, eyes: 'open', mouth: i % 2 ? 'chatter2' : 'chatter', snow: i + 1, ice: 1, armL: i < 8 ? 'half' : 'cross', armR: i < 8 ? 'half' : 'cross' })) },
-  gauge: { label: 'Clawd checks a nearly empty gauge: today\'s allowance is almost used', face: '(o_o)!', fd: 0.35, frames: [
-    { look: 'left', eyes: 'wide', gauge: 2, bang: 1, bangX: OX + 20, dy: 0, hold: 4 },
-    { look: 'left', eyes: 'wide', gauge: 2, bang: 1, bangX: OX + 20, dy: 0, armL: 'half', hold: 2 },
-    { look: 'right', eyes: 'wide', gauge: 2, bang: 1, bangX: OX + 20, dy: 1, armL: 'half', hold: 4 },
-    { look: 'right', eyes: 'wide', gauge: 2, bang: 1, bangX: OX + 20, dy: 0, hold: 2 },
+  gauge: { label: 'Clawd shakes a piggy bank upside-down and the last coin falls to the floor, bounces and rolls away: today\'s allowance is almost used', face: '(o_o)!', fd: 0.1, frames: [
+    { pig: 1, armR: 'up', look: 'right', eyes: 'open', mouth: 'smile', hold: 6 },
+    { pig: 1, armR: 'up', look: 'right', eyes: 'wide', mouth: 'smile', armL: 'half', hold: 2 },
+    { pig: 1, pigFlip: 1, armR: 'up', look: 'right', eyes: 'open', mouth: 'o', armL: 'half', hold: 3 },
+    { pig: 1, pigFlip: 1, armR: 'up', look: 'right', eyes: 'wide', mouth: 'o', armL: 'half', dy: 1, hold: 2 },
+    { pig: 1, pigFlip: 1, armR: 'up', look: 'right', eyes: 'wide', mouth: 'o', armL: 'half', dy: -1, hold: 2 },
+    { pig: 1, pigFlip: 1, armR: 'up', look: 'right', eyes: 'wide', mouth: 'o', armL: 'half', dy: 1, hold: 2 },
+    { pig: 1, pigFlip: 1, armR: 'up', look: 'right', eyes: 'wide', mouth: 'o', armL: 'half', dy: -1, fcy: 11, hold: 2 },
+    // the coin falls (it speeds up), lands on the floor, bounces twice and lies there a moment
+    ...[14, 16, 19, 21].map(fcy => ({ pig: 1, pigFlip: 1, armR: 'up', look: 'down', eyes: 'wide', mouth: 'o', armL: 'half', fcy, hold: 1 })),
+    ...[19, 21, 20, 21].map(fcy => ({ pig: 1, armR: 'up', look: 'down', eyes: 'wide', mouth: 'o', armL: 'half', fcy, hold: 1 })),
+    { pig: 1, armR: 'up', look: 'down', eyes: 'half', mouth: 'grim', armL: 'half', fcy: 21, hold: 7 },
+    // and it rolls away along the floor, out of the picture, so the loop starts again with nothing to jump over
+    ...[30, 31, 32, 33, 34].map(fcx => ({ pig: 1, armR: 'up', look: 'right', eyes: 'half', mouth: 'grim', armL: 'half', fcx, fcy: 21, hold: 2 })),
+    { pig: 1, armR: 'up', look: 'right', eyes: 'half', mouth: 'grim', armL: 'half', hold: 5 },
   ] },
   mad: { label: 'Clawd is angry: over today\'s allowance', face: '(`o\')', fd: 0.22, frames: [0, 1, 2, 0, 1, 2].map((t, i) => ({ pal: { c: '#e2553f', k: '#b83a29', f: '#f08a74' }, eyes: 'angry', mouth: 'grim', steam: t, vein: 1, armL: i % 2 ? 'high' : 'up', armR: i % 2 ? 'up' : 'high', dy: t % 2 })) },
   sleepy: { label: 'Clawd is getting sleepy and yawns, wide awake: the 5-hour limit is nearly used', face: '(-_-)z', fd: 0.4, frames: [
@@ -221,7 +231,6 @@ const MOTION: Partial<Record<StateId, Motion>> = {
   fire: { dy: [0, -1, 0, -1], dx: [0, 1, -1, 0] }, // panics on the spot
   hourglass: { dx: [0, -1, 0, 0] }, // fidgets, waiting (props at the right edge: left only)
   cold: { each: 2, dx: [0, 1, 1, 0, 0, -1, -1, 0] }, // a slight shiver
-  gauge: { each: 2, dy: [0, 0, -1, 0] }, // startled hop
   mad: { each: 2, dy: [0, -1, 0, -1, 0, -1], dx: [0, 1, -1, 1, -1, 0] }, // stomps
   love: { dx: [0, 1, 1, 0, -1, -1] }, // sways in the hug
   detective: { each: 2, dx: [0, -1, -2, -1] }, // creeps along
@@ -310,7 +319,7 @@ export const MOVES: Partial<Record<string, Move>> = {
   // The turn ends and a status alert takes over: he lets go of the bell and slides into the alert.
   'bell>fire': { fd: 0.14, frames: [F('bell'), { eyes: 'happy', mouth: 'smile', armR: 'half' }, { eyes: 'wide', mouth: 'o', armR: 'up' }, { eyes: 'wide', mouth: 'o', armL: 'half', armR: 'half', forehead: 0 }, F('fire')] },
   'bell>mad': { fd: 0.14, frames: [F('bell'), { eyes: 'half', mouth: 'flat', armR: 'half' }, { eyes: 'angry', mouth: 'grim', armL: 'up', armR: 'up' }, F('mad')] },
-  'bell>gauge': { fd: 0.14, frames: [F('bell'), { eyes: 'open', look: 'left', mouth: 'smile', armR: 'half' }, { eyes: 'wide', look: 'left', bang: 1, bangX: OX + 20 }, F('gauge')] },
+  'bell>gauge': { fd: 0.14, frames: [F('bell'), { eyes: 'open', look: 'left', mouth: 'smile', armR: 'half' }, { eyes: 'open', look: 'right', mouth: 'smile', armR: 'up' }, F('gauge')] },
   'bell>hourglass': { fd: 0.14, frames: [F('bell'), { eyes: 'open', look: 'right', mouth: 'smile', armR: 'half' }, { eyes: 'open', look: 'right', mouth: 'flat', armR: 'up' }, F('hourglass')] },
   'bell>sleepy': { fd: 0.14, frames: [F('bell'), { eyes: 'happy', mouth: 'smile', armR: 'half' }, { eyes: 'half', mouth: 'o', armR: 'half' }, F('sleepy')] },
   'bell>drunk': { fd: 0.14, frames: [F('bell'), { eyes: 'happy', mouth: 'smile', armR: 'half' }, { eyes: 'half', mouth: 'o', blush: 1 }, F('drunk')] },
@@ -586,7 +595,7 @@ const ENTER: Partial<Record<StateId, Pose[]>> = {
   drunk: [{ eyes: 'half', mouth: 'o', blush: 1 }],
   fire: [{ eyes: 'wide', mouth: 'o', armL: 'half', armR: 'half' }, { eyes: 'wide', mouth: 'o', armL: 'high', armR: 'half' }],
   hourglass: [{ eyes: 'open', look: 'right', mouth: 'flat' }],
-  gauge: [{ eyes: 'wide', look: 'left', mouth: 'flat' }],
+  gauge: [{ eyes: 'open', look: 'right', mouth: 'smile', armR: 'up' }],
   mad: [{ eyes: 'angry', mouth: 'grim' }, { eyes: 'angry', mouth: 'grim', armL: 'up', armR: 'up' }],
   sleepy: [{ eyes: 'open', mouth: 'o', armR: 'half' }],
   love: [{ eyes: 'happy', mouth: 'smile', armL: 'half', armR: 'half' }],

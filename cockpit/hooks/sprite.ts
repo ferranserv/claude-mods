@@ -279,7 +279,6 @@ function clawd(o) {
   }
   if (o.ice) { fill(X - 1, F - 1, 26, 4, 'i'); fill(X - 1, F - 1, 26, 1, 'w'); fill(X + 1, F + 3, 22, 1, 'Q'); for (const x of [X + 1, X + 8, X + 15, X + 21]) { fill(x, F - 3, 2, 2, 'i'); } }
   if (o.sweat !== undefined) px(['.#.', '###', '###'], X + 22, Y + 1 + o.sweat, 'q');
-  if (o.gauge !== undefined) { fill(X + 6, Y - 7, 12, 4, 'g'); fill(X + 7, Y - 6, 10, 2, 'd'); fill(X + 7, Y - 6, o.gauge, 2, 'r'); }
   // ---- ship: a launch console under his left hand (a big red button) and a rocket at the right edge that lifts off, clipped at the canvas
   const cs = (x, y, c) => { if (x >= 0 && x < W && y >= 0 && y < H) k.g[y][x] = c; };   // clipped: a rocket that flies out of the top is not "outside the canvas"
   const cstamp = (rows, x0, y0) => rows.forEach((row, j) => [...row].forEach((ch, i) => { if (ch !== '.') cs(x0 + i, y0 + j, ch); }));
@@ -346,6 +345,22 @@ function clawd(o) {
   }
   if (o.orbit !== undefined) { const P = [[-8, 0], [-6, -3], [-2, -4], [2, -4], [6, -3], [8, 0]], pp = (t) => { const m = ((t % 10) + 10) % 10; return m < 6 ? m : 10 - m; }; [pp(o.orbit), pp(o.orbit + 5)].forEach((i, k) => { const [dx, dy] = P[i]; set(X + 12 + dx, Y - 2 + dy, 'w'); set(X + 13 + dx, Y - 2 + dy, k ? 's' : 'y'); set(X + 12 + dx, Y - 1 + dy, 's'); }); }
   if (o.sweatFly) { const n = o.sweatFly; [[-1, -1], [1, -1]].forEach(([sx], i) => { const x = X + 12 + sx * (6 + n * 2), y = Y - n * 2; set(x, y, 'q'); set(x + sx, y + 1, 'q'); }); }
+  // ---- the last coin: a piggy bank held at the right (pigFlip: upside-down, shaken), and a coin that falls from its slot to the floor
+  if (o.pig) {
+    const px0 = X + 21, py0 = Y - 3, fl = !!o.pigFlip;
+    const py = (y) => (fl ? 2 * py0 + 6 - y : y);
+    const pf = (x, y, w, h, c) => { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) set(x + i, py(y + j), c); };
+    pf(px0, py0 + 1, 8, 5, 'p'); pf(px0 + 1, py0, 6, 1, 'p'); pf(px0, py0 + 5, 8, 1, 'P');
+    pf(px0 + 6, py0 + 2, 2, 2, 'P'); set(px0 + 7, py(py0 + 2), 'e'); set(px0 + 3, py(py0 + 2), 'e');   // snout and eye
+    set(px0 + 1, py(py0 - 1), 'P'); set(px0 + 2, py(py0 - 1), 'P'); set(px0 + 6, py(py0 - 1), 'P');   // ears
+    pf(px0 + 3, py0, 2, 1, 'e');   // the slot
+    pf(px0 + 1, py0 + 6, 2, 2, 'P'); pf(px0 + 5, py0 + 6, 2, 2, 'P');   // legs
+  }
+  if (o.fcy !== undefined) {   // the coin on its way down (and rolling away along the floor): clipped, so it can roll out of the canvas
+    const x0 = o.fcx ?? X + 24, y0 = o.fcy;
+    for (let j = 0; j < 3; j++) for (let i = 0; i < 3; i++) cs(x0 + i, y0 + j, 'b');
+    cs(x0 + 1, y0 + 1, 's'); cs(x0, y0, 'w'); cs(x0 + 2, y0 + 2, 'B'); cs(x0 + 1, y0 + 2, 'B');
+  }
   if (o.carry) {   // the prop in his hand: at 1 above the raised hand, at 3 just under the arm that swings out to put it behind him
     const left = o.carrySide === 'L';   // the left hand: the same two spots, mirrored
     const [cxo, cyo] = left ? (o.at === 3 ? [X - 3, Y + 7] : [X - 1, Y - 5]) : o.at === 3 ? [X + 22, Y + 7] : [X + 19, Y - 5];

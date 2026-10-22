@@ -281,6 +281,17 @@ describe('animation with flavour', () => {
     expect(fr.some(f => f.hgTurn)).toBe(true)
     expect(Math.max(...fr.filter(f => f.hourglass).map(f => f.sand as number))).toBe(3)
   })
+  test('almost out for today: a piggy bank shaken upside-down, the last coin falls to the floor, bounces and rolls out of the picture', () => {
+    const fr = STATES.gauge.frames
+    expect(fr.every(f => f.gauge === undefined && f.pig === 1)).toBe(true)
+    expect(fr.some(f => f.pigFlip)).toBe(true)
+    const ys = fr.filter(f => f.fcy !== undefined).map(f => f.fcy as number)
+    expect(Math.max(...ys) + 2).toBe(23) // the coin rests on the line of his feet (rows 21 to 23)
+    const land = ys.indexOf(Math.max(...ys))
+    expect(ys.slice(land + 1).some(y => y < Math.max(...ys))).toBe(true) // and it bounces
+    expect(Math.max(...fr.map(f => f.fcx ?? 0))).toBeGreaterThanOrEqual(34) // then rolls out of the canvas
+    expect(fr[fr.length - 1]!.fcy).toBeUndefined() // nothing left on the floor when the loop starts again
+  })
   test('reading and painting have a move each way', () => {
     expect(MOVES['reading>creating']).toBeDefined()
     expect(MOVES['creating>reading']).toBeDefined()
