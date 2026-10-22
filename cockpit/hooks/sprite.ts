@@ -393,18 +393,20 @@ function clawd(o) {
     let x = cx + 3; [...t].forEach(ch => { const p = PAT.DIG[ch]; p.forEach((row, j) => [...row].forEach((c2, i) => { if (c2 === '#') cf(x + i, cy + 1 + j, 1, 1, 'a'); })); x += p[0].length + 1; });
   }
   if (false) { fill(X - 3, Y + 9, 30, 8, 'u'); fill(X - 3, Y + 9, 30, 1, 'U'); for (let x = X - 1; x < X + 26; x += 6) fill(x, Y + 11, 3, 5, 'J'); }
-  if (o.code !== undefined) {   // running: lines of code scroll up behind him. `code` is the scroll in px, `codeA` (1 to 3) how long each dash is (a third, two thirds, all: it shrinks away or grows). Only empty cells: always behind
-    const a = o.codeA ?? 3;
+  if (o.code !== undefined) {   // running: lines of code scroll up behind him. `code` is the scroll in px. `codeLo` / `codeHi`: only the rows from codeLo down (lines arriving from the bottom, more as they rise) / above codeHi (lines leaving from the bottom up). A line near that edge is short and grows (or shrinks) as it is passed. Only empty cells: always behind
+    const lo = o.codeLo ?? 0, hi = o.codeHi ?? H, a = o.codeA ?? 3;
     for (let y = 0; y < H; y++) {
+      if (y < lo || y >= hi) continue;
       const r = (((y + o.code) % 32) + 32) % 32;
       if (r % 4) continue;
+      const d = Math.min(lo > 0 ? y - lo : 99, hi < H ? hi - 1 - y : 99), edge = d >= 8 ? 3 : d >= 4 ? 2 : 1, level = Math.min(a, edge);
       const row = CODE[r / 4];
       for (let x0 = 0; x0 < W0; x0++) {
         if (!row[x0] || (x0 > 0 && row[x0 - 1] === row[x0])) continue;   // the start of a dash
         let n = 1;
         while (row[x0 + n] === row[x0]) n++;
-        const keep = a >= 3 ? n : Math.max(1, Math.round((n * a) / 3)), from = x0 + Math.floor((n - keep) / 2);   // shrinks toward its middle
-        for (let i = 0; i < keep; i++) if (x0 < W && !k.g[y][from + i]) k.g[y][from + i] = row[x0];
+        const keep = level >= 3 ? n : Math.max(1, Math.round((n * level) / 3)), from = x0 + Math.floor((n - keep) / 2);   // a short dash is in the middle of its place
+        for (let i = 0; i < keep; i++) if (from + i < W && !k.g[y][from + i]) k.g[y][from + i] = row[x0];
       }
     }
   }

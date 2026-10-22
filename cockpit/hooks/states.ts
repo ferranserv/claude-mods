@@ -433,8 +433,8 @@ for (const key of Object.keys(MOVES)) {
 }
 /** Typing and running differ only in the code behind him: he keeps tapping and the lines fade in (or out) a few at a time (see fadeCode). */
 const TAP = (i: number): Pose => ({ ...T, mouth: 'focus', armL: i % 2 ? 'type0' : 'type1', armR: i % 2 ? 'type1' : 'type0', dy: i % 2 ? -1 : 0 })
-MOVES['typing>running'] = { fd: 0.16, frames: [F('typing'), TAP(1), TAP(2), TAP(3), F('running')] }
-MOVES['running>typing'] = { fd: 0.16, frames: [F('running'), TAP(1), TAP(2), TAP(3), F('typing')] }
+MOVES['typing>running'] = { fd: 0.14, frames: [F('typing'), TAP(1), TAP(2), TAP(3), TAP(4), TAP(5), F('running')] }
+MOVES['running>typing'] = { fd: 0.14, frames: [F('running'), TAP(1), TAP(2), TAP(3), TAP(4), TAP(5), F('typing')] }
 for (const key of Object.keys(MOVES)) {
   const [from, to] = key.split('>')
   const m = MOVES[key]!
@@ -646,23 +646,26 @@ function moveOf(from: StateId, to: StateId): (Move & { w: number }) | null {
 }
 
 /**
- * The lines of code behind running only live while his laptop is open: over a move into running they start after it has
- * opened, each dash growing from a third of its length to all of it (`codeA`, 1 to 3); over a move out of it they are gone
- * before it closes, each shrinking away. They finish early (gone by CODE_OUT of the laptop's open time on the way out,
- * all grown by CODE_IN on the way in). When the laptop is open for only a moment of the move (a prop swap takes it away at
- * once) his own frame is held a few frames, laptop open, so the dissolve is always seen. The first frame of a move out,
- * and the last of a move in, are his own (all the lines); the rest are set here whatever the move drew, so a prop taken
- * or fetched by hand never carries a stale line along.
+ * The lines of code behind running only live while his laptop is open, and they come and go like real output scrolling by:
+ * into running they start after the laptop has opened, the first lines at the bottom and more of them added as they rise
+ * (`codeLo`, the highest row shown, climbs to the top); out of it the bottom lines finish first and the rest follow upward
+ * (`codeHi`, the lowest row shown, climbs to the top) until nothing is left, before the laptop closes. A line at the edge is
+ * short and grows (or shrinks) as it is passed (sprite.ts). They finish early (CODE_OUT, CODE_IN of the laptop's open time).
+ * When the laptop is open for only a moment of the move (a prop swap takes it away at once) his own frame is held a few
+ * frames, laptop open, so the sweep is always seen. The first frame of a move out, and the last of a move in, are his own
+ * (all the lines); the rest are set here whatever the move drew, so a prop never carries a stale line along. The scroll
+ * runs on from the frame before and ends on his own scroll (0) at the loop's first frame, so no line ever jumps.
  */
-const CODE_OUT = 0.6
-const CODE_IN = 0.7
-const CODE_FRAMES = 4
+const CODE_OUT = 0.8
+const CODE_IN = 0.8
+const CODE_FRAMES = 5
+const CODE_H = 28
 function fadeCode(frames: Pose[], from: StateId, to: StateId): Pose[] {
   const goes = from === 'running' && to !== 'running'
   const comes = to === 'running' && from !== 'running'
   if (!goes && !comes) return frames
   const strip = (f: Pose): Pose => {
-    const { code: _c, codeA: _a, ...rest } = f
+    const { code: _c, codeA: _a, codeLo: _l, codeHi: _h, ...rest } = f
     return rest
   }
   const held = (f: Pose): Pose => {
@@ -680,8 +683,8 @@ function fadeCode(frames: Pose[], from: StateId, to: StateId): Pose[] {
     const end = (last < 0 ? fr.length : last) - 1 // the last frame with the laptop open
     return fr.map((f, i) => {
       if (i === 0) return f
-      const level = i >= end ? 0 : Math.ceil(3 * (1 - i / end / CODE_OUT))
-      return level > 0 ? { ...strip(f), code: 2 * i, codeA: level } : strip(f)
+      const hi = Math.round(CODE_H * (1 - i / (end * CODE_OUT)))
+      return i < end && hi > 0 ? { ...strip(f), code: 2 * i, codeHi: hi } : strip(f)
     })
   }
   // the laptop is open from the first frame after which none lacks it
@@ -694,8 +697,9 @@ function fadeCode(frames: Pose[], from: StateId, to: StateId): Pose[] {
     if (i === n - 1) return f
     if (i <= open) return strip(f)
     const p = (i - open) / (n - 1 - open)
-    const level = p >= CODE_IN ? 3 : Math.max(1, Math.ceil((3 * p) / CODE_IN - 0.5))
-    return { ...strip(f), code: 2 * i, codeA: level }
+    const lo = Math.round(CODE_H * (1 - p / CODE_IN))
+    // the scroll ends on 0 at the last frame, so the loop that follows takes it on without a jump
+    return { ...strip(f), code: 2 * (i - (n - 1)), ...(lo > 0 ? { codeLo: lo } : {}) }
   })
 }
 

@@ -31,6 +31,7 @@ import {
   bubbleArt,
   PILL_GAP,
   pillGroupSvg,
+  undoSvg,
   wandSvg,
   windowMinutes,
 } from './lib'
@@ -1441,14 +1442,15 @@ function controls(s: Snap, c: Comps, fx: Fx, Svg: unknown = null) {
   const items: unknown[] = []
   if (s.enh.isBusy) items.push(el(c.Text, { key: 'busy', dimColor: true }, `${WAND} enhancing…`))
   else {
-    if (s.enh.original !== '') items.push(el(c.Box, { key: 'undo-wrap' }, el(c.Button, { key: 'undo', plain: true, dimColor: true, onPress: () => fx.undoEnhance() }, '↩'), tip('Restore my draft')))
+    if (s.enh.original !== '') {
+      const undo = undoSvg()
+      items.push(el(c.Box, { key: 'undo-wrap', position: c.Svg ? 'relative' : undefined }, c.Svg ? pressTarget(c, 'press-undo', { source: undo.source, alt: 'Restore my draft', width: undo.width, height: undo.height, isInteractive: false }, () => fx.undoEnhance()) : el(c.Button, { key: 'undo', plain: true, dimColor: true, onPress: () => fx.undoEnhance() }, '↩'), tip('Restore my draft')))
+    }
     const tipText = `Enhance${enhanceLabel ? ` (${enhanceLabel})` : ''}`
     if (Svg) {
-      // A Button cannot hold a drawing: the flat white wand is an Svg, with a plain button of blank text laid over it.
+      // The wand is a press target like the pills: its drawing (a rounded outline with the wand in it) is the whole click area.
       const wand = wandSvg(!s.enh.hasDraft)
-      items.push(
-        el(c.Box, { key: 'enhance-wrap', position: 'relative' }, el(Svg as never, { key: 'wand', source: wand.source, alt: 'Enhance my draft', width: wand.width, height: wand.height }), el(c.Box, { key: 'wand-hit', position: 'absolute', top: 0, left: 0 }, el(c.Button, { key: 'enhance', plain: true, onPress: () => fx.enhance() }, '   ')), tip(tipText)),
-      )
+      items.push(el(c.Box, { key: 'enhance-wrap', position: 'relative' }, pressTarget(c, 'press-wand', { source: wand.source, alt: 'Enhance my draft', width: wand.width, height: wand.height, isInteractive: false }, () => fx.enhance()), tip(tipText)))
     } else items.push(el(c.Box, { key: 'enhance-wrap' }, el(c.Button, { key: 'enhance', dimColor: !s.enh.hasDraft, onPress: () => fx.enhance() }, el(c.Text, { color: 'white' }, WAND)), tip(tipText)))
   }
   return el(c.Box, { key: 'controls', flexDirection: 'row', alignItems: 'center', gap: 2, paddingX: 1 }, ...items)

@@ -490,7 +490,8 @@ test('calm: the band is the meters and the wand only; no arrow, no bubble, no sa
   const ui = await $.ui.mount(band('desktop'))
   expect(await ui.find({ key: 'lane' })).toBeDefined() // the bubble's row is always there, empty, so the band never grows
   for (const key of ['toggle', 'more', 'saver', 'alert-ctx']) expect(await ui.find({ key })).toBeUndefined()
-  expect(await ui.find({ key: 'enhance' })).toBeDefined()
+  expect(await ui.find({ key: 'press-wand' })).toBeDefined() // the wand is a press target: its rounded outline is the click area
+  expect(await ui.find({ key: 'enhance' })).toBeUndefined() // no Button over it
   await ui.unmount()
 })
 test('a warning speaks in one bubble: Copy handoff on it, Handoff, Compact and Fresh behind the …; the meters row is not touched', async ($, on) => {

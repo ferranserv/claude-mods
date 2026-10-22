@@ -534,28 +534,40 @@ describe('running: typing with code scrolling behind him', () => {
       expect(moveMs(id, 'running'), `${id}>running`).toBeGreaterThan(0)
     }
   })
-  test('into running the dashes grow, out of it they shrink away, finishing before the move does, and he does not blink or hop', () => {
-    const level = (f: Record<string, unknown>) => (f.code === undefined ? 0 : ((f.codeA as number | undefined) ?? 3))
+  test('the code comes in from the bottom, more lines as they rise, and leaves from the bottom up, and he does not blink or hop', () => {
+    const lowest = (f: Record<string, unknown>) => (f.code === undefined ? 28 : ((f.codeLo as number | undefined) ?? 0)) // the highest row where lines start
+    const highest = (f: Record<string, unknown>) => (f.code === undefined ? 0 : ((f.codeHi as number | undefined) ?? 28)) // the rows still shown, counted from the top
     for (const [from, to] of [['typing', 'running'], ['idle', 'running'], ['building', 'running'], ['ship', 'running']] as const) {
-      const lv = moveFrames(from, to)!.frames.map(level)
-      expect(lv[0], `${from}>${to} first`).toBe(0)
-      expect(lv.at(-1), `${from}>${to} last`).toBe(3)
-      if (lv.length >= 5) expect(lv.at(-2), `${from}>${to} full before the end`).toBe(3)
-      for (let i = 1; i < lv.length; i++) expect(lv[i]!, `${from}>${to} ${i}`).toBeGreaterThanOrEqual(lv[i - 1]!)
+      const fr = moveFrames(from, to)!.frames
+      expect(fr[0]!.code, `${from}>${to} first`).toBeUndefined()
+      expect(fr.at(-1)!.codeLo, `${from}>${to} last`).toBeUndefined()
+      const lo = fr.map(lowest)
+      for (let i = 1; i < lo.length; i++) expect(lo[i]!, `${from}>${to} ${i}`).toBeLessThanOrEqual(lo[i - 1]!)
+      expect(lo.some(v => v > 0 && v < 28), `${from}>${to} a partial sweep is seen`).toBe(true)
     }
     for (const [from, to] of [['running', 'typing'], ['running', 'idle'], ['running', 'building'], ['running', 'ship']] as const) {
-      const lv = moveFrames(from, to)!.frames.map(level)
-      expect(lv[0], `${from}>${to} first`).toBe(3)
-      expect(lv.at(-1), `${from}>${to} last`).toBe(0)
-      if (lv.length >= 5) expect(lv.at(-2), `${from}>${to} gone before the end`).toBe(0)
-      for (let i = 1; i < lv.length; i++) expect(lv[i]!, `${from}>${to} ${i}`).toBeLessThanOrEqual(lv[i - 1]!)
+      const fr = moveFrames(from, to)!.frames
+      expect(fr[0]!.code, `${from}>${to} first`).toBe(0)
+      expect(fr.at(-1)!.code, `${from}>${to} last`).toBeUndefined()
+      const hi = fr.map(highest)
+      for (let i = 2; i < hi.length; i++) expect(hi[i]!, `${from}>${to} ${i}`).toBeLessThanOrEqual(hi[i - 1]!)
+      expect(hi.some(v => v > 0 && v < 28), `${from}>${to} a partial sweep is seen`).toBe(true)
+      expect(fr.at(-2)!.code, `${from}>${to} gone before the end`).toBeUndefined()
     }
     for (const key of ['typing>running', 'running>typing']) {
       const [from, to] = key.split('>') as [StateId, StateId]
       const fr = moveFrames(from, to)!.frames
-      expect(fr.length).toBeGreaterThanOrEqual(4)
+      expect(fr.length).toBeGreaterThanOrEqual(6)
       expect(fr.some(f => f.eyes === 'blink' || f.eyes === 'wide'), key).toBe(false)
       expect(fr.every(f => f.laptop === 1), key).toBe(true)
+    }
+  })
+  test('the scroll never jumps: into running it ends on 0, the loop\'s first frame, 2 px a frame all the way', () => {
+    for (const other of STATE_IDS) {
+      if (other === 'running' || other === 'cold') continue
+      const fr = moveFrames(other, 'running')!.frames.slice(0, -1).filter(f => f.code !== undefined)
+      const scroll = [...fr.map(f => f.code as number), 0]
+      for (let i = 1; i < scroll.length; i++) expect(scroll[i]! - scroll[i - 1]!, `${other}>running`).toBe(2)
     }
   })
   test('the code only lives while his laptop is open: it starts after the laptop opens and is gone before it closes', () => {
