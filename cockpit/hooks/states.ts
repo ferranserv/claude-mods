@@ -646,11 +646,14 @@ function moveOf(from: StateId, to: StateId): (Move & { w: number }) | null {
 }
 
 /**
- * The lines of code behind running do not appear or vanish in one frame: over a move into running they come in a few
- * at a time (`codeA`, a third of the lines, two thirds, all), and over a move out of it they go the same way. The
- * first frame of a move out, and the last of a move in, are his own (all the lines); the rest are set here whatever
- * the move drew, so a prop taken or fetched by hand never carries a stale line along.
+ * The lines of code behind running do not appear or vanish in one frame: over a move into running each dash grows from
+ * a third of its length to all of it, and over a move out of it each shrinks away (`codeA`, 1 to 3). They finish before
+ * the move does: gone by CODE_OUT of the way out, all grown by CODE_IN of the way in, so he settles without them
+ * in the way. The first frame of a move out, and the last of a move in, are his own (all the lines); the rest are set
+ * here whatever the move drew, so a prop taken or fetched by hand never carries a stale line along.
  */
+const CODE_OUT = 0.6
+const CODE_IN = 0.7
 function fadeCode(frames: Pose[], from: StateId, to: StateId): Pose[] {
   const goes = from === 'running' && to !== 'running'
   const comes = to === 'running' && from !== 'running'
@@ -659,8 +662,8 @@ function fadeCode(frames: Pose[], from: StateId, to: StateId): Pose[] {
   return frames.map((f, i) => {
     if (i === (goes ? 0 : n - 1)) return f
     const { code: _c, codeA: _a, ...rest } = f
-    const edge = goes ? i === n - 1 : i === 0
-    const level = edge ? 0 : Math.ceil(3 * (goes ? 1 - i / (n - 1) : i / (n - 1)))
+    const p = i / (n - 1)
+    const level = comes && i === 0 ? 0 : goes ? (p >= CODE_OUT ? 0 : Math.ceil(3 * (1 - p / CODE_OUT))) : p >= CODE_IN ? 3 : Math.max(1, Math.ceil((3 * p) / CODE_IN - 0.5))
     return level > 0 ? { ...rest, code: 2 * i, codeA: level } : rest
   })
 }

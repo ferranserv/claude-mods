@@ -196,3 +196,5 @@ Not verifiable from the cloud: the lane's px height in the app (blank drawing in
 ## 0.20.1: review before the PR: opening/closing motions were skipped when the buttons (and so the room) changed with the words; Clawd's alt no longer carries the bubble's words. 235 tests.
 
 ## 0.26.0: `running` = typing plus green code scrolling behind him (shell command past 2 s, or a check/install/build at once); moves typing<->running and a twin of every typing move. Tests: `claude plugin test cockpit`.
+
+## 0.26.1: running calmer: half the lines, softer greens; in moves the dashes shrink away / grow, and finish at 60% / 70% of the move.

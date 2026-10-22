@@ -11,7 +11,7 @@ const PAL = {
   s: '#ffd24a', y: '#ffd24a', b: '#e6b52e', B: '#a37716', q: '#4aa8f2', Q: '#a9dcff', z: '#7a96ec', h: '#e0526c', r: '#ef5a3c', i: '#bfe6ff',
   n: '#5b3fa0', N: '#3d2a7a', p: '#f7a8c4', P: '#d9487e', l: '#7ddc6a', G: '#2f9e44', t: '#d9c8a0', T: '#b89860', u: '#4f7cff', U: '#9db8ff', v: '#cfd6e0',
   x: '#8d5b34', X: '#5f3a1e', a: '#8dff6a', m: '#3b2f6b', o: '#e8e2c8', O: '#b9b295', j: '#46b0e8', J: '#2b7fb8', K: '#f4d79a', E: '#f2c230', D: '#c99a10',
-  A: '#5cff6a', H: '#1f6f35'
+  A: '#59b06a', C: '#3f8050', H: '#2a5a38'
 };
 const W0 = 34, H0 = 28, OX = 5, OY = 8;
 const PAT = {
@@ -42,19 +42,19 @@ const MINI = {
   palette: ['.KKK.', 'KKKKK', 'KhKqK', '.KKK.'], brush: ['..h', '.x.', 'x..'], magnifier: ['ggg', 'gig', 'ggg', '..X'],
 };
 
-// Lines of code scrolling up behind him (running): 16 lines of dashes, bright, mid and dim green, a 32-row pattern that
-// repeats seamlessly. Every other row holds a line, so a scroll of 2 px keeps the lines on whole rows.
+// Lines of code scrolling up behind him (running): 8 lines of dashes in three soft greens, one every 4 rows of a 32-row
+// pattern that repeats seamlessly (a scroll of 2 px keeps the lines on whole rows).
 const CODE = (() => {
-  let seed = 7;
+  let seed = 11;
   const rnd = (n) => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed % n; };
-  return Array.from({ length: 16 }, () => {
+  return Array.from({ length: 8 }, () => {
     const row = Array(W0).fill(null);
     let x = 1 + [0, 0, 2, 4, 4, 6][rnd(6)];
     while (x < W0 - 1) {
-      const n = [2, 3, 4, 5, 7][rnd(5)], c = ['A', 'G', 'G', 'H'][rnd(4)];
+      const n = [2, 3, 4, 5, 7][rnd(5)], c = ['A', 'C', 'C', 'H'][rnd(4)];
       for (let i = 0; i < n && x + i < W0 - 1; i++) row[x + i] = c;
-      x += n + 1 + rnd(2);
-      if (rnd(100) < 18) break;
+      x += n + 2 + rnd(3);
+      if (rnd(100) < 30) break;
     }
     return row;
   });
@@ -393,14 +393,19 @@ function clawd(o) {
     let x = cx + 3; [...t].forEach(ch => { const p = PAT.DIG[ch]; p.forEach((row, j) => [...row].forEach((c2, i) => { if (c2 === '#') cf(x + i, cy + 1 + j, 1, 1, 'a'); })); x += p[0].length + 1; });
   }
   if (false) { fill(X - 3, Y + 9, 30, 8, 'u'); fill(X - 3, Y + 9, 30, 1, 'U'); for (let x = X - 1; x < X + 26; x += 6) fill(x, Y + 11, 3, 5, 'J'); }
-  if (o.code !== undefined) {   // running: lines of code scroll up behind him. `code` is the scroll in px, `codeA` (1 to 3) how many of every three lines show (a fade in or out). Only empty cells: always behind
+  if (o.code !== undefined) {   // running: lines of code scroll up behind him. `code` is the scroll in px, `codeA` (1 to 3) how long each dash is (a third, two thirds, all: it shrinks away or grows). Only empty cells: always behind
     const a = o.codeA ?? 3;
     for (let y = 0; y < H; y++) {
       const r = (((y + o.code) % 32) + 32) % 32;
-      if (r % 2) continue;
-      const j = r / 2;
-      if (a < 3 && j % 3 >= a) continue;
-      for (let x = 0; x < W && x < W0; x++) if (CODE[j][x] && !k.g[y][x]) k.g[y][x] = CODE[j][x];
+      if (r % 4) continue;
+      const row = CODE[r / 4];
+      for (let x0 = 0; x0 < W0; x0++) {
+        if (!row[x0] || (x0 > 0 && row[x0 - 1] === row[x0])) continue;   // the start of a dash
+        let n = 1;
+        while (row[x0 + n] === row[x0]) n++;
+        const keep = a >= 3 ? n : Math.max(1, Math.round((n * a) / 3)), from = x0 + Math.floor((n - keep) / 2);   // shrinks toward its middle
+        for (let i = 0; i < keep; i++) if (x0 < W && !k.g[y][from + i]) k.g[y][from + i] = row[x0];
+      }
     }
   }
   return k;
