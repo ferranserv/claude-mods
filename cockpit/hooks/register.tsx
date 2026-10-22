@@ -34,7 +34,7 @@ import {
   windowMinutes,
 } from './lib'
 import type { ActionId, Alert, Model, Thresholds } from './lib'
-import { COFFEE_AFTER_MS, FLEET_MS, HOLD_MS, START_MS, TOOL_LINGER_MS, bubbleFor, clockOf, hoverHint, isAlert, nextShift, pickState, rank } from './mood'
+import { COFFEE_AFTER_MS, FLEET_MS, LOOP_EXIT_MS, HOLD_MS, START_MS, TOOL_LINGER_MS, bubbleFor, clockOf, hoverHint, isAlert, nextShift, pickState, rank } from './mood'
 import type { Bubble, Fleet, MoodInput, ToolKind } from './mood'
 import {
   WRITE_TOOLS,
@@ -203,8 +203,10 @@ async function flash($: EngineInterface, id: Fleet): Promise<void> {
     mood.coinsDue = true
     return
   }
-  mood.fleet[id] = (await $.clock.now()) + FLEET_MS[id]
-  poke($, FLEET_MS[id])
+  const exit = LOOP_EXIT_MS[id]
+  const ms = exit !== undefined ? (mood.drawn ? moveMs(mood.drawn.id, id) : 0) + exit : FLEET_MS[id]
+  mood.fleet[id] = (await $.clock.now()) + ms
+  poke($, ms)
 }
 
 type ToolInput = { tool?: string; tool_use_id?: string; file_path?: string; notebook_path?: string; pattern?: string; command?: string }
@@ -1329,13 +1331,14 @@ function buttonGroup(c: Comps, specs: BtnSpec[], key = 'btns') {
 }
 
 /**
- * Clicking Clawd: ONE Button over his whole square. A Button is one text block, so its label is RECALL_ROWS lines of
- * blanks (as wide as he is): one press wherever on him it lands. The Box cuts it at his edges, so nothing shows.
+ * Clicking Clawd: ONE real Button over him. The desktop app draws a Button as its own dark pill, which is as tall as the
+ * Box lets it be (a row Box stretches it to his full height) and as wide as its label (a label too wide for the Box is
+ * cut with "…", the three dots). So the label is a few blanks that fit his width with room to spare, the Box is his
+ * whole square and centers the pill, and the Box cuts anything past his edges.
  */
-const RECALL_ROWS = 4
 function recallHit(c: Comps, width: number, press: () => void) {
-  const label = Array.from({ length: RECALL_ROWS }, () => NBSP.repeat(Math.ceil(width / 3))).join('\n')
-  return el(c.Box, { key: 'recall-hit', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden' }, el(c.Button, { key: 'recall', plain: true, onPress: press }, label))
+  const blanks = Math.max(2, Math.floor((width - 24) / 5))
+  return el(c.Box, { key: 'recall-hit', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden', flexDirection: 'row', alignItems: 'stretch', justifyContent: 'center' }, el(c.Button, { key: 'recall', plain: true, onPress: press }, NBSP.repeat(blanks)))
 }
 
 /** What one action's button does: pressing it answers the bubble and closes the menu. */

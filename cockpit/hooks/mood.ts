@@ -22,7 +22,12 @@ export const isAlert = (id: StateId): boolean => (ALERT_ORDER as readonly string
 export type ToolKind = 'building' | 'reading' | 'browse' | 'creating'
 
 /** How long each fleeting event plays, in ms. */
-export const FLEET_MS: Record<Fleet, number> = { oops: 5000, boom: 5000, bell: 5000, lab: 5000, ship: 5200, love: 5000, idea: 5000, wand: 5000, coins: 5000, plug: 6000 }
+export const FLEET_MS: Record<Fleet, number> = { oops: 5000, boom: 6500, bell: 5000, lab: 5000, ship: 6700, love: 5000, idea: 5000, wand: 5000, coins: 5000, plug: 6000 }
+/**
+ * `ship` and `boom` are long scenes that end in a calm pose (the rocket standing again, the soot): the event lasts the move
+ * INTO the scene plus this much of the loop, so he always leaves from that calm pose and the move out has nothing to jump from.
+ */
+export const LOOP_EXIT_MS: Partial<Record<Fleet, number>> = { ship: 5200, boom: 5000 }
 /** Whatever state is shown stays at least this long, unless something more important arrives. */
 export const HOLD_MS = 5000
 /** A tool's state lingers this long after it ends, so quick calls are still seen. */

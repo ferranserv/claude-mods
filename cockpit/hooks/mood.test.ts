@@ -174,13 +174,47 @@ describe('animation with flavour', () => {
     const still = STATE_IDS.filter(id => !STATES[id].frames.some(f => f.armL !== undefined && f.armL !== 'rest'))
     expect(still.sort()).toEqual(['asleep'])
   })
-  test('comic effects are used widely: sparkles, lines, brows, orbiting stars', () => {
-    const uses = (key: string) => STATE_IDS.filter(id => STATES[id].frames.some(f => f[key] !== undefined)).length
-    expect(uses('spark')).toBeGreaterThanOrEqual(10)
-    expect(uses('lines')).toBeGreaterThanOrEqual(8)
-    expect(uses('brow')).toBeGreaterThanOrEqual(6)
-    expect(uses('sweatFly')).toBeGreaterThanOrEqual(4)
-    expect(uses('orbit')).toBeGreaterThanOrEqual(2)
+  /**
+   * The flipbook test: play a loop frame by frame and see what blinks. Whatever is drawn on top of him (a comic stroke, a
+   * brow, a drop of sweat, a tear) must stay at least EFFECT_S, or it reads as a blink and not as a movement; his eyes
+   * and his left hand must hold a look for LOOK_S before they change (a loop that changes them every frame looks nervous).
+   */
+  const EFFECT_S = 0.45
+  const LOOK_S = 0.2
+  const secs = (id: StateId) => STATES[id].frames.map(f => (f.hold ?? 1) * STATES[id].fd)
+  /** Durations of each run of equal values around the loop (the first and last runs are one when they match). */
+  const runs = (id: StateId, of: (f: Record<string, unknown>) => string): number[] => {
+    const fr = STATES[id].frames as Record<string, unknown>[]
+    const t = secs(id)
+    const keys = fr.map(of)
+    if (new Set(keys).size === 1) return [Infinity]
+    const out: number[] = []
+    let start = keys.findIndex((k, i) => k !== keys[(i + keys.length - 1) % keys.length])
+    for (let n = 0, i = start; n < keys.length; ) {
+      let d = 0
+      const k = keys[i]
+      while (n < keys.length && keys[i] === k) { d += t[i]!; i = (i + 1) % keys.length; n++ }
+      out.push(d)
+    }
+    return out
+  }
+  test('flipbook: an effect on top of him is never on screen for a blink', () => {
+    const present = (key: string) => (f: Record<string, unknown>) => (f[key] === undefined ? 'no' : 'yes')
+    const bad: string[] = []
+    for (const id of STATE_IDS) for (const key of ['lines', 'sweatFly', 'orbit', 'brow', 'vein', 'tear', 'star', 'burst', 'soot', 'puff', 'thrust', 'smokeP'])
+      for (const [i, d] of runs(id, present(key)).entries()) if (d < EFFECT_S && runs(id, present(key))[i] !== undefined && STATES[id].frames.some(f => (f as Record<string, unknown>)[key] !== undefined)) bad.push(`${id}.${key} ${d.toFixed(2)}s`)
+    // a burst is meant to be quick: burst, soot and the engine's flame only need to last as long as the move they make
+    expect(bad.filter(b => !/^(boom|ship)\./.test(b))).toEqual([])
+  })
+  test('flipbook: his eyes hold a look, and his left hand a position, long enough to be read', () => {
+    const look = (f: Record<string, unknown>) => `${f.eyes ?? 'open'}|${f.eyeL ?? ''}|${f.eyeR ?? ''}|${f.look ?? ''}`
+    const arm = (f: Record<string, unknown>) => String(f.armL ?? 'rest')
+    const bad: string[] = []
+    for (const id of STATE_IDS) {
+      for (const d of runs(id, look)) if (d < LOOK_S && d !== Infinity && id !== 'boom') bad.push(`${id} eyes ${d.toFixed(2)}s`)
+      if (!['typing', 'fire', 'mad', 'walk', 'dizzy', 'asleep', 'ship', 'boom', 'bell'].includes(id)) for (const d of runs(id, arm)) if (d < LOOK_S && d !== Infinity) bad.push(`${id} armL ${d.toFixed(2)}s`)
+    }
+    expect(bad).toEqual([])
   })
   test('the flakes fall down the edges and over his head, never next to his hands', () => {
     const base = { w: 34, ...STATES.cold.frames[0], snow: undefined }
@@ -193,6 +227,40 @@ describe('animation with flavour', () => {
       }))
     }
     expect(without.length).toBeGreaterThan(0)
+  })
+  test('no whistle notes in idle, no snore bubble in asleep, no loose sparkles anywhere', () => {
+    expect(STATES.idle.frames.every(f => f.notes === undefined)).toBe(true)
+    expect(STATES.asleep.frames.every(f => f.snore === undefined)).toBe(true)
+    for (const id of STATE_IDS) expect(STATES[id].frames.every(f => f.spark === undefined && f.glint === undefined && f.dots === undefined && f.dust === undefined), id).toBe(true)
+  })
+  test('the rocket leaves the screen completely, in small steps, and a new one rises into place so the loop ends where it began', () => {
+    const fr = STATES.ship.frames
+    const ys = fr.filter(f => f.thrust === 3).map(f => f.rocket as number)
+    expect(Math.min(...ys)).toBeLessThanOrEqual(-9) // its nine rows are all above the canvas
+    for (let i = 1; i < ys.length; i++) expect(ys[i - 1]! - ys[i]!, `step ${i}`).toBeLessThanOrEqual(4)
+    const last = fr[fr.length - 1]!
+    expect(last).toMatchObject({ console: 0, rocket: 15, look: 'right' })
+    expect(fr[0]).toMatchObject({ console: 0, rocket: 15, look: 'right' })
+    expect(fr.some(f => f.thrust === undefined && f.rocket !== undefined && f.rocket > 15)).toBe(true) // the next rocket rises from below
+  })
+  test('leaving ship: the console and the rocket sink out of the canvas instead of vanishing, and coming back they rise', () => {
+    for (const to of ['idle', 'bell', 'typing', 'drunk'] as const) {
+      const fr = moveFrames('ship', to)!.frames
+      expect(fr.some(f => (f.consoleDy ?? 0) >= 5), `ship>${to}`).toBe(true)
+    }
+    for (const from of ['typing', 'idle', 'bell'] as const) expect(moveFrames(from, 'ship')!.frames.some(f => (f.consoleDy ?? 0) >= 5), `${from}>ship`).toBe(true)
+  })
+  test('frames have their own timing: a held pose, a quick lift-off', () => {
+    const ship = STATES.ship.frames
+    expect(Math.max(...ship.map(f => f.hold ?? 1))).toBeGreaterThanOrEqual(10)
+    expect(ship.some(f => (f.hold ?? 1) === 1)).toBe(true)
+    const times = (stateMarkup('ship').markup.match(/keyTimes="([^"]+)"/)?.[1] ?? '').split(';').map(Number)
+    const steps = new Set(times.slice(1).map((t, i) => (t - times[i]!).toFixed(3)))
+    expect(steps.size).toBeGreaterThan(2) // not equal steps
+  })
+  test('boom ends on the pose his moves out of it start from', () => {
+    expect(STATES.boom.leave).toBeDefined()
+    expect(STATES.boom.frames[STATES.boom.frames.length - 1]).toMatchObject(STATES.boom.leave!)
   })
   test('cold has eyes that dart and teeth that chatter', () => {
     const fr = STATES.cold.frames
@@ -234,7 +302,7 @@ describe('the moves between states', () => {
     for (const key of Object.keys(MOVES)) {
       const [from, to] = key.split('>') as [StateId, StateId]
       const f = MOVES[key]!.frames
-      expect(same(f[0]!, STATES[from].frames[0]!), `${key} start`).toBe(true)
+      expect(same(f[0]!, STATES[from].leave ?? STATES[from].frames[0]!), `${key} start`).toBe(true)
       expect(same(f[f.length - 1]!, STATES[to].frames[0]!), `${key} end`).toBe(true)
     }
   })

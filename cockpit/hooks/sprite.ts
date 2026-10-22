@@ -132,7 +132,6 @@ function clawd(o) {
   if (o.mouth === 'chewOpen') { fill(mc + 3, my + 1, 3, 2, 'k'); fill(mc + 3, my + 1, 3, 1, 'w'); }   // and open   // concentrating: a very small flat line, low and off to one side, well away from the eyes
 
   if (o.mouth === 'chatter' || o.mouth === 'chatter2') { fill(mc - 1, my, 6, 1, 'w'); fill(mc - 1, my + 1, 6, 1, 'w'); [0, 2, 4].forEach(i => set(mc - 1 + i + (o.mouth === 'chatter2' ? 1 : 0), my, 'e')); }   // teeth chattering
-  if (o.mouth === 'smirk') { fill(mc + 1, my, 4, 1, 'w'); set(mc + 5, my - 1, 'w'); }
   if (o.mouth === 'grim') { fill(mc, my, 4, 1, 'w'); set(mc - 1, my + 1, 'w'); set(mc + 4, my + 1, 'w'); }
   if (o.gum) {   // bubble gum from the mouth: it swells (1 to 3) and pops (4), pink with a darker rim and a glint
     const gx = X + 15, gy = Y + 7, g = o.gum;
@@ -281,12 +280,12 @@ function clawd(o) {
   // ---- ship: a launch console under his left hand (a big red button) and a rocket at the right edge that lifts off, clipped at the canvas
   const cs = (x, y, c) => { if (x >= 0 && x < W && y >= 0 && y < H) k.g[y][x] = c; };   // clipped: a rocket that flies out of the top is not "outside the canvas"
   const cstamp = (rows, x0, y0) => rows.forEach((row, j) => [...row].forEach((ch, i) => { if (ch !== '.') cs(x0 + i, y0 + j, ch); }));
-  if (o.console !== undefined) {
-    const cx0 = X - 1, cy0 = Y + 11;
-    fill(cx0, cy0, 13, 4, 'g'); fill(cx0, cy0, 13, 1, 'v'); fill(cx0, cy0 + 3, 13, 1, 'd'); fill(cx0 + 8, cy0 + 1, 3, 1, 'd'); set(cx0 + 9, cy0 + 2, 'a'); set(cx0 + 11, cy0 + 2, 's');
-    fill(X + 1, Y + 11, 6, 1, 'd');   // the button's base
-    if (o.console === 0) { fill(X + 2, Y + 9, 4, 2, 'r'); set(X + 2, Y + 9, 'w'); set(X + 5, Y + 10, 'P'); }
-    else fill(X + 2, Y + 10, 4, 1, 'r');
+  if (o.console !== undefined) {   // sinks out of the canvas (consoleDy) when he leaves the scene and rises when he comes
+    const cd = o.consoleDy || 0, cx0 = X - 1, cy0 = Y + 11 + cd, cf = (x, y, w, h, c) => { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) cs(x + i, y + j, c); };
+    cf(cx0, cy0, 13, 4, 'g'); cf(cx0, cy0, 13, 1, 'v'); cf(cx0, cy0 + 3, 13, 1, 'd'); cf(cx0 + 8, cy0 + 1, 3, 1, 'd'); cs(cx0 + 9, cy0 + 2, 'a'); cs(cx0 + 11, cy0 + 2, 's');
+    cf(X + 1, Y + 11 + cd, 6, 1, 'd');   // the button's base
+    if (o.console === 0) { cf(X + 2, Y + 9 + cd, 4, 2, 'r'); cs(X + 2, Y + 9 + cd, 'w'); cs(X + 5, Y + 10 + cd, 'P'); }
+    else cf(X + 2, Y + 10 + cd, 4, 1, 'r');
   }
   if (o.rocket !== undefined) {
     const rx = X + 24 + (o.rocketDx || 0), ry = o.rocket;
@@ -333,27 +332,16 @@ function clawd(o) {
     pf(X + 10, py(n), 'M'); if (n >= 2) pf(X + 13, py(n - 1) - 2, 'g'); if (n >= 3) pf(X + 8, py(n - 2) - 3, 'L');
   }
   // ---- comic effects: sparkles, motion and impact lines, orbiting stars, dust, ellipsis
-  if (o.snore) { const n = o.snore, sx = X + 22, sy = Y + 5; if (n === 1) fill(sx, sy, 2, 2, 'v'); if (n === 2) { fill(sx, sy - 1, 4, 4, 'v'); fill(sx + 1, sy, 2, 2, 'i'); } if (n === 3) { fill(sx, sy - 3, 6, 6, 'v'); fill(sx + 1, sy - 2, 4, 4, 'i'); set(sx + 1, sy - 2, 'w'); } if (n === 4) { [[0, -3], [5, -2], [5, 3], [0, 3], [-1, 0]].forEach(([dx, dy]) => set(sx + dx, sy + dy, 'v')); } }
-  if (o.spark) {   // four twinkles around him, each growing and shrinking out of step
-    [[1, 3], [30, 2], [31, 15], [2, 13]].forEach(([cx0, cy0], i) => {
-      const sz = (o.spark + i) % 4;
-      if (sz === 1) set(cx0, cy0, 'w');
-      if (sz === 2) { set(cx0, cy0, 'w'); [[-1, 0], [1, 0], [0, -1], [0, 1]].forEach(([dx, dy]) => set(cx0 + dx, cy0 + dy, 's')); }
-      if (sz === 3) { set(cx0, cy0, 'w'); [[-1, 0], [1, 0], [0, -1], [0, 1]].forEach(([dx, dy]) => set(cx0 + dx, cy0 + dy, 'w')); }
-    });
-  }
-  if (o.glint) { const gx = X + (o.glintAt ?? 17), gy = Y + 2; set(gx, gy, 'w'); if (o.glint > 1) [[-1, 0], [1, 0], [0, -1], [0, 1]].forEach(([dx, dy]) => set(gx + dx, gy + dy, 'w')); }
-  if (o.lines) {   // comic strokes: shake (little ticks at both sides of the head), hit (an impact burst at the right), speed (streaks behind him), speak (ticks by his mouth)
+  if (o.lines) {   // comic strokes that MOVE: shake (ticks at both sides of the head that jitter in and out with lineT), hit (a burst that grows over three frames, lineT 1 to 3)
     const c = o.lcol || 'w', t = o.lineT || 0, L = (pts) => pts.forEach(([x, y]) => set(x, y, c));
-    if (o.lines === 'shake') L([[X - 2, Y], [X - 3, Y + 1], [X - 2, Y + 3], [X - 3, Y + 4], [X + 25, Y], [X + 26, Y + 1], [X + 25, Y + 3], [X + 26, Y + 4]]);
-    if (o.lines === 'hit') L([[X + 21, Y - 6], [X + 21, Y - 7], [X + 24, Y - 6], [X + 25, Y - 8], [X + 28, Y - 5], [X + 28, Y - 3]]);
-    if (o.lines === 'speed') L([[X - 5, Y + 3], [X - 4, Y + 3], [X - 3, Y + 3], [X - 4, Y + 6], [X - 3, Y + 6], [X - 2, Y + 6], [X - 5, Y + 9], [X - 4, Y + 9]]);
-    if (o.lines === 'speak') L([[X + 26, Y + 2], [X + 27, Y + 1], [X + 26, Y + 4], [X + 27, Y + 4], [X + 26, Y + 6], [X + 27, Y + 7]]);
-    if (o.lines === 'jolt') L([[X + 26, Y - 3 + t], [X + 27, Y - 2 + t], [X + 26, Y - 1 + t], [X + 27, Y + t], [X + 26, Y + 1 + t]]);   // a zig-zag
+    if (o.lines === 'shake') { const j = t % 2; L([[X - 2 + j, Y], [X - 3 + j, Y + 1], [X - 2 + j, Y + 3], [X - 3 + j, Y + 4], [X + 25 - j, Y], [X + 26 - j, Y + 1], [X + 25 - j, Y + 3], [X + 26 - j, Y + 4]]); }
+    if (o.lines === 'hit') {
+      if (t === 1) L([[X + 24, Y - 6], [X + 26, Y - 6], [X + 25, Y - 7]]);
+      if (t === 2) L([[X + 22, Y - 7], [X + 24, Y - 8], [X + 27, Y - 8], [X + 28, Y - 6], [X + 28, Y - 4]]);
+      if (t === 3) L([[X + 21, Y - 8], [X + 25, Y - 8], [X + 28, Y - 7]]);
+    }
   }
-  if (o.orbit !== undefined) { const P = [[-8, -1], [-4, -4], [4, -4], [8, -1]]; [0, 1, 2].forEach(i => { const [dx, dy] = P[(o.orbit + i) % 4]; set(X + 12 + dx, Y - 4 + dy + 2, i === 0 ? 'w' : 's'); set(X + 13 + dx, Y - 4 + dy + 2, 's'); }); }
-  if (o.dots) { for (let i = 0; i < Math.min(3, o.dots); i++) fill(X + i * 4, Y - 5, 2, 2, 'v'); }
-  if (o.dust) { const n = o.dust, fy = F - 2; [[X + 1, 0], [X + 24, 1]].forEach(([dx, d], i) => { const r = Math.min(3, n); fill(dx - (i ? -r : r), fy, 2, 2, 'v'); if (r > 1) set(dx - (i ? -r - 1 : r + 1), fy + 1, 'w'); }); }
+  if (o.orbit !== undefined) { const P = [[-8, 0], [-6, -3], [-2, -4], [2, -4], [6, -3], [8, 0]], pp = (t) => { const m = ((t % 10) + 10) % 10; return m < 6 ? m : 10 - m; }; [pp(o.orbit), pp(o.orbit + 5)].forEach((i, k) => { const [dx, dy] = P[i]; set(X + 12 + dx, Y - 2 + dy, 'w'); set(X + 13 + dx, Y - 2 + dy, k ? 's' : 'y'); set(X + 12 + dx, Y - 1 + dy, 's'); }); }
   if (o.sweatFly) { const n = o.sweatFly; [[-1, -1], [1, -1]].forEach(([sx], i) => { const x = X + 12 + sx * (6 + n * 2), y = Y - n * 2; set(x, y, 'q'); set(x + sx, y + 1, 'q'); }); }
   if (o.carry) {   // the prop in his hand: at 1 above the raised hand, at 3 just under the arm that swings out to put it behind him
     const left = o.carrySide === 'L';   // the left hand: the same two spots, mirrored
@@ -401,8 +389,11 @@ function pathsOf(grid, pal) {
 /** The frames of one state, swapped by SMIL opacity (a sandboxed Svg with isInteractive plays it; elsewhere frame one shows). */
 export function renderFrames(frames: Pose[], fd: number, w: number, drift: boolean, scale = 2, delay = 0): string {
   const n = frames.length
-  const keyTimes = frames.map((_, i) => (i / n).toFixed(4)).join(';')
-  const dur = (n * fd).toFixed(2)
+  // A frame's `hold` (1 by default) is its share of the time: poses that rest are held, quick moves are not.
+  const total = frames.reduce((a, f) => a + (f.hold ?? 1), 0)
+  let acc = 0
+  const keyTimes = frames.map(f => { const t = (acc / total).toFixed(4); acc += f.hold ?? 1; return t }).join(';')
+  const dur = (total * fd).toFixed(2)
   // A delay starts the loop after a move that plays first in the same drawing: nothing shows until then.
   const begin = delay > 0 ? ` begin="${delay.toFixed(2)}s"` : ''
   const groups = frames
@@ -412,7 +403,7 @@ export function renderFrames(frames: Pose[], fd: number, w: number, drift: boole
       return `<g opacity="${delay > 0 ? 0 : i === 0 ? 1 : 0}">${anim}${pathsOf(k.g, { ...PAL, ...(o.pal || {}) })}</g>`
     })
     .join('')
-  const move = drift ? `<animateTransform attributeName="transform" type="translate" values="-4 0;4 0;-4 0" dur="${(n * fd * 4).toFixed(2)}s"${begin} repeatCount="indefinite"/>` : ''
+  const move = drift ? `<animateTransform attributeName="transform" type="translate" values="-4 0;4 0;-4 0" dur="${(total * fd * 4).toFixed(2)}s"${begin} repeatCount="indefinite"/>` : ''
   return `<g shape-rendering="crispEdges" transform="scale(${scale})"><g>${move}${groups}</g></g>`
 }
 
