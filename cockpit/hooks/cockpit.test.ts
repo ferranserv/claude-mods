@@ -74,7 +74,9 @@ describe('wandSvg', () => {
     const on = wandSvg(false).source
     expect(on).toContain('#8E8E93')
     expect(on.match(/#[0-9a-fA-F]{6}/g)?.every(c => c.toLowerCase() === '#8e8e93')).toBe(true)
-    expect(wandSvg(false).width).toBe(18)
+    expect(wandSvg(false).width).toBe(34) // a rounded outline 34 x 26, the pills' height, the whole of it the click area
+    expect(wandSvg(false).height).toBe(26)
+    expect(on).toContain('rx=')
     expect(on).toContain('M6 3V9') // a small sparkle apart from the wand
     expect(on).not.toContain('Gradient')
     expect(wandSvg(true).source).toContain('fill-opacity="0.45"')

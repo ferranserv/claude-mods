@@ -29,7 +29,7 @@ test('Enhance rewrites the draft in place, then Undo restores it', async ($, on)
 
   for (const surface of ['terminal', 'desktop'] as const) {
     const ui = await $.ui.mount({ plugin: 'cockpit', surface, ...BAND } as never)
-    expect(await ui.find({ key: 'enhance' })).toBeDefined()
+    expect((await ui.find({ key: 'press-wand' })) ?? (await ui.find({ key: 'enhance' }))).toBeDefined() // a press target where there is a drawing, a plain Button where there is none
     await ui.press({ key: 'undo' })
     expect(box).toBe('fix login bug')
     await ui.unmount()
@@ -78,4 +78,24 @@ test('hotkey consumes the key; other keys pass through', async ($, on) => {
   await clock.advance(1)
   await clock.settle()
   expect(fills).toBe(1)
+})
+
+test('the wand is a rounded outlined button whose whole drawing is the click area: a press on it enhances', async ($, on) => {
+  mock.clock(on, { now: 1_000 })
+  on('ui.render', () => ({ type: 'engine', ref: 0 }) as never)
+  let box = 'fix login bug'
+  on('prompt.read', () => ({ value: { text: box, cursor: box.length } }))
+  on('prompt.fill', (_$, e) => {
+    box = e.text
+    return { isFilled: true }
+  })
+  on('command.list', () => ({ value: [] }) as never)
+  on('model.complete', () => ({ value: { isAnswered: true, text: 'Fix the login bug.\n\nDone looks like:\n- login works', usage: {} } }) as never)
+  const ui = await $.ui.mount({ plugin: 'cockpit', surface: 'desktop', ...BAND } as never)
+  expect(await ui.find({ key: 'press-wand' })).toBeDefined()
+  expect(await ui.find({ key: 'wand-hit' })).toBeUndefined() // no Button laid over the drawing
+  await ui.pointer({ type: 'up', x: 0, y: 0, in: 'press-wand-press' } as never)
+  await new Promise(r => setTimeout(r, 50))
+  expect(box).toContain('Done looks like')
+  await ui.unmount()
 })

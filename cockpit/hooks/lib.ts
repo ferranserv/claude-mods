@@ -418,11 +418,19 @@ export function bandWidth(columns: number): number {
 const LEGEND_SIZE = 10
 const LINE = 10
 
-/** The enhance wand: flat and one color (the cockpit gray), drawn as shapes so no emoji font can color or shade it. A stick, a gap, then the sparkle apart from it, and a small one. 18 px, like the controls around it. */
+/**
+ * The enhance button: a rounded outline (so it reads as a button) with the wand centered inside it, flat and one color (the cockpit
+ * gray), drawn as shapes so no emoji font can color or shade it. The wand is a stick, a gap, then the sparkle apart from it, and a
+ * small one. The whole drawing is the click area (a press target, like the pills): 34 x 26 px, the height of the pills beside it.
+ */
+export const WAND_W = 34
+export const WAND_H = 26
 export function wandSvg(dim: boolean): { source: string; width: number; height: number } {
   const o = dim ? 0.45 : 1
-  const out = `<g transform="scale(0.75)" fill="${C.gray}" stroke="${C.gray}" fill-opacity="${o}" stroke-opacity="${o}"><path d="M3 22L12 13" stroke-width="3" stroke-linecap="round" fill="none"/><path d="M19 1L20.6 5.4L25 7L20.6 8.6L19 13L17.4 8.6L13 7L17.4 5.4Z" stroke="none"/><path d="M6 3V9M3 6H9" stroke-width="1.6" stroke-linecap="round" fill="none"/></g>`
-  return { source: wrapSvg(18, 18, out), width: 18, height: 18 }
+  // The glyph's own box (stroke included) is x 1.13 to 18.75 and y 0.75 to 17.6 at its scale of 0.75: its middle is put on the button's.
+  const gx = WAND_W / 2 - 9.94, gy = WAND_H / 2 - 9.18
+  const out = `<g fill-opacity="${o}" stroke-opacity="${o}"><rect x="1" y="1" width="${WAND_W - 2}" height="${WAND_H - 2}" rx="7" ry="7" fill="none" stroke="${C.gray}" stroke-width="1.5"/><g transform="translate(${gx.toFixed(2)} ${gy.toFixed(2)}) scale(0.75)" fill="${C.gray}" stroke="${C.gray}"><path d="M3 22L12 13" stroke-width="3" stroke-linecap="round" fill="none"/><path d="M19 1L20.6 5.4L25 7L20.6 8.6L19 13L17.4 8.6L13 7L17.4 5.4Z" stroke="none"/><path d="M6 3V9M3 6H9" stroke-width="1.6" stroke-linecap="round" fill="none"/></g></g>`
+  return { source: wrapSvg(WAND_W, WAND_H, out), width: WAND_W, height: WAND_H }
 }
 
 /** One character cell of the host, in px: boxes are laid out in whole cells. */

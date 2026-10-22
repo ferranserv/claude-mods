@@ -200,3 +200,5 @@ Not verifiable from the cloud: the lane's px height in the app (blank drawing in
 ## 0.26.1: running calmer: half the lines, softer greens; in moves the dashes shrink away / grow, and finish at 60% / 70% of the move.
 
 ## 0.26.2: running's code starts after the laptop opens and ends before it closes; the dissolve stays.
+
+## 0.27.0: running's code rises from the bottom and leaves from the bottom up; blink fixed (scroll jump at the end of the move in); the wand is a rounded press target, centered.
