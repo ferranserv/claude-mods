@@ -1161,3 +1161,23 @@ test('a bubble that arrives with buttons opens with its motion, and one that lea
   expect(closing.bubble).toContain('values="1;0.5"') // it leaves the way it came: words deleted, scaled back to Clawd
   expect(before).toBeDefined()
 })
+
+test('the dots under Clawd hide the bubble and show it again', async ($, on) => {
+  const w = world(on)
+  await started($)
+  await measureCtx($, 60)
+  await w.clock.advance(6000)
+  await settle($, w)
+  expect(await hasButton($, 'copy')).toBe(true)
+  let ui = await $.ui.mount(band('desktop'))
+  expect(await ui.find({ key: 'clawd-dots' })).toBeDefined()
+  await ui.pointer({ type: 'up', x: 0, y: 0, in: 'clawd-dots-press' })
+  await ui.unmount()
+  await settle($, w)
+  expect(await hasButton($, 'copy')).toBe(false) // hidden by the click
+  ui = await $.ui.mount(band('desktop'))
+  await ui.pointer({ type: 'up', x: 0, y: 0, in: 'clawd-dots-press' })
+  await ui.unmount()
+  await settle($, w)
+  expect(await hasButton($, 'copy')).toBe(true) // and back by the next
+})
