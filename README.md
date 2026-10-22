@@ -4,7 +4,7 @@ Personal Claude Code mods, published as the `claude-mods` plugin marketplace.
 
 | Mod | What it does |
 | --- | --- |
-| `cockpit` | One band above the prompt: Clawd the mascot (31 animated states, one per thing that is happening), context window, 5-hour limit, weekly limit (five weekday slots) and the **prompt cache countdown**, in one collapsed row. An arrow at the right opens the whole picture whenever you want it; it also opens by itself when something needs you. Every warning comes with the button that answers it. Also: saver (easy prompts go to Haiku 5.5), preflight (warns on main, uncommitted work, another session in the folder), prompt enhancer (🪄 button), and a chime when a turn ends. Replaces `meters`, `saver`, `preflight-guard` and `prompt-enhancer` (kept in `archive/`). |
+| `cockpit` | One band above the prompt: Clawd the mascot (34 animated states, one per thing that is happening), context window, 5-hour limit, weekly limit (five weekday slots) and the **prompt cache countdown**, in one row. Every warning is Clawd's speech bubble, with the button that answers it. Also: saver (easy prompts go to Haiku 5.5), preflight (warns on main, uncommitted work, another session in the folder), prompt enhancer (the wand button and `meta+e`), and a chime when a turn ends. Replaces `meters`, `saver`, `preflight-guard` and `prompt-enhancer` (kept in `archive/`). |
 
 ## Install
 
@@ -18,7 +18,7 @@ Cloud sessions on this repo load the mod from `.claude/settings.json`. For cloud
 
 ## The band
 
-One row, always: Clawd, then Context, 5-hour, Weekly and Cache as bars. Every number is always visible; nothing expands or collapses. On the right: ✦ Enhance (and ↩ to restore your draft).
+One row, always: Clawd, then Context, 5-hour, Weekly and Cache as bars. Every number is always visible; nothing expands or collapses. On the right, two small square buttons with a thin outline: the **wand** (Enhance your draft; it dims while there is no draft and turns green while it works) and, after an Enhance, the **return arrow** (restore your original draft). The whole square is the click area.
 
 Everything the cockpit has to tell you is Clawd's **bubble**, in a row under the meters (it never covers a number). It has one gray button of its own and, when there are more answers, a **…** that opens them in a row below.
 
@@ -53,32 +53,32 @@ Handoff buttons wait while Claude is working. `/cockpit log` lists the last ten 
 | `/preflight`, `/preflight off\|on` | Check now, or turn the preflight warnings off or on. |
 | `/enhance <draft>` | Rewrite a draft with fitting skills and project details. |
 | Hotkeys | `meta+h` handoff, `meta+n` fresh, `meta+e` enhance, from the prompt box. Change or clear them in the options. |
-| Options | `warnPercent` 50, `redPercent` 80, `warnTokens` 150000, `cacheMinutes` 60, `notifyMinutes` 5, `cacheStepMinutes` 5, `mascot` (normal, small, off), `handoffKey`, `freshKey`, `sound` (the chime), `hotkey`, `model`, `maxSkills`. |
+| Options | `warnPercent` 50, `redPercent` 80, `warnTokens` 150000, `cacheMinutes` 60, `notifyMinutes` 5, `cacheStepMinutes` 5, `mascot` (normal, small, off), `handoffKey`, `freshKey`, `sound` (the chime), `turnLog`, `hotkey`, `model`, `enhanceStyle` (full or lean), `maxSkills`, `askSeconds` (how long a question waits before the raised hand, 5). |
 
 Cache window: Claude Code's API usage does not report the TTL, so the cockpit learns it. A cache hit after more than five idle minutes proves the one-hour cache; two full misses inside the hour mean the five-minute one; a model switch reports it outright. The countdown restarts when you send a message and at each request Claude makes, never on its own; it shows in 5-minute steps and rounds up.
 
 ## Clawd: what he shows
 
-Several things can be true at once, so there is an order. Fleeting events win over lasting conditions: they play for a few seconds and the lasting state comes back by itself. Highest first.
+Several things can be true at once, so there are three levels and an order inside each. Highest first.
 
-| Order | State | When |
+| Level | States | When |
 | --- | --- | --- |
-| 1 | raised hand | a permission prompt is open |
-| 2 | oops, bell, lab, love, idea, wizard, coins, unplugged | a tool failed; turn finished (plus the chime); tests passed; handoff saved; plan ready; draft enhanced; saver routed to Haiku; a connector failed to connect (3 to 6 seconds each) |
-| 3 | dizzy; building, reading, browsing | the conversation is being compacted; an Edit/Write, a Read/Grep/Glob, or a WebSearch/WebFetch is running (and 1 second after) |
-| 4 | walk, hello | session start; your first message (5 seconds) |
-| 5 | asleep, mad, on fire, detective, frozen, hourglass, gauge low, tipsy, sleepy | 5-hour limit reached; over today's allowance; context 80%+; a preflight finding; cache cold; cache about to expire; allowance within 2%; context 50%+; 5-hour limit 80%+ |
-| 6 | coffee, typing, running (typing with code scrolling behind him), thinking, talk, idle (sunglasses) | turn over 2 minutes; turn running; a command running; waiting for the model; a notice is up; nothing going on |
+| 1. Needs you now | raised hand, writing, idea | Claude asked you a question or a plan waits for approval; a handoff or an enhanced draft is being written; the plan was approved |
+| 2. The task (only while Claude works) | oops, boom, lab, ship, plug, dizzy; creating, building, reading, browsing, **running**; coffee; typing; thinking | a tool failed; a check failed (the flask blows up); a check passed; a commit, push or pull request went out; a connector failed; the conversation is being compacted; Claude is writing a file, editing, reading, searching the web, or a shell command has run 2 seconds (checks, installs and builds count at once; typing with green code scrolling behind him); 7 minutes of work (coffee, for 6 seconds at a time); any other tool; waiting for the model |
+| 3. Session and your own actions | walk, hello, love, wizard | session start; your first message; handoff saved; draft enhanced (5 seconds each) |
+| 4. When the turn is over | bell, coins, then a notice (talk), then the status alerts | the turn finished (plus the chime); the saver kept money; a notice is up; then, in turns of 6 seconds, worst first: asleep (5-hour limit reached), mad (over today's allowance), on fire (context 80%+), allowance within 2%, sleepy (5-hour 80%+), tipsy (context 50%+), frozen (cache cold), hourglass (cache about to expire), detective (a preflight finding), unplugged (a connector is down); none left is idle (sunglasses) |
 
-The cache states show only while Claude is idle (a running turn keeps the cache warm). The speech bubble is a white pixel bubble above Clawd, with the button beside it. It says what he is reacting to and carries the button for it. A state stays at least 5 seconds unless something more important arrives; a change plays a short move (hand-drawn for the common pairs, a morph for the rest). When Claude writes into your prompt box (handoff brief, enhancer) he puts on glasses and writes with a quill; a permission ask shows a clipboard and pencil. Source of the drawings: `docs/mascot/clawd-sheet.html`.
+No status alert shows while Claude works, and the cache states show only while it is idle (a running turn keeps the cache warm). `running` is `typing` with lines of code scrolling behind him; the code starts after he opens his laptop and is gone before he closes it.
+
+The speech bubble is a gray pixel bubble in the row under the meters, beside Clawd, with its button at the right. It says what he is reacting to and carries the button for it. A state stays at least 5 seconds unless something more important arrives; a change plays a short move (hand-drawn for the common pairs, a morph for the rest). When Claude writes into your prompt box (handoff brief, enhancer) he puts on glasses and writes with a quill; a question from Claude (or a plan to approve) shows a clipboard and pencil and a raised hand. Click Clawd to show or hide his bubble. Source of the drawings: `docs/mascot/clawd-sheet.html`.
 
 ## Limits
 
-- Claude Code has no render site inside the prompt box, so the Enhance button sits in the band above it. The hotkey and `/enhance` work anywhere.
+- Claude Code has no render site inside the prompt box, so the wand button sits in the band above it. The hotkey and `/enhance` work anywhere.
 - The Alt hotkeys do not work reliably in the desktop app; use the buttons or the commands.
 - The chime uses `afplay` on macOS and a PowerShell sound player on Windows (best effort: it needs the host to allow running commands). On Linux it plays nothing.
 - Clawd animates by SVG animation in a sandboxed frame; if your build does not play it, you see the first frame of each state. `/cockpit demo` shows all 34 states, 4 seconds each (`/cockpit demo typing` for one, `/cockpit demo off` to stop). In the terminal there are no drawings: a short text face and the text row. Clawd belongs to Anthropic: personal use only.
-- The Enhance sparkle is always shown (dim until you type a draft) because the desktop app may not raise draft events.
+- The wand is always shown (dim until you type a draft) because the desktop app may not raise draft events.
 
 ## Audit
 

@@ -420,24 +420,25 @@ const LINE = 10
 
 /**
  * The enhance and undo buttons: the same square (26 x 26 px, the height of the pills beside them), a rounded outline with a thin
- * line, and a flat one-color drawing centered in it (the cockpit gray, drawn as shapes so no emoji font can color or shade it).
- * The whole square is the click area (a press target, like the pills). The wand is a stick, a gap, then the sparkle apart from it,
- * and a small one.
+ * line, and a small flat one-color drawing centered in it, in the same gray as the meters' labels and track (a lighter or heavier
+ * gray than they are looked out of place). The whole square is the click area (a press target, like the pills). While Enhance
+ * runs the same button turns green (nothing else changes); with no draft it dims. The wand is a stick, a gap, then the sparkle
+ * apart from it, and a small one.
  */
 export const BTN = 26
-function squareButton(dim: boolean, glyph: string): { source: string; width: number; height: number } {
-  const o = dim ? 0.45 : 1
-  const out = `<g fill-opacity="${o}" stroke-opacity="${o}"><rect x="0.5" y="0.5" width="${BTN - 1}" height="${BTN - 1}" rx="6" ry="6" fill="none" stroke="${C.gray}" stroke-width="1"/>${glyph}</g>`
+const BTN_OPACITY = 0.6
+function squareButton(color: string, opacity: number, glyph: (c: string) => string): { source: string; width: number; height: number } {
+  const out = `<g opacity="${opacity}"><rect x="0.5" y="0.5" width="${BTN - 1}" height="${BTN - 1}" rx="6" ry="6" fill="none" stroke="${color}" stroke-width="1"/>${glyph(color)}</g>`
   return { source: wrapSvg(BTN, BTN, out), width: BTN, height: BTN }
 }
-export function wandSvg(dim: boolean): { source: string; width: number; height: number } {
-  // The glyph's own box (stroke included) is x 1.13 to 18.75 and y 0.75 to 17.6 at its scale of 0.75: its middle is put on the button's.
-  const gx = BTN / 2 - 9.94, gy = BTN / 2 - 9.18
-  return squareButton(dim, `<g transform="translate(${gx.toFixed(2)} ${gy.toFixed(2)}) scale(0.75)" fill="${C.gray}" stroke="${C.gray}"><path d="M3 22L12 13" stroke-width="3" stroke-linecap="round" fill="none"/><path d="M19 1L20.6 5.4L25 7L20.6 8.6L19 13L17.4 8.6L13 7L17.4 5.4Z" stroke="none"/><path d="M6 3V9M3 6H9" stroke-width="1.6" stroke-linecap="round" fill="none"/></g>`)
+export function wandSvg(dim: boolean, busy = false): { source: string; width: number; height: number } {
+  // The glyph (stroke included) is 17.6 x 16.9 at scale 0.75; at WAND_SCALE its middle (13.25, 12.24 in its own units) is put on the button's.
+  const sc = 0.55, gx = BTN / 2 - 13.25 * sc, gy = BTN / 2 - 12.24 * sc
+  return squareButton(busy ? C.green : C.gray, busy ? 0.95 : dim ? 0.35 : BTN_OPACITY, c => `<g transform="translate(${gx.toFixed(2)} ${gy.toFixed(2)}) scale(${sc})" fill="${c}" stroke="${c}"><path d="M3 22L12 13" stroke-width="3.4" stroke-linecap="round" fill="none"/><path d="M19 1L20.6 5.4L25 7L20.6 8.6L19 13L17.4 8.6L13 7L17.4 5.4Z" stroke="none"/><path d="M6 3V9M3 6H9" stroke-width="2.2" stroke-linecap="round" fill="none"/></g>`)
 }
 /** The return arrow of Undo, centered in the same square. */
 export function undoSvg(): { source: string; width: number; height: number } {
-  return squareButton(false, `<g fill="none" stroke="${C.gray}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.75 7L6.75 11L10.75 15"/><path d="M7.25 11H15.25A4 4 0 0 1 15.25 19H11.25"/></g>`)
+  return squareButton(C.gray, BTN_OPACITY, c => `<g transform="translate(13 13) scale(0.7) translate(-13 -13)" fill="none" stroke="${c}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M10.75 7L6.75 11L10.75 15"/><path d="M7.25 11H15.25A4 4 0 0 1 15.25 19H11.25"/></g>`)
 }
 
 /** One character cell of the host, in px: boxes are laid out in whole cells. */

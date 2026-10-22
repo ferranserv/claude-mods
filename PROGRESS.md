@@ -204,3 +204,5 @@ Not verifiable from the cloud: the lane's px height in the app (blank drawing in
 ## 0.27.0: running's code rises from the bottom and leaves from the bottom up; blink fixed (scroll jump at the end of the move in); the wand is a rounded press target, centered.
 
 ## 0.27.1: wand and Undo: same 26 x 26 rounded square, thin outline, press targets.
+
+## 0.27.2: wand and Undo smaller and in the meters' gray; the wand turns green while Enhance runs; README and docs brought up to date for sharing.

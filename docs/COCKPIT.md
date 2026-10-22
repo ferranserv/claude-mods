@@ -1,11 +1,15 @@
-# Cockpit (PR 1)
+# Cockpit (design record)
+
+This file is the design history, oldest first: PR 1's plan, then one section per version. Where a later section says it supersedes an earlier one, the later one is true. For what the cockpit does today read `README.md`; for Clawd, `docs/MASCOT.md`; for what to check on screen, `docs/VERIFY.md`. Since 0.21.0 the mascot's rules live in `docs/MASCOT.md`, and the click and press logic (every button is a drawing with a Client over it) is in its 0.25.x entries.
+
+## PR 1 plan (parts superseded below)
 
 ## Shape
 New plugin `cockpit` (`cockpit/`), replacing `meters`, `saver`, `preflight-guard`, `prompt-enhancer` (moved to `archive/`, restorable). `mods-manager` also leaves the install list (does nothing in the desktop route) and moves to `archive/`; `tools\update-mods.cmd` and the CLAUDE.md routine stay.
 
 Files (as built in PR 1): `hooks/register.tsx` holds every `$`-taking function and every hook, in sections (meters, saver, preflight, enhancer, band) and one hook per event; pure code is in `lib.ts` (numbers, SVG, attention, alerts), `saver-logic.ts`, `preflight-logic.ts`, `enhancer-logic.ts`, `handoff.ts`, `keys.ts`, `mascot.ts`, `bands.tsx`; `types/index.d.ts` is the one `PluginState.cockpit` contract. Why one file: an event can be hooked once per plugin, and a hook may pass `$` only to functions declared in the same file (CLAUDE.md).
 
-## Band
+## Band (superseded by 0.15.0: one row, no arrow)
 Collapsed (default): one row, mascot slot on the left, then chips: context %, cache countdown, 5h %, week pace, saver (when on), preflight count (when non-zero), Enhance button, expand arrow (small chevron, right edge). Never hides the core meters.
 Expanded: today's full meters (bars, legend, cache cost line) plus saver detail, preflight detail and all action buttons.
 Open/close: arrow toggles any time. It also opens by itself when a warning appears (context >= 50%, cache <= 5 min or cold, 5h >= 80%, allowance within 2% or over, preflight finding). If you collapse it while a warning stands, it stays collapsed until the level escalates. Choice kept in `$.store`.
@@ -196,3 +200,7 @@ The dialog of a question (`AskUserQuestion`) replaces the prompt area, and the b
 - The dialog's tree takes no size and no place: no overlay, no fixed width, no buttons, no speech. On the desktop it is Clawd and the meters at their own size in a row; on the terminal one text row (12-row budget counted at 40 columns), cut at the edge.
 - While the dialog is open the band above the prompt steps aside (`mood.dialog`), so it is never on screen twice. The flag ends with the tool call (`toolEnds`), the turn, or a new message.
 - Not verified on the real desktop app: whether it also keeps drawing AbovePrompt during the dialog (the types do not say), and how the dialog's own layout looks with the band over it. If the dialog is skipped, the engine draws it alone (an invalid tree is skipped).
+
+## 0.26.0 to 0.27.x
+- `running`: typing with green code scrolling behind him, for a shell command past 2 s or a check, install or build (see `docs/MASCOT.md`).
+- The enhance wand and the Undo arrow are the same 26 x 26 px rounded square with a thin outline in the meters' gray, press targets like the pills (the whole drawing is the click area, no Button over it; the terminal keeps text buttons). While Enhance runs the wand button turns green and nothing else changes (no second wand, no "enhancing" text); it is gray again when it is done.

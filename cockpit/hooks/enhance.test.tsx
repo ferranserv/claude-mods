@@ -101,3 +101,35 @@ test('the wand is a rounded outlined button whose whole drawing is the click are
   expect(box).toContain('Done looks like')
   await ui.unmount()
 })
+
+test('while Enhance runs the wand button stays and only turns green; when it ends it is gray again', async ($, on) => {
+  mock.clock(on, { now: 1_000 })
+  on('ui.render', () => ({ type: 'engine', ref: 0 }) as never)
+  let box = 'fix login bug'
+  on('prompt.read', () => ({ value: { text: box, cursor: box.length } }))
+  on('prompt.fill', (_$, e) => {
+    box = e.text
+    return { isFilled: true }
+  })
+  on('command.list', () => ({ value: [] }) as never)
+  let release: () => void = () => {}
+  on('model.complete', () => new Promise(res => { release = () => res({ value: { isAnswered: true, text: 'Fix the login bug.', usage: {} } } as never) }) as never)
+  const source = async () => {
+    const ui = await $.ui.mount({ plugin: 'cockpit', surface: 'desktop', ...BAND } as never)
+    const arts = (await ui.findAll({ type: 'Svg' })) as { props?: { alt?: string; source?: string } }[]
+    await ui.unmount()
+    return String(arts.find(a => /Enhanc/.test(String(a.props?.alt ?? '')))?.props?.source ?? '')
+  }
+  expect((await source()).length).toBeGreaterThan(100)
+  expect(await source()).not.toContain('#30D158')
+  const running = $.command.run({ command: 'enhance', args: 'fix login bug' } as never)
+  await new Promise(r => setTimeout(r, 50))
+  const busy = await source()
+  expect(busy).toContain('#30D158') // the same wand button, green
+  const ui = await $.ui.mount({ plugin: 'cockpit', surface: 'desktop', ...BAND } as never)
+  expect(await ui.find({ key: 'busy' })).toBeUndefined() // no other wand, no "enhancing…" line
+  await ui.unmount()
+  release()
+  await running
+  expect(await source()).not.toContain('#30D158')
+})
