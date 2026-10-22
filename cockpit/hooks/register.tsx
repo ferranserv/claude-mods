@@ -144,6 +144,8 @@ const mood = {
   sticky: null as { bubble: Bubble; state: StateId } | null, // a bubble that asks for a decision stays until you click its button or send something else
   dismissed: [] as string[], // warnings whose bubble you answered; quiet until the warning ends and comes back
   shownAlert: null as string | null, // the warning the bubble on screen stands for
+  bubbleOff: false, // a click on Clawd hid the bubble; the next click brings it back, and a new pose clears it
+  seenState: null as string | null, // the pose the last snapshot drew (a new one clears bubbleOff)
   settleAt: 0, // when the pose being drawn will have settled, the moment a redraw is already booked for
   resetAt: 0, // the next limit reset a redraw is already booked for
   draftTurn: false, // the turn is a /handoff: Claude writes the brief as text, with no tool to show it
@@ -1160,8 +1162,14 @@ async function snapshot($: EngineInterface, propsWorking: boolean): Promise<Snap
     if (state === 'detective' && rows.length > 0 && !isWorking) return adviceSpeech(rows, await read($, pending))
     return null
   }
+  if (mood.seenState !== state) {
+    mood.seenState = state
+    mood.bubbleOff = false
+  }
   let speech: Speech | null = spoken ? speechOf(spoken) : null
   if (!speech && !isDemo && isSettled) speech = await standing()
+  // Hidden by a click on Clawd: nothing is said, and the words wait for the next click (as the hover text).
+  if (mood.bubbleOff) speech = null
   // What his pose is about, for when the bubble is gone: hovering over him says it again (only while the pointer is there).
   const aboutBubble = said && (said.alertId === undefined || isDemo || alerts.some(a => a.id === said.alertId)) ? said : null
   const hint = hoverHint(state)
@@ -1255,7 +1263,7 @@ async function bandTree($: EngineInterface, e: { surface: string }, o: { isWorki
       const drawn = el(
         c.Box,
         { key: 'art', flexDirection: 'row', alignItems: 'center' },
-        ...(parts.mascot ? [el(c.Box, { key: 'clawd', flexDirection: 'column', flexShrink: 0 }, el(Svg, { key: 'mascot', source: parts.mascot.source, alt: STATES[s.state].label, isInteractive: true, width: parts.mascot.width, height: parts.mascot.height }), ...(s.hover ? [recallHit(c, parts.mascot.width, () => fx.recall(s.hover?.text ?? '', s.hover?.alertId))] : []))] : []),
+        ...(parts.mascot ? [el(c.Box, { key: 'clawd', position: 'relative', flexDirection: 'column', flexShrink: 0 }, el(Svg, { key: 'mascot', source: parts.mascot.source, alt: STATES[s.state].label, isInteractive: true, width: parts.mascot.width, height: parts.mascot.height }), recallHit(c, parts.mascot.width, parts.mascot.height, () => fx.toggle(s.speech !== null, s.hover?.text ?? '', s.hover?.alertId)))] : []),
         column,
       )
       row = el(c.Box, { key: 'row', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, drawn, controls(s, c, fx, Svg))
@@ -1274,6 +1282,18 @@ async function recallNow($: EngineInterface, text: string, alertId?: string): Pr
     mood.msg = null
     poke($)
   } else if (text !== '') await tell($, text)
+}
+
+/** A click on Clawd: shows the words he would say (and their warning, if any), or hides the bubble on screen. */
+async function toggleBubble($: EngineInterface, showing: boolean, text: string, alertId?: string): Promise<void> {
+  if (showing) {
+    mood.bubbleOff = false
+    await recallNow($, text, alertId)
+  } else {
+    mood.bubbleOff = true
+    dismissBubble()
+  }
+  $.ui.invalidate('ui.render')
 }
 
 /** What pressing a button does. */
@@ -1301,7 +1321,7 @@ type BtnSpec = { key: string; label: string; press: () => void }
  * A group of buttons: one picture of pills (as tall as the bubble) and, laid over it, one real Button per pill. The Button
  * layer spans the picture on all four edges and is cut there; it is a row whose pieces get the pills' widths and the gaps
  * as flex ratios (`width: 0` and `flexGrow`), so each Button sits over its pill in whatever units the host counts in, and
- * the pills cannot overlap because they are one picture. Each Button is one row tall, centered on its pill. With no
+ * the pills cannot overlap because they are one picture. Each pill is covered by Buttons stacked one line each (hitRows), so its whole drawing is clickable. With no
  * drawing surface (the terminal), plain text buttons in a row.
  */
 function buttonGroup(c: Comps, specs: BtnSpec[], key = 'btns') {
@@ -1315,8 +1335,8 @@ function buttonGroup(c: Comps, specs: BtnSpec[], key = 'btns') {
     hit.push(
       el(
         c.Box,
-        { key: `hit-${b.key}`, width: 0, flexGrow: part.w, flexShrink: 0, overflow: 'hidden', flexDirection: 'column', justifyContent: 'center' },
-        el(c.Button, { key: b.key, plain: true, onPress: b.press }, NBSP),
+        { key: `hit-${b.key}`, width: 0, flexGrow: part.w, flexShrink: 0, overflow: 'hidden', flexDirection: 'column', justifyContent: 'flex-start' },
+        ...hitRows(c, b.key, b.press, part.w, Math.ceil(art.height / CELL.h)),
       ),
     )
   })
@@ -1331,11 +1351,20 @@ function buttonGroup(c: Comps, specs: BtnSpec[], key = 'btns') {
 }
 
 /**
- * Clicking Clawd. A Button cannot be laid over him: the desktop app draws it as its own pill, as tall as one line. So it sits
- * in the space under him, centered, with a "…" label: pressing it says again what his pose is about.
+ * Buttons stacked down a drawing, one line each: a desktop Button is one line tall and as wide as its label, so the stack
+ * with a blank label as wide as the drawing is the click area (the first keeps `key`, the others take `key-2`, `key-3`...).
  */
-function recallHit(c: Comps, _width: number, press: () => void) {
-  return el(c.Box, { key: 'recall-row', flexDirection: 'column', alignItems: 'center' }, el(c.Button, { key: 'recall', plain: true, onPress: press }, '…'))
+function hitRows(c: Comps, key: string, press: () => void, width: number, rows: number) {
+  const blank = NBSP.repeat(Math.max(1, Math.floor(width / 7)))
+  return Array.from({ length: rows }, (_, i) => el(c.Button, { key: i === 0 ? key : `${key}-${i + 1}`, plain: true, onPress: press }, blank))
+}
+
+/**
+ * Clicking Clawd shows or hides his bubble, in any state. The layer lies over his whole drawing and takes no room, so the
+ * band never moves. It is the fallback: if the app does not click it, the pills and the bubble still work.
+ */
+function recallHit(c: Comps, width: number, height: number, press: () => void) {
+  return el(c.Box, { key: 'recall-row', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, flexDirection: 'column', overflow: 'hidden' }, ...hitRows(c, 'recall', press, width, Math.ceil(height / CELL.h)))
 }
 
 /** What one action's button does: pressing it answers the bubble and closes the menu. */
@@ -1469,7 +1498,7 @@ type Fx = {
   hideAdvice: () => void
   dismissNotice: () => void
   menu: (open: boolean) => void
-  recall: (text: string, alertId?: string) => void
+  toggle: (showing: boolean, text: string, alertId?: string) => void
 }
 
 /** What the band's buttons do; every one passes `$` only to a function declared above. */
@@ -1496,7 +1525,7 @@ function makeFx($: EngineInterface): Fx {
     hideAdvice: () => void update($, isDismissed, () => true),
     dismissNotice: () => void update($, notice, () => null),
     menu: open => void update($, menuState, () => open),
-    recall: (text, alertId) => void recallNow($, text, alertId),
+    toggle: (showing, text, alertId) => void toggleBubble($, showing, text, alertId),
   }
 }
 
