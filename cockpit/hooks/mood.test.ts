@@ -509,11 +509,11 @@ describe('running: typing with code scrolling behind him', () => {
       full.g.forEach((row: (string | null)[], y: number) => row.forEach((c, x) => {
         if (c !== bare.g[y][x]) { expect(bare.g[y][x], `${x},${y}`).toBeNull(); lines++ }
       }))
-      expect(lines).toBeGreaterThan(60)
+      expect(lines).toBeGreaterThan(20)
     }
   })
-  test('a fade shows a third, then two thirds, then all of the lines, the same lines each time', () => {
-    const lit = (a: number) => clawd({ w: 34, ...STATES.running.frames[0], codeA: a }).g.flat().filter((c: string | null) => c === 'A' || c === 'G' || c === 'H').length
+  test('a fade shrinks every dash to a third, then two thirds, then its whole length', () => {
+    const lit = (a: number) => clawd({ w: 34, ...STATES.running.frames[0], codeA: a }).g.flat().filter((c: string | null) => c === 'A' || c === 'C' || c === 'H').length
     expect(lit(1)).toBeLessThan(lit(2))
     expect(lit(2)).toBeLessThan(lit(3))
     expect(lit(1)).toBeGreaterThan(0)
@@ -534,18 +534,20 @@ describe('running: typing with code scrolling behind him', () => {
       expect(moveMs(id, 'running'), `${id}>running`).toBeGreaterThan(0)
     }
   })
-  test('into running the lines come in a few at a time, out of it they go the same way, and he does not blink or hop', () => {
+  test('into running the dashes grow, out of it they shrink away, finishing before the move does, and he does not blink or hop', () => {
     const level = (f: Record<string, unknown>) => (f.code === undefined ? 0 : ((f.codeA as number | undefined) ?? 3))
     for (const [from, to] of [['typing', 'running'], ['idle', 'running'], ['building', 'running'], ['ship', 'running']] as const) {
       const lv = moveFrames(from, to)!.frames.map(level)
       expect(lv[0], `${from}>${to} first`).toBe(0)
       expect(lv.at(-1), `${from}>${to} last`).toBe(3)
+      if (lv.length >= 5) expect(lv.at(-2), `${from}>${to} full before the end`).toBe(3)
       for (let i = 1; i < lv.length; i++) expect(lv[i]!, `${from}>${to} ${i}`).toBeGreaterThanOrEqual(lv[i - 1]!)
     }
     for (const [from, to] of [['running', 'typing'], ['running', 'idle'], ['running', 'building'], ['running', 'ship']] as const) {
       const lv = moveFrames(from, to)!.frames.map(level)
       expect(lv[0], `${from}>${to} first`).toBe(3)
       expect(lv.at(-1), `${from}>${to} last`).toBe(0)
+      if (lv.length >= 5) expect(lv.at(-2), `${from}>${to} gone before the end`).toBe(0)
       for (let i = 1; i < lv.length; i++) expect(lv[i]!, `${from}>${to} ${i}`).toBeLessThanOrEqual(lv[i - 1]!)
     }
     for (const key of ['typing>running', 'running>typing']) {
