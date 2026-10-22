@@ -84,7 +84,10 @@ describe('wandSvg', () => {
     expect(undoSvg().source.match(/#[0-9a-fA-F]{6}/g)?.every(c => c.toLowerCase() === '#8e8e93')).toBe(true)
     expect(on).toContain('M6 3V9') // a small sparkle apart from the wand
     expect(on).not.toContain('Gradient')
-    expect(wandSvg(true).source).toContain('fill-opacity="0.45"')
+    expect(wandSvg(true).source).toContain('opacity="0.35"') // dim with no draft
+    expect(wandSvg(false, true).source).toContain('#30D158') // green while it enhances, and only the color changes
+    expect(wandSvg(false, true).width).toBe(wandSvg(false).width)
+    expect(wandSvg(false).source).not.toContain('#30D158')
   })
 })
 
