@@ -1193,7 +1193,7 @@ async function snapshot($: EngineInterface, propsWorking: boolean): Promise<Snap
   }
 }
 
-type Comps = { Box: never; Text: never; Button: never; Svg?: never }
+type Comps = { Box: never; Text: never; Button: never; Svg?: never; Client?: never }
 const el = (type: unknown, props: Record<string, unknown>, ...children: unknown[]) => h(type as never, props as never, ...(children as never[])) as never
 
 const NBSP = ' '
@@ -1235,7 +1235,7 @@ async function bandTree($: EngineInterface, e: { surface: string }, o: { isWorki
     }
     const { Box, Text, Button } = $.ui.resolve(e as never)
     const Draw = ($.ui.resolve(e as never) as { Svg?: unknown }).Svg
-    const c = { Box, Text, Button, Svg: e.surface === 'terminal' ? undefined : Draw } as unknown as Comps
+    const c = { Box, Text, Button, Client: ($.ui.resolve(e as never) as { Client?: unknown }).Client, Svg: e.surface === 'terminal' ? undefined : Draw } as unknown as Comps
     const fx = makeFx($)
 
     let row
@@ -1263,7 +1263,7 @@ async function bandTree($: EngineInterface, e: { surface: string }, o: { isWorki
       const drawn = el(
         c.Box,
         { key: 'art', flexDirection: 'row', alignItems: 'center' },
-        ...(parts.mascot ? [el(c.Box, { key: 'clawd', position: 'relative', flexDirection: 'column', flexShrink: 0 }, el(Svg, { key: 'mascot', source: parts.mascot.source, alt: STATES[s.state].label, isInteractive: true, width: parts.mascot.width, height: parts.mascot.height }), recallHit(c, parts.mascot.width, parts.mascot.height, () => fx.toggle(s.speech !== null, s.hover?.text ?? '', s.hover?.alertId)))] : []),
+        ...(parts.mascot ? [pressTarget(c, 'clawd', { source: parts.mascot.source, alt: STATES[s.state].label, width: parts.mascot.width, height: parts.mascot.height, isInteractive: true }, () => fx.toggle(s.speech !== null, s.hover?.text ?? '', s.hover?.alertId))] : []),
         column,
       )
       row = el(c.Box, { key: 'row', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, drawn, controls(s, c, fx, Svg))
@@ -1318,53 +1318,32 @@ function runAct(a: ActRef, fx: Fx, surface: string): void {
 type BtnSpec = { key: string; label: string; press: () => void }
 
 /**
- * A group of buttons: one picture of pills (as tall as the bubble) and, laid over it, one real Button per pill. The Button
- * layer spans the picture on all four edges and is cut there; it is a row whose pieces get the pills' widths and the gaps
- * as flex ratios (`width: 0` and `flexGrow`), so each Button sits over its pill in whatever units the host counts in, and
- * the pills cannot overlap because they are one picture. Each pill is covered by Buttons stacked one line each (hitRows), so its whole drawing is clickable. With no
- * drawing surface (the terminal), plain text buttons in a row.
+ * A group of buttons: one row of pills, each a press target (`pressTarget`): its drawing is its whole click area, so nothing is
+ * laid over it. With no drawing surface (the terminal), plain text buttons in a row.
  */
 function buttonGroup(c: Comps, specs: BtnSpec[], key = 'btns') {
   if (specs.length === 0) return []
   if (!c.Svg) return [el(c.Box, { key, flexDirection: 'row', alignItems: 'center', gap: 1 }, ...specs.map(b => pill(c, b.label, { key: b.key, onPress: b.press })))]
-  const art = pillGroupSvg(specs.map(b => b.label))
-  const hit: unknown[] = []
+  // Each pill is its own press target (its drawing is its click area), with the gap between them drawn as blank space.
+  const row: unknown[] = []
   specs.forEach((b, i) => {
-    const part = art.parts[i]!
-    if (i > 0) hit.push(el(c.Box, { key: `gap-${i}`, width: 0, flexGrow: PILL_GAP, flexShrink: 0 }))
-    hit.push(
-      el(
-        c.Box,
-        { key: `hit-${b.key}`, width: 0, flexGrow: part.w, flexShrink: 0, overflow: 'hidden', flexDirection: 'column', justifyContent: 'flex-start' },
-        ...hitRows(c, b.key, b.press, part.w, Math.ceil(art.height / CELL.h)),
-      ),
-    )
+    const art = pillGroupSvg([b.label])
+    if (i > 0) row.push(el(c.Svg as never, { key: `gap-${i}`, source: `<svg xmlns="http://www.w3.org/2000/svg" width="${PILL_GAP}" height="${art.height}"/>`, alt: '', width: PILL_GAP, height: art.height }))
+    row.push(pressTarget(c, `press-${b.key}`, { source: art.source, alt: b.label, width: art.width, height: art.height, isInteractive: false }, b.press))
   })
-  return [
-    el(
-      c.Box,
-      { key: `${key}-wrap`, position: 'relative', overflow: 'hidden', flexShrink: 0 },
-      el(c.Svg as never, { key: 'art', source: art.source, alt: specs.map(b => b.label).join(', '), width: art.width, height: art.height }),
-      el(c.Box, { key: 'hit', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, flexDirection: 'row', overflow: 'hidden' }, ...hit),
-    ),
-  ]
+  return [el(c.Box, { key, flexDirection: 'row', alignItems: 'center', flexShrink: 0 }, ...row)]
 }
 
 /**
- * Buttons stacked down a drawing, one line each: a desktop Button is one line tall and as wide as its label, so the stack
- * with a blank label as wide as the drawing is the click area (the first keeps `key`, the others take `key-2`, `key-3`...).
+ * What a press does, by the key of the Client (press.tsx) that was pressed. A Client's region is exactly its drawing, so the
+ * whole drawing is the click area: no Button is laid over it (a desktop Button is one line, as wide as its label).
  */
-function hitRows(c: Comps, key: string, press: () => void, width: number, rows: number) {
-  const blank = NBSP.repeat(Math.max(1, Math.floor(width / 7)))
-  return Array.from({ length: rows }, (_, i) => el(c.Button, { key: i === 0 ? key : `${key}-${i + 1}`, plain: true, onPress: press }, blank))
-}
+const presses = new Map<string, () => void>()
 
-/**
- * Clicking Clawd shows or hides his bubble, in any state. The layer lies over his whole drawing and takes no room, so the
- * band never moves. It is the fallback: if the app does not click it, the pills and the bubble still work.
- */
-function recallHit(c: Comps, width: number, height: number, press: () => void) {
-  return el(c.Box, { key: 'recall-row', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, flexDirection: 'column', overflow: 'hidden' }, ...hitRows(c, 'recall', press, width, Math.ceil(height / CELL.h)))
+/** A press target: a Client whose drawing is its region; a pointer release on it runs `press` (the `ui.message` hook below). */
+function pressTarget(c: Comps, key: string, art: { source: string; alt: string; width: number; height: number; isInteractive: boolean }, press: () => void) {
+  presses.set(key, press)
+  return el(c.Client as never, { key, module: './press.tsx', props: { source: art.source, alt: art.alt, width: art.width, height: art.height, isInteractive: art.isInteractive } })
 }
 
 /** What one action's button does: pressing it answers the bubble and closes the menu. */
@@ -2039,6 +2018,12 @@ export const register: Register = (on, options) => {
     return { text: "The band is one row: the meters, always visible. Clawd's bubble carries every message and its buttons (a … opens the others). Use /cockpit mascot on, small or off, /cockpit log for what the bubble said lately, or /cockpit demo [state] to see Clawd's states." }
   })
 
+  // A release on a press target (press.tsx) runs the press registered under its key.
+  on('ui.message', async ($, e, next) => {
+    presses.get(e.element)?.()
+    return next(e)
+  }).catch(($, e, next) => next(e))
+
   // The person closed the side panel with its own close mark: remember it, or the next session reopens it.
   on('ui.close', { id: PANE }, async ($, e, next) => {
     if (e.origin.kind === 'person') {
@@ -2092,7 +2077,7 @@ export const register: Register = (on, options) => {
     const s = await snapshot($, false)
     const { Box, Text, Button } = $.ui.resolve(e)
     const Draw = ($.ui.resolve(e) as { Svg?: unknown }).Svg
-    const c = { Box, Text, Button, Svg: e.surface === 'terminal' ? undefined : Draw } as unknown as Comps
+    const c = { Box, Text, Button, Client: ($.ui.resolve(e as never) as { Client?: unknown }).Client, Svg: e.surface === 'terminal' ? undefined : Draw } as unknown as Comps
     const fx = makeFx($)
     const rows = speechText(s, c, fx, e.surface)
     if (e.surface === 'terminal') {
