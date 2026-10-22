@@ -30,7 +30,9 @@ test('Enhance rewrites the draft in place, then Undo restores it', async ($, on)
   for (const surface of ['terminal', 'desktop'] as const) {
     const ui = await $.ui.mount({ plugin: 'cockpit', surface, ...BAND } as never)
     expect((await ui.find({ key: 'press-wand' })) ?? (await ui.find({ key: 'enhance' }))).toBeDefined() // a press target where there is a drawing, a plain Button where there is none
-    await ui.press({ key: 'undo' })
+    if (surface === 'desktop') await ui.pointer({ type: 'up', x: 0, y: 0, in: 'press-undo-press' } as never)
+    else await ui.press({ key: 'undo' })
+    await new Promise(r => setTimeout(r, 50))
     expect(box).toBe('fix login bug')
     await ui.unmount()
     box = 'Fix the login bug.\n\nUse these skills:' // restore the enhanced state for the next surface

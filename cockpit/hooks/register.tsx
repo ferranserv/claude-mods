@@ -31,6 +31,7 @@ import {
   bubbleArt,
   PILL_GAP,
   pillGroupSvg,
+  undoSvg,
   wandSvg,
   windowMinutes,
 } from './lib'
@@ -1441,7 +1442,10 @@ function controls(s: Snap, c: Comps, fx: Fx, Svg: unknown = null) {
   const items: unknown[] = []
   if (s.enh.isBusy) items.push(el(c.Text, { key: 'busy', dimColor: true }, `${WAND} enhancing…`))
   else {
-    if (s.enh.original !== '') items.push(el(c.Box, { key: 'undo-wrap' }, el(c.Button, { key: 'undo', plain: true, dimColor: true, onPress: () => fx.undoEnhance() }, '↩'), tip('Restore my draft')))
+    if (s.enh.original !== '') {
+      const undo = undoSvg()
+      items.push(el(c.Box, { key: 'undo-wrap', position: c.Svg ? 'relative' : undefined }, c.Svg ? pressTarget(c, 'press-undo', { source: undo.source, alt: 'Restore my draft', width: undo.width, height: undo.height, isInteractive: false }, () => fx.undoEnhance()) : el(c.Button, { key: 'undo', plain: true, dimColor: true, onPress: () => fx.undoEnhance() }, '↩'), tip('Restore my draft')))
+    }
     const tipText = `Enhance${enhanceLabel ? ` (${enhanceLabel})` : ''}`
     if (Svg) {
       // The wand is a press target like the pills: its drawing (a rounded outline with the wand in it) is the whole click area.

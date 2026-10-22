@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'claude-code/testing'
 
-import { CELL, LANE_H, alertsOf, attentionOf, bandParts, bubbleArt, bubbleTextWidth, bubbleWidth, cockpitSvg, fitText, model, PILL_GAP, pillGroupSvg, textPx, wandSvg } from './lib'
+import { CELL, LANE_H, alertsOf, attentionOf, bandParts, bubbleArt, bubbleTextWidth, bubbleWidth, cockpitSvg, fitText, model, PILL_GAP, pillGroupSvg, textPx, undoSvg, wandSvg } from './lib'
 import { stateMarkup } from './states'
 
 const NOW = new Date(2026, 9, 21, 12).getTime() // a Wednesday: 60% of the week is allotted
@@ -74,9 +74,14 @@ describe('wandSvg', () => {
     const on = wandSvg(false).source
     expect(on).toContain('#8E8E93')
     expect(on.match(/#[0-9a-fA-F]{6}/g)?.every(c => c.toLowerCase() === '#8e8e93')).toBe(true)
-    expect(wandSvg(false).width).toBe(34) // a rounded outline 34 x 26, the pills' height, the whole of it the click area
+    expect(wandSvg(false).width).toBe(26) // a rounded square 26 x 26, the pills' height, the whole of it the click area
     expect(wandSvg(false).height).toBe(26)
     expect(on).toContain('rx=')
+    expect(on).toContain('stroke-width="1"') // a thin line
+    expect(undoSvg().width).toBe(26) // Undo is the same square
+    expect(undoSvg().height).toBe(26)
+    expect(undoSvg().source).toContain('stroke-width="1"')
+    expect(undoSvg().source.match(/#[0-9a-fA-F]{6}/g)?.every(c => c.toLowerCase() === '#8e8e93')).toBe(true)
     expect(on).toContain('M6 3V9') // a small sparkle apart from the wand
     expect(on).not.toContain('Gradient')
     expect(wandSvg(true).source).toContain('fill-opacity="0.45"')
