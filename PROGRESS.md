@@ -206,3 +206,5 @@ Not verifiable from the cloud: the lane's px height in the app (blank drawing in
 ## 0.27.1: wand and Undo: same 26 x 26 rounded square, thin outline, press targets.
 
 ## 0.27.2: wand and Undo smaller and in the meters' gray; the wand turns green while Enhance runs; README and docs brought up to date for sharing.
+
+## 0.27.3: the plugin and marketplace descriptions (what the app shows) say what the cockpit is today (no expand arrow, 34 states); the raised-hand option says questions, not permission prompts.
