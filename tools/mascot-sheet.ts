@@ -12,7 +12,7 @@ const TIERS: { title: string; note: string; ids: StateId[] }[] = [
   { title: '3. Session and your own actions', note: 'They play when they happen, about 5 s, and are not kept.', ids: ['walk', 'hello', 'love', 'wand', 'talk'] },
   { title: '4. When the turn is over', note: 'The bell, then the saver’s coins.', ids: ['bell', 'coins'] },
   { title: '5. Status alerts (never while Claude works)', note: 'They take turns every 6 s, worst first.', ids: ['asleep', 'mad', 'fire', 'gauge', 'sleepy', 'drunk', 'cold', 'hourglass', 'detective', 'plug'] },
-  { title: '6. Nothing going on', note: '', ids: ['idle'] },
+  { title: '6. Nothing going on', note: 'Idle, or fishing while a background task runs and Claude does not.', ids: ['fishing', 'idle'] },
 ]
 const placed = new Set(TIERS.flatMap(t => t.ids))
 const missing = STATE_IDS.filter(id => !placed.has(id))

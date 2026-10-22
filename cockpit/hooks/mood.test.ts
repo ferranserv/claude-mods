@@ -9,7 +9,7 @@ import { clawd, pixelsOutside } from './sprite'
 const NOW = 1_000_000
 const calm: MoodInput = {
   now: NOW, waiting: false, writing: false, fleet: {}, compacting: false, tool: null, walkUntil: 0, helloUntil: 0,
-  ctx: 'calm', cache: 'warm', fiveUsed: 10, weekRoom: 30, hasAdvice: false, hasNote: false, busy: false, busyMs: 0, hasTool: false, offline: false,
+  ctx: 'calm', cache: 'warm', fiveUsed: 10, weekRoom: 30, hasAdvice: false, hasNote: false, busy: false, busyMs: 0, hasTool: false, offline: false, bg: false,
 }
 const mood = (o: Partial<MoodInput>) => pickState({ ...calm, ...o })
 
@@ -158,8 +158,8 @@ describe('the drawings', () => {
       expect(d.label.length).toBeGreaterThan(5)
     }
   })
-  test('34 states, each with a terminal face', () => {
-    expect(STATE_IDS.length).toBe(34)
+  test('35 states, each with a terminal face', () => {
+    expect(STATE_IDS.length).toBe(35)
     for (const id of STATE_IDS) expect(STATES[id].face.length).toBeGreaterThan(2)
   })
   test('the alarm clock shows the wake-up time it is given', () => {
@@ -263,7 +263,7 @@ describe('animation with flavour', () => {
     const ship = STATES.ship.frames
     expect(Math.max(...ship.map(f => f.hold ?? 1))).toBeGreaterThanOrEqual(10)
     expect(ship.some(f => (f.hold ?? 1) === 1)).toBe(true)
-    const times = (stateMarkup('ship').markup.match(/keyTimes="([^"]+)"/)?.[1] ?? '').split(';').map(Number)
+    const times = [...new Set([...stateMarkup('ship').markup.matchAll(/keyTimes="([^"]+)"/g)].flatMap(m => (m[1] ?? '').split(';').map(Number)))].sort((a, b) => a - b) // every moment a frame starts or ends
     const steps = new Set(times.slice(1).map((t, i) => (t - times[i]!).toFixed(3)))
     expect(steps.size).toBeGreaterThan(2) // not equal steps
   })
@@ -633,6 +633,74 @@ describe('running: typing with code scrolling behind him', () => {
     }
     expect(enterMarkup('running', 'building', '', 2, 7).markup).not.toBe(enterMarkup('running', 'building', '', 2, 0).markup)
     expect(enterMarkup('running', 'building', '', 2, 7).markup).toBe(enterMarkup('running', 'building', '', 2, 7).markup)
+  })
+})
+
+describe('fishing: waiting for a background task', () => {
+  const fish = STATES.fishing.frames
+  const secs = fish.reduce((a, f) => a + (f.hold ?? 1) * STATES.fishing.fd, 0)
+  test('when the turn is over and a background task still runs he fishes, instead of idling; alerts and the work come first', () => {
+    expect(mood({ bg: true })).toBe('fishing')
+    expect(mood({ bg: false })).toBe('idle')
+    expect(mood({ bg: true, cache: 'cold' })).toBe('cold') // an alert with something to do wins
+    expect(mood({ bg: true, hasNote: true })).toBe('talk')
+    expect(mood({ bg: true, busy: true })).toBe('thinking') // while Claude works, the work shows
+    expect(isAlert('fishing')).toBe(false)
+    expect(rank('fishing')).toBeGreaterThan(rank('thinking'))
+    expect(rank('fishing')).toBeLessThan(rank('idle'))
+    expect(hoverHint('fishing')).toBe('A background task is still running')
+  })
+  test('a long loop, so he does not check the line often: a bait, a cast, a long wait, the reel in, a look at the hook, a shrug', () => {
+    expect(secs).toBeGreaterThanOrEqual(18)
+    expect(fish.every(f => f.hat === 'fisher' && f.armR === 'hold')).toBe(true)
+    const wait = fish.filter(f => f.bobber && f.water && f.rod && f.rod[0] === 31 && f.rod[1] === 10)
+    expect(wait.reduce((a, f) => a + (f.hold ?? 1) * STATES.fishing.fd, 0)).toBeGreaterThanOrEqual(10) // most of the loop is the wait
+    expect(fish[0]).toMatchObject({ rod: [18, 16], armL: 'half' }) // the loop begins with the rod across his belly and an empty hook
+    expect(fish[0]!.worm).toBeUndefined()
+    expect(fish.some(f => f.wormAt && f.armL === 'cross')).toBe(true) // the left hand brings the worm
+    expect(fish.some(f => f.worm !== undefined && f.rod?.[0] === 18)).toBe(true) // a worm on the hook
+    expect(fish.some(f => f.splash)).toBe(true) // the cast lands with a splash
+    expect(fish.some(f => f.mouth === 'o' && f.bobber)).toBe(true) // yawns (and a nibble)
+    const last = fish.slice(-3)
+    expect(last.every(f => f.rod?.[0] === 18 && f.worm === undefined)).toBe(true) // the hook is empty when he looks: nothing
+    expect(last.some(f => f.mouth === 'grim')).toBe(true) // and he shrugs
+  })
+  test('the water is only a thin ripple where the line goes in: two rows, seven pixels wide, never a block', () => {
+    for (const [i, f] of fish.entries()) {
+      if (!f.water) continue
+      const g = clawd({ w: 34, ...f }).g as (string | null)[][]
+      const blue = g.flatMap((row, y) => row.flatMap((c, x) => (c === 'Q' || c === 'q' ? [[x, y]] : [])))
+      expect(blue.length, `frame ${i}`).toBeLessThanOrEqual(14)
+      expect(blue.every(([x, y]) => x! >= 26 && x! <= 33 && y! >= 16 && y! <= 22), `frame ${i}`).toBe(true)
+      expect(blue.filter(([, y]) => y === 21 || y === 22).length, `frame ${i}`).toBeGreaterThan(2) // the ripple itself
+    }
+    expect(new Set(fish.filter(f => f.water).map(f => (f.water as number[])[2])).size).toBe(4) // and it moves
+  })
+  test('he gets to and from every other state, by hand for the common ones: the hat and the rod are carried', () => {
+    for (const id of STATE_IDS) {
+      if (id === 'fishing') continue
+      expect(moveMs(id, 'fishing'), `${id}>fishing`).toBeGreaterThan(0)
+      expect(moveMs('fishing', id), `fishing>${id}`).toBeGreaterThan(0)
+    }
+    for (const x of ['typing', 'running', 'thinking', 'idle', 'bell', 'hand', 'coffee', 'building', 'reading']) {
+      expect(MOVES[`${x}>fishing`], `${x}>fishing`).toBeDefined()
+      expect(MOVES[`fishing>${x}`], `fishing>${x}`).toBeDefined()
+    }
+    const into = moveFrames('typing', 'fishing')!.frames
+    expect(into.some(f => f.carry === 'hat-fisher')).toBe(true)
+    expect(into.some(f => f.carry === 'rod')).toBe(true)
+    expect(into.some(f => f.carry === 'laptop')).toBe(true)
+    const out = moveFrames('fishing', 'bell')!.frames
+    expect(out.some(f => f.carry === 'hat-fisher')).toBe(true)
+    expect(out.some(f => f.carry === 'rod')).toBe(true)
+  })
+  test('the drawings fit the Svg limit and stay in the canvas', () => {
+    expect(stateMarkup('fishing').markup.length).toBeLessThan(100_000)
+    for (const id of ['typing', 'running', 'idle', 'bell', 'thinking'] as const) {
+      expect(enterMarkup(id, 'fishing').markup.length, `${id}>fishing`).toBeLessThan(120_000)
+      expect(enterMarkup('fishing', id).markup.length, `fishing>${id}`).toBeLessThan(120_000)
+    }
+    expect(pixelsOutside(fish, 34)).toBe(0)
   })
 })
 

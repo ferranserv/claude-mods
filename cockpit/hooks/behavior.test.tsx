@@ -1242,3 +1242,25 @@ test('leaving running (or typing) for another pose begins on the frame of the lo
   expect(phases.length).toBeGreaterThan(0)
   expect(phases).not.toContain(0) // it began where the loop was, not at its first frame
 })
+
+test('a command left running in the background: when the turn is over he fishes, until the task reports', async ($, on) => {
+  const w = world(on)
+  on('tool.call', ok)
+  on('prompt.submit', (_, e) => e as never)
+  on('turn.complete', (_, e) => ({ text: e.answer }) as never)
+  await started($)
+  await measureCtx($, 10)
+  await w.clock.advance(6000)
+  const d = $ as unknown as Do
+  await d.turn.start({ text: 'go', turnId: 't1' })
+  await d.tool.call({ tool: 'Bash', command: 'npm run dev', run_in_background: true })
+  await d.turn.complete({ reason: 'answer', answer: 'x', durationMs: 5, isAborted: false, turnId: 't1' })
+  await w.clock.advance(12_000) // the bell, then nothing else to show
+  expect(await altOf($)).toContain('fishing')
+  await w.clock.advance(60_000)
+  expect(await altOf($)).toContain('fishing') // still waiting
+  await ($ as unknown as { prompt: { submit: (i: unknown) => Promise<unknown> } }).prompt.submit({ text: 'task done', origin: { kind: 'task-notification' } })
+  await w.clock.advance(6000)
+  expect(await altOf($)).toContain('sunglasses') // the task reported: idle again
+})
+

@@ -8,7 +8,8 @@
 //                        (love, wand) play whenever they happen, for FLEET_MS, and are not kept.
 //   3. when it is over   bell, then coins (the saver kept money), then a notice (talk), then the status alerts, ROTATING
 //                        every ROTATE_MS, worst first: asleep, mad, fire, gauge, sleepy, drunk, cold, hourglass,
-//                        detective, plug (a connector still down). Nothing left: idle.
+//                        detective, plug (a connector still down). Nothing left: fishing while a background task
+//                        runs (he is not idle, he waits for it), else idle.
 // While a turn runs no status alert is shown, not even a critical one (owner's choice).
 import type { StateId } from './states'
 import type { ActionId } from './lib'
@@ -66,6 +67,8 @@ export type MoodInput = {
   hasTool: boolean
   /** A connector failed to connect and is still down. */
   offline: boolean
+  /** A background task (a command or an agent) is still running while Claude is not. */
+  bg: boolean
 }
 
 /** The status alerts that are true now, worst first. They only exist while Claude is not working. */
@@ -103,7 +106,7 @@ export function pickState(i: MoodInput): StateId {
   if (i.hasNote) return 'talk'
   const alerts = activeAlerts(i)
   if (alerts.length > 0) return alerts[Math.floor(i.now / ROTATE_MS) % alerts.length]!
-  return 'idle'
+  return i.bg ? 'fishing' : 'idle'
 }
 
 /** Milliseconds until the state may change with nothing else happening (coffee comes or goes, the next alert's turn), or null. */
@@ -179,13 +182,14 @@ export function hoverHint(id: StateId): string | null {
   if (id === 'typing') return 'Working on it'
   if (id === 'running') return 'Running a command'
   if (id === 'idle') return 'Ready when you are'
+  if (id === 'fishing') return 'A background task is still running'
   return null
 }
 
 /** Every state, most important first: a shown state is only interrupted by one earlier in this list. */
 export const ORDER: readonly StateId[] = [
   'hand', 'writing', 'idea', ...FLEET_ORDER, 'dizzy', 'creating', 'building', 'reading', 'browse', 'running', 'walk', 'hello',
-  'talk', ...ALERT_ORDER.filter(id => id !== 'plug'), 'coffee', 'typing', 'thinking', 'idle',
+  'talk', ...ALERT_ORDER.filter(id => id !== 'plug'), 'coffee', 'typing', 'thinking', 'fishing', 'idle',
 ]
 export const rank = (id: StateId): number => ORDER.indexOf(id)
 
