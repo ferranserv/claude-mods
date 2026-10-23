@@ -584,7 +584,7 @@ describe('running: typing with code scrolling behind him', () => {
     }
   })
   test('hovering says what he is doing, and he has nothing to say beyond that (no bubble, like typing)', () => {
-    expect(hoverHint('running')).toBe('Running a command')
+    expect(hoverHint('running')).toMatch(/command|green|Running/)
     expect(bubbleFor('running', { ctxPercent: 10, ctxText: '', cacheLabel: '', fiveUsed: 10, fiveReset: '', weekPace: '', weekRoom: 10, saverOn: false, detail: 'x', savedUsd: '', hasAdvice: false })).toBeNull()
   })
   test('the drawing and its moves fit the Svg limit', () => {
@@ -648,7 +648,7 @@ describe('fishing: waiting for a background task', () => {
     expect(isAlert('fishing')).toBe(false)
     expect(rank('fishing')).toBeGreaterThan(rank('thinking'))
     expect(rank('fishing')).toBeLessThan(rank('idle'))
-    expect(hoverHint('fishing')).toBe('A background task is still running')
+    expect(hoverHint('fishing')).toMatch(/task|worm|Fishing/)
   })
   test('a long loop, so he does not check the line often: a bait, a cast, a long wait, the reel in, a look at the hook, a shrug', () => {
     expect(secs).toBeGreaterThanOrEqual(18)
@@ -701,6 +701,27 @@ describe('fishing: waiting for a background task', () => {
       expect(enterMarkup('fishing', id).markup.length, `fishing>${id}`).toBeLessThan(120_000)
     }
     expect(pixelsOutside(fish, 34)).toBe(0)
+  })
+})
+
+describe('clicking Clawd always gets an answer', () => {
+  test('every state has something light to say, in a few variants, short enough for the bubble, none the same as another', () => {
+    const all: string[] = []
+    for (const id of STATE_IDS) {
+      const said = [0, 1, 2].map(n => hoverHint(id, n))
+      expect(new Set(said).size, id).toBe(3) // a second click says another
+      for (const t of said) {
+        expect(t.length, `${id}: ${t}`).toBeGreaterThan(8)
+        expect(t.length, `${id}: ${t}`).toBeLessThanOrEqual(60)
+        all.push(t)
+      }
+      expect(hoverHint(id, 3), id).toBe(hoverHint(id, 0)) // and they come round
+      expect(hoverHint(id, -1), id).toBe(hoverHint(id, 2))
+    }
+    expect(new Set(all).size).toBe(all.length)
+  })
+  test('they are not dull: none is a bare label, each has a little character', () => {
+    for (const id of STATE_IDS) for (const n of [0, 1, 2]) expect(hoverHint(id, n), id).toMatch(/[.!?…]$/)
   })
 })
 

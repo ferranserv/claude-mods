@@ -150,6 +150,7 @@ const mood = {
   sticky: null as { bubble: Bubble; state: StateId } | null, // a bubble that asks for a decision stays until you click its button or send something else
   dismissed: [] as string[], // warnings whose bubble you answered; quiet until the warning ends and comes back
   shownAlert: null as string | null, // the warning the bubble on screen stands for
+  hintN: 0, // how many of his light words have been said: the next click says another
   bubbleOff: false, // a click on Clawd hid the bubble; the next click brings it back, and a new pose clears it
   seenState: null as string | null, // the pose the last snapshot drew (a new one clears bubbleOff)
   settleAt: 0, // when the pose being drawn will have settled, the moment a redraw is already booked for
@@ -1216,7 +1217,7 @@ async function snapshot($: EngineInterface, propsWorking: boolean): Promise<Snap
     if (mood.demo?.single && bubble?.action) mood.demo.until = HELD
   } else if (bubble?.action && state !== 'hand') mood.sticky = { bubble, state }
   // A message to you speaks over everything but the raised hand (it is the answer to something you just did).
-  if (!isDemo && state !== 'hand' && mood.msg && mood.msg.until > now) spoken = { text: mood.msg.text }
+  if (state !== 'hand' && mood.msg && mood.msg.until > now) spoken = { text: mood.msg.text }
   else if (!isSettled) spoken = null
 
   // The state's own bubble first; then, when Clawd is only on the case (a notice to read, findings to act on), those.
@@ -1240,8 +1241,8 @@ async function snapshot($: EngineInterface, propsWorking: boolean): Promise<Snap
   if (mood.bubbleOff) speech = null
   // What his pose is about, for when the bubble is gone: hovering over him says it again (only while the pointer is there).
   const aboutBubble = said && (said.alertId === undefined || isDemo || alerts.some(a => a.id === said.alertId)) ? said : null
-  const hint = hoverHint(state)
-  const hover: Speech | null = speech || !isSettled ? null : aboutBubble ? speechOf(aboutBubble) : isDemo ? null : (await standing()) ?? (hint ? { text: hint, acts: [] } : null)
+  // Whatever his pose, a click gets an answer: the pose's own bubble, a standing notice, or one of his light words for it (a different one each time).
+  const hover: Speech | null = speech ? null : aboutBubble ? speechOf(aboutBubble) : (isDemo ? null : await standing()) ?? { text: hoverHint(state, mood.hintN), acts: [] }
   if (!isDemo && speech && speech.text !== mood.lastLogged) remember(now, speech.text)
   mood.shownAlert = isDemo ? null : (speech?.alertId ?? null)
   // The menu belongs to the bubble it opened from: when there is none, it closes.
@@ -1349,7 +1350,10 @@ async function recallNow($: EngineInterface, text: string, alertId?: string): Pr
     mood.dismissed = mood.dismissed.filter(id => id !== alertId)
     mood.msg = null
     poke($)
-  } else if (text !== '') await tell($, text)
+  } else if (text !== '') {
+    mood.hintN++
+    await tell($, text)
+  }
 }
 
 /** A click on Clawd: hides the bubble on screen, or (when none is) shows the words he would say and their warning, if any. */
