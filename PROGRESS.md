@@ -215,3 +215,4 @@ Not verifiable from the cloud: the lane's px height in the app (blank drawing in
 
 ## 0.30.0: the bubble closes as the opening backwards (shrinks into Clawd while the words go); every state has three light hover lines, so a click on Clawd always answers.
 - 0.31.0: context warns from 45%; the band in a question dialog has a fixed size (no giant Clawd); the web-search pose sweeps a magnifying glass held in the left hand.
+- 0.31.1: the context size warning is 250k tokens (was 150k).

@@ -8,7 +8,7 @@ export type Limit = { kind: string; percentUsed: number; resetsAt?: string }
 // long: LARGE_TOKENS is the same orange warning by size.
 export const WARN_PAST = 45
 export const RED_PAST = 80
-export const LARGE_TOKENS = 150_000
+export const LARGE_TOKENS = 250_000
 
 export type Thresholds = { warnPercent: number; redPercent: number; warnTokens: number }
 export const DEFAULT_LIMITS: Thresholds = { warnPercent: WARN_PAST, redPercent: RED_PAST, warnTokens: LARGE_TOKENS }

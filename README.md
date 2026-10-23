@@ -24,7 +24,7 @@ Everything the cockpit has to tell you is Clawd's **bubble**, in a row under the
 
 | Clawd says | Button on the bubble | Behind the … |
 | --- | --- | --- |
-| Context past 45% (or 150k tokens), past 80% | Copy handoff (writes the brief and copies it, the session stays) | Handoff (new session), Compact, Fresh |
+| Context past 45% (or 250k tokens), past 80% | Copy handoff (writes the brief and copies it, the session stays) | Handoff (new session), Compact, Fresh |
 | Cache about to go cold, or cold | Handoff | |
 | 5-hour limit at 80% (saver off) | Saver on | |
 | 5-hour limit reached | Copy handoff | |
@@ -53,7 +53,7 @@ Handoff buttons wait while Claude is working. `/cockpit log` lists the last ten 
 | `/preflight`, `/preflight off\|on` | Check now, or turn the preflight warnings off or on. |
 | `/enhance <draft>` | Rewrite a draft with fitting skills and project details. |
 | Hotkeys | `meta+h` handoff, `meta+n` fresh, `meta+e` enhance, from the prompt box. Change or clear them in the options. |
-| Options | `warnPercent` 45, `redPercent` 80, `warnTokens` 150000, `cacheMinutes` 60, `notifyMinutes` 5, `cacheStepMinutes` 5, `mascot` (normal, small, off), `handoffKey`, `freshKey`, `sound` (the chime), `turnLog`, `hotkey`, `model`, `enhanceStyle` (full or lean), `maxSkills`, `askSeconds` (how long a question waits before the raised hand, 5). |
+| Options | `warnPercent` 45, `redPercent` 80, `warnTokens` 250000, `cacheMinutes` 60, `notifyMinutes` 5, `cacheStepMinutes` 5, `mascot` (normal, small, off), `handoffKey`, `freshKey`, `sound` (the chime), `turnLog`, `hotkey`, `model`, `enhanceStyle` (full or lean), `maxSkills`, `askSeconds` (how long a question waits before the raised hand, 5). |
 
 Cache window: Claude Code's API usage does not report the TTL, so the cockpit learns it. A cache hit after more than five idle minutes proves the one-hour cache; two full misses inside the hour mean the five-minute one; a model switch reports it outright. The countdown restarts when you send a message and at each request Claude makes, never on its own; it shows in 5-minute steps and rounds up.
 

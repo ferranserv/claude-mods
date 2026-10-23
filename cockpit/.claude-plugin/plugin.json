@@ -1,6 +1,6 @@
 {
   "name": "cockpit",
-  "version": "0.31.0",
+  "version": "0.31.1",
   "author": {
     "name": "Ferran"
   },
@@ -23,7 +23,7 @@
       "type": "number",
       "title": "Context warning by size (tokens)",
       "description": "Same orange warning once the context holds this many tokens, whatever the percent (a 1M window).",
-      "default": 150000
+      "default": 250000
     },
     "cacheMinutes": {
       "type": "number",

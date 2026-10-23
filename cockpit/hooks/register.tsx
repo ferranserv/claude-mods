@@ -648,7 +648,7 @@ async function limitsReport($: EngineInterface, arg: string, defaults: Threshold
     const n = Number(value.replace(/k$/i, '')) * (/k$/i.test(value) ? 1000 : 1)
     const isPercent = what !== 'tokens'
     if (!Number.isFinite(n) || (isPercent && (n < 1 || n > 100)) || (!isPercent && n < 1000)) {
-      return isPercent ? `Use /meters ${what} <1 to 100>.` : 'Use /meters tokens <number, at least 1000>, e.g. /meters tokens 150k.'
+      return isPercent ? `Use /meters ${what} <1 to 100>.` : 'Use /meters tokens <number, at least 1000>, e.g. /meters tokens 250k.'
     }
     next = { ...saved, [what === 'warn' ? 'warnPercent' : what === 'red' ? 'redPercent' : 'warnTokens']: n }
   }

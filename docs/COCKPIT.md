@@ -211,3 +211,6 @@ The dialog of a question (`AskUserQuestion`) replaces the prompt area, and the b
 ### 0.31.0
 - First context warning moved from 50% to 45% (150k tokens still warns first on a 1M window; on 200k, 45% is 90k). Rot depends on absolute tokens more than on percent, so both stay.
 - Question dialog: the band's drawings now get an explicit width and height (without them the desktop scaled Clawd up to the slot and he covered the question).
+
+### 0.31.1
+- Size warning raised from 150k to 250k tokens (owner decision): on a 1M window the 45% never speaks first; on a 200k window it is out of reach, so only the 45% fires.
