@@ -2,7 +2,7 @@
 
 Source: `hooks/sprite.ts` (Clawd's 12 x 8 cell grid, cell = 2 x 2 px, body #DA7758). `docs/mascot/clawd-sheet.html` is the browsable, animated sheet, GENERATED from that code (`bun tools/mascot-sheet.ts`; run it after any drawing change, do not edit it by hand). Scenario ideas inspired by the owner's reference sheet (Getillustrations.com, not copied). No official sprite pack exists; grid and color come from the MIT-licensed ClawdMoji, whose notice says the character belongs to Anthropic. Frames are original code, not copied GIFs. Personal use only: check Anthropic's brand terms before publishing.
 
-## States (signal -> state), 35 in the sheet
+## States (signal -> state), 36 in the sheet
 Cockpit signals
 - fishing (a background task still runs and Claude does not: he is not idle, he waits for it): bucket hat, rod, a worm on the hook, a cast, a long wait with a thin ripple, the reel in, a look at the empty hook, a shrug, again
 - idle: neutral, sunglasses only, a slow breath (calm). The old beach lounge is archived: `archive/cockpit-idle-beach.md`
@@ -91,3 +91,7 @@ SVG per frame set, frames swapped by SMIL (`animate` on opacity, `isInteractive:
 ## 0.32.0
 - `mcp` (a tool from a connector, any `mcp__...` tool): the two halves of the cable from the `plug` pose come up in both hands, move together, spark when they click in, and green radio waves go out each side while he smiles (happy eyes). It sits between `browse` and `running` in the hierarchy. Moves: hand-drawn to and from thinking, bell and idle; the generic morph covers the rest.
 - `browse` (0.31.0): the magnifying glass is in his left hand and sweeps over the page.
+
+## 0.33.0
+- The bubble's exit is longer and in two steps again (supersedes the 0.30.0 "both at once", which on the desktop was over before the host had loaded the replacing drawing and looked like a cut): first the words are deleted letter by letter (0.25 to 0.6 s, longer for longer words) while the bubble shortens with them, then what is left pops slightly, shrinks back into Clawd and fades (0.3 s). It plays the same when you click the dots or Clawd, and when a bubble expires by itself (`bubbleArt` in `lib.ts`).
+- Every state, the new `mcp` and the `browse` included, has three light lines for a click (`HINTS` in `mood.ts`; tests cover all 36). `browse` now mentions the magnifying glass.

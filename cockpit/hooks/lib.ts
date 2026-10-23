@@ -481,7 +481,7 @@ export const bubbleWidth = (text: string, room: number): number => Math.min(room
  * (`to`, '' when it closes), in one document that never changes after it is drawn:
  *   opening: it scales out of Clawd while the words are typed and the bubble grows with them;
  *   changing: the old words are deleted letter by letter, the bubble resizes, the new words are typed;
- *   closing: the opening played backwards: the words are deleted as the bubble shrinks and scales back to Clawd, all at once.
+ *   closing: the opening played backwards: the words are deleted letter by letter (the bubble shortens with them), then it scales back into Clawd and fades.
  * The frame is `room` px wide and a lane tall whatever the words are, so the drawing beside it never moves. `seconds` is how long the motion takes.
  */
 export function bubbleArt(from: string, to: string, room: number): { source: string; width: number; height: number; seconds: number } {
@@ -496,15 +496,17 @@ export function bubbleArt(from: string, to: string, room: number): { source: str
   const D = '#0b0705'
   const G = C.gray
   const same = a === b
-  const eraseS = !same && a !== '' ? Math.min(0.35, a.length * 0.02) : 0
-  const typeS = !same && b !== '' ? Math.min(0.7, b.length * 0.025) : 0
   const opening = !same && a === ''
   const closing = !same && b === ''
+  // Closing takes as long as the opening did to type (the words go letter by letter, the bubble shortens with them), then it shrinks into Clawd:
+  // a quick close was gone before the host had even loaded the replacing drawing, and looked like a cut.
+  const eraseS = !same && a !== '' ? (closing ? Math.min(0.6, Math.max(0.25, a.length * 0.03)) : Math.min(0.35, a.length * 0.02)) : 0
+  const typeS = !same && b !== '' ? Math.min(0.7, b.length * 0.025) : 0
   const scaleS = 0.2
   const typeAt = opening ? 0 : eraseS
-  // Closing is the opening played backwards: the words go as the bubble shrinks back into Clawd, both at once (not one after the other).
-  const closeS = Math.max(eraseS, 0.25) + 0.1
-  const seconds = same ? 0 : closing ? closeS : opening ? Math.max(typeS, scaleS) : eraseS + typeS
+  // Closing: first the words go and the bubble shortens with them, then what is left shrinks back into Clawd and fades.
+  const shrinkS = 0.3
+  const seconds = same ? 0 : closing ? eraseS + shrinkS : opening ? Math.max(typeS, scaleS) : eraseS + typeS
   // The bubble is one drawing that is written over, not another laid on it: as the old words are deleted letter by letter it
   // shortens with them, down to nothing but its ends; as the new words are typed it lengthens with them, to the width they need.
   const stepsFor = (t: string) => Math.min(40, Math.max(1, t.length))
@@ -545,8 +547,8 @@ export function bubbleArt(from: string, to: string, room: number): { source: str
   const oy = mid
   const popIn = '<animate attributeName="opacity" from="0" to="1" begin="0s" dur="0.18s" fill="freeze"/>'
   const scaleIn = `<animateTransform attributeName="transform" type="scale" values="0.5;1.06;1" keyTimes="0;0.65;1" begin="0s" dur="${scaleS}s" fill="freeze"/>`
-  const popOut = `<animate attributeName="opacity" values="1;1;0" keyTimes="0;0.55;1" begin="0s" dur="${closeS}s" fill="freeze"/>`
-  const scaleOut = `<animateTransform attributeName="transform" type="scale" values="1;1.06;0.5" keyTimes="0;0.3;1" begin="0s" dur="${closeS}s" fill="freeze"/>`
+  const popOut = `<animate attributeName="opacity" values="1;1;0" keyTimes="0;0.55;1" begin="${eraseS}s" dur="${shrinkS}s" fill="freeze"/>`
+  const scaleOut = `<animateTransform attributeName="transform" type="scale" values="1;1.06;0.5" keyTimes="0;0.3;1" begin="${eraseS}s" dur="${shrinkS}s" fill="freeze"/>`
   const start = opening ? ' opacity="0"' : ''
   const inner = `${defs}${body}${tail}${texts}`
   const out = `<g transform="translate(${ox} ${oy})"${start}>${opening ? popIn : closing ? popOut : ''}<g>${opening ? scaleIn : closing ? scaleOut : ''}<g transform="translate(${-ox} ${-oy})">${inner}</g></g></g>`

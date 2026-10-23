@@ -1220,6 +1220,36 @@ test('the dots under Clawd hide the bubble and show it again', async ($, on) => 
   expect(await hasButton($, 'copy')).toBe(true) // and back by the next
 })
 
+test('a bubble hidden with the dots, and a light bubble that expires, close with the motion (words go, bubble shrinks into Clawd)', async ($, on) => {
+  const w = world(on)
+  await started($)
+  await w.clock.advance(6000)
+  await settle($, w)
+  type Mounted = { findAll: (q: unknown) => Promise<{ props?: { alt?: string; height?: number; source?: string } }[]>; pointer: (e: unknown) => Promise<unknown>; unmount: () => Promise<void> }
+  const bubble = async (press = false) => {
+    const ui = (await $.ui.mount(band('desktop'))) as unknown as Mounted
+    if (press) await ui.pointer({ type: 'up', x: 0, y: 0, in: 'clawd-dots-press' })
+    const all = await ui.findAll({ type: 'Svg' })
+    await ui.unmount()
+    return all.find(v => v.props?.height === 30 && v.props?.alt !== 'bubble space')?.props?.source
+  }
+  expect(await bubble()).toBeUndefined() // nothing said: no bubble
+  await bubble(true) // the dots say something light
+  await settle($, w, 400)
+  expect(await bubble()).toBeDefined()
+  await bubble(true) // and the next click hides it
+  await w.clock.advance(50)
+  expect(await bubble()).toContain('values="1;1.06;0.5"') // it closes with the motion, not at once
+  await settle($, w, 4000)
+  expect(await bubble()).toBeUndefined() // and then it is gone
+  await bubble(true) // said again, left alone: it expires by itself
+  await settle($, w, 400)
+  expect(await bubble()).toBeDefined()
+  await w.clock.advance(9000)
+  await settle($, w, 50)
+  expect(await bubble()).toContain('values="1;1.06;0.5"')
+})
+
 test('leaving running (or typing) for another pose begins on the frame of the loop he is on, not on the first', async ($, on) => {
   const w = world(on)
   let finish: () => void = () => {}

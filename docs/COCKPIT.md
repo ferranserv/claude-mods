@@ -218,3 +218,6 @@ The dialog of a question (`AskUserQuestion`) replaces the prompt area, and the b
 ### 0.32.0
 - Context warning is by percent only: 50% (orange), 80% (red). `warnTokens` stays as an option but is 0 (off) by default, so the warning is proportional whatever model is in use (owner decision, supersedes the 45% and 250k entries above). `/meters tokens off` turns the size warning off again.
 - New state `mcp` for connector tools (see `docs/MASCOT.md`).
+
+### 0.33.0
+- Bubble exit: words first (letter by letter, the bubble shortening), then the shrink into Clawd; 0.55 s for a short line, up to 0.9 s for a long one. Supersedes the "both at once, 0.35 s" of 0.30.0. Why: the host replaces the drawing and takes a few frames to load it, so a 0.35 s close could finish unseen. The opening takes up to 0.7 s and was seen. New test closes via the dots and via expiry.
