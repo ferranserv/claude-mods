@@ -274,6 +274,25 @@ function clawd(o) {
     const bx = X + 16, byy = Y + 3; fill(bx, byy, 13, 11, 'y'); fill(bx, byy, 13, 3, 'G'); for (let i = 0; i < 3; i++) set(bx + 1 + i * 2, byy + 1, 'w'); fill(bx + 1, byy + 4, 4, 5, 'n'); for (const yy of [4, 6, 8]) fill(bx + 6, byy + yy, 6, 1, o.browser === 2 && yy === 6 ? 'h' : 'b');
   }
   if (o.wrench) { const t = o.wrench, hx = X + 21; if (t > 1) { fill(hx + 2, Y - 3, 2, 8, 'x'); fill(hx - 1, Y - 5, 8, 3, 'g'); fill(hx - 1, Y - 5, 8, 1, 'v'); set(hx - 3, Y - 6, 's'); set(hx - 3, Y - 4, 's'); } else { fill(hx + 2, Y - 1, 2, 8, 'x'); fill(hx - 1, Y - 3, 8, 3, 'g'); fill(hx - 1, Y - 3, 8, 1, 'v'); } }
+  if (o.mcpA !== undefined) {   // idea A: a cable in his left hand, plugged into a socket: a connector at work
+    const t = o.mcpA;
+    fill(X + 17, Y - 8, 9, 6, 'w'); fill(X + 17, Y - 3, 9, 1, 'v'); fill(X + 20, Y - 7, 1, 3, 'd'); fill(X + 23, Y - 7, 1, 3, 'd');
+    fill(X + 8, Y - 7, 5, 4, 'j'); fill(X + 8, Y - 4, 5, 1, 'J'); fill(X + 13, Y - 7, 4, 1, 'g'); fill(X + 13, Y - 5, 4, 1, 'g');
+    for (let i = 0; i < 6; i++) fill(X + 1 + Math.round(i * 0.9), Y - 1 - i, 2, 1, 'd');
+    if (t) { set(X + 15, Y - 9, 's'); set(X + 16, Y - 3, 's'); set(X + 14, Y - 2, 's'); set(X + 26, Y - 9, 's'); }
+  }
+  if (o.mcpB !== undefined) {   // idea B: a walkie-talkie in his right hand, signal arcs going out: he is calling an outside service
+    const t = o.mcpB;
+    fill(X + 20, Y - 6, 4, 7, 'd'); fill(X + 21, Y - 5, 2, 2, 'l'); fill(X + 21, Y - 2, 2, 1, 'g'); fill(X + 23, Y - 9, 1, 3, 'g'); fill(X + 23, Y - 10, 1, 1, 'h');
+    for (let a = 0; a < 2; a++) if (t > a) { const ax = X + 26 + a * 3, h = 1 + a; for (let d = -h; d <= h; d++) set(ax + (Math.abs(d) === h && h > 0 ? 0 : 1), Y - 9 + d, a === 0 ? 's' : 'b'); }
+  }
+  if (o.mcpC !== undefined) {   // idea C: a letter flying up to a cloud, one with arrows up and down: the other side is on the web
+    const t = o.mcpC;
+    fill(X + 14, Y - 7, 10, 4, 'w'); fill(X + 16, Y - 8, 4, 1, 'w'); fill(X + 20, Y - 8, 3, 1, 'w'); fill(X + 13, Y - 6, 1, 2, 'w'); fill(X + 24, Y - 6, 1, 2, 'w'); fill(X + 14, Y - 3, 10, 1, 'v');
+    fill(X + 17, Y - 6, 1, 3, 'u'); set(X + 16, Y - 5, 'u'); set(X + 18, Y - 5, 'u'); fill(X + 21, Y - 6, 1, 3, 'l'); set(X + 20, Y - 4, 'l'); set(X + 22, Y - 4, 'l');
+    const ex = X + 3 + t * 4, ey = Y - 4 - t; fill(ex, ey, 5, 3, 'o'); fill(ex, ey, 5, 1, 'O'); fill(ex + 1, ey + 1, 3, 1, 'h');
+    set(X + 2 + t * 4 - 3, ey + 3, 'v'); set(X + 2 + t * 4 - 6 < 0 ? 0 : X + 2 + t * 4 - 6, ey + 4, 'v');
+  }
   if (o.plug !== undefined) {
     const t = o.plug; fill(X + 1, Y - 8, 7, 4, 'j'); fill(X + 8, Y - 7, 2, 1, 'g'); fill(X + 8, Y - 5, 2, 1, 'g');
     fill(X + 17, Y - 8, 7, 4, 'n'); fill(X + 15, Y - 7, 2, 1, 'g'); fill(X + 15, Y - 5, 2, 1, 'g');
