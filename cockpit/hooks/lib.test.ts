@@ -116,18 +116,18 @@ describe('colors', () => {
 })
 
 describe('legendFor and levels', () => {
-  test('calm below 50 percent and 150k tokens', () => {
-    expect(levelOf(49, 100_000)).toBe('calm')
+  test('calm below 45 percent and 150k tokens', () => {
+    expect(levelOf(44, 100_000)).toBe('calm')
     expect(legendFor(20, 40_000).tone).toBe('calm')
   })
-  test('first warning at 50 percent, whatever the token count', () => {
-    expect(levelOf(50, 10)).toBe('warn')
+  test('first warning at 45 percent, whatever the token count', () => {
+    expect(levelOf(45, 10)).toBe('warn')
     const l = legendFor(52, 10)
     expect(l.tone).toBe('warn')
     expect(l.text).toContain('52%')
     expect(l.text).toContain('quality')
   })
-  test('warns at 150k tokens even when percent is low (a 1M window)', () => {
+  test('warns at 145k tokens even when percent is low (a 1M window)', () => {
     expect(levelOf(15, 149_999)).toBe('calm')
     const l = legendFor(15, 150_000)
     expect(l.tone).toBe('warn')
@@ -183,13 +183,13 @@ describe('model', () => {
     expect(m.week.value[0]?.[0]?.t).toBe('-')
   })
 
-  test('context bar: blue, orange from 50, red past 80', () => {
+  test('context bar: blue, orange from 45, red past 80', () => {
     // small windows, so the token count stays under 150k and only the percent speaks
     const at = (percent: number) => model({ ...data(), fill: { tokens: percent * 1000, window: 100_000, percent } }).ctx.color
     const blue = at(10)
-    const orange = at(50)
+    const orange = at(45)
     const red = at(81)
-    expect(at(49)).toBe(blue)
+    expect(at(44)).toBe(blue)
     expect(orange).not.toBe(blue)
     expect(at(80)).toBe(orange)
     expect(red).not.toBe(orange)

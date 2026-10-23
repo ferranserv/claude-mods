@@ -263,7 +263,16 @@ function clawd(o) {
   if (o.stack) {   // a short stack of books on the ground beside him (right side, fixed: does not move with the body)
     for (const [bxx, byy, bw, c] of [[OX + 24, F - 3, 5, 'h'], [OX + 25, F - 6, 4, 'l'], [OX + 24, F - 9, 5, 'u']]) { fill(bxx, byy, bw, 3, c); fill(bxx, byy + 2, bw, 1, 'o'); }
   }
-  if (o.browser) { if (o.glass) { const gx = X + 21, gy = Y - 1; fill(gx + 1, gy, 5, 1, 'g'); fill(gx + 1, gy + 6, 5, 1, 'g'); fill(gx, gy + 1, 1, 5, 'g'); fill(gx + 6, gy + 1, 1, 5, 'g'); fill(gx + 1, gy + 1, 5, 5, 'i'); set(gx + 2, gy + 2, 'w'); set(gx + 3, gy + 2, 'w'); for (let i = 0; i < 3; i++) fill(gx - i, gy + 7 + i, 2, 1, 'X'); }  const bx = X + 16, byy = Y + 3; fill(bx, byy, 13, 11, 'y'); fill(bx, byy, 13, 3, 'G'); for (let i = 0; i < 3; i++) set(bx + 1 + i * 2, byy + 1, 'w'); fill(bx + 1, byy + 4, 4, 5, 'n'); for (const yy of [4, 6, 8]) fill(bx + 6, byy + yy, 6, 1, o.browser === 2 && yy === 6 ? 'h' : 'b'); }
+  if (o.browser) {
+    // The lens is in his left hand (arm up) and sweeps over the page on a long handle, like searching it: glass is a step 1..8 of the sweep.
+    if (o.glass) {
+      const sweep = [[-1, -7], [2, -8], [7, -8], [12, -7], [16, -5], [19, -2], [14, -4], [7, -6]][(o.glass - 1) % 8]!, lx = X + sweep[0]!, ly = Y + sweep[1]!;
+      const hx = X + 1, hy = Y, ex = lx + 1, ey = ly + 7, n = Math.max(Math.abs(ex - hx), Math.abs(ey - hy), 1);
+      for (let t = 0; t <= n; t++) fill(Math.round(hx + ((ex - hx) * t) / n), Math.round(hy + ((ey - hy) * t) / n), 2, 1, 'X');
+      fill(lx + 1, ly, 5, 1, 'g'); fill(lx + 1, ly + 6, 5, 1, 'g'); fill(lx, ly + 1, 1, 5, 'g'); fill(lx + 6, ly + 1, 1, 5, 'g'); fill(lx + 1, ly + 1, 5, 5, 'i'); set(lx + 2, ly + 2, 'w'); set(lx + 3, ly + 2, 'w');
+    }
+    const bx = X + 16, byy = Y + 3; fill(bx, byy, 13, 11, 'y'); fill(bx, byy, 13, 3, 'G'); for (let i = 0; i < 3; i++) set(bx + 1 + i * 2, byy + 1, 'w'); fill(bx + 1, byy + 4, 4, 5, 'n'); for (const yy of [4, 6, 8]) fill(bx + 6, byy + yy, 6, 1, o.browser === 2 && yy === 6 ? 'h' : 'b');
+  }
   if (o.wrench) { const t = o.wrench, hx = X + 21; if (t > 1) { fill(hx + 2, Y - 3, 2, 8, 'x'); fill(hx - 1, Y - 5, 8, 3, 'g'); fill(hx - 1, Y - 5, 8, 1, 'v'); set(hx - 3, Y - 6, 's'); set(hx - 3, Y - 4, 's'); } else { fill(hx + 2, Y - 1, 2, 8, 'x'); fill(hx - 1, Y - 3, 8, 3, 'g'); fill(hx - 1, Y - 3, 8, 1, 'v'); } }
   if (o.plug !== undefined) {
     const t = o.plug; fill(X + 1, Y - 8, 7, 4, 'j'); fill(X + 8, Y - 7, 2, 1, 'g'); fill(X + 8, Y - 5, 2, 1, 'g');

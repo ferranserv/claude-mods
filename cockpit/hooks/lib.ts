@@ -3,10 +3,10 @@
 export type Fill = { tokens: number; window: number; percent: number }
 export type Limit = { kind: string; percentUsed: number; resetsAt?: string }
 
-// The context bar warns twice: orange from WARN_PAST percent (quality can start to slip), red past RED_PAST.
+// The context bar warns twice: orange from WARN_PAST percent (quality can start to slip; on a 200k window that is 90k tokens), red past RED_PAST.
 // A window can be 1M, so percent alone says "fine" long after every message has become expensive and
 // long: LARGE_TOKENS is the same orange warning by size.
-export const WARN_PAST = 50
+export const WARN_PAST = 45
 export const RED_PAST = 80
 export const LARGE_TOKENS = 150_000
 

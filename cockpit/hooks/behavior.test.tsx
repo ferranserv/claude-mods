@@ -353,7 +353,7 @@ test('/meters warn, red, tokens: change the context warning levels without the o
   expect(text(await $.command.run({ command: 'meters', args: 'tokens 10' } as never))).toContain('at least 1000')
 
   expect(text(await $.command.run({ command: 'meters', args: 'limits reset' } as never))).toContain('from the options')
-  expect(text(await $.command.run({ command: 'meters', args: 'limits' } as never))).toContain('orange from 50%')
+  expect(text(await $.command.run({ command: 'meters', args: 'limits' } as never))).toContain('orange from 45%')
 })
 
 test('saved warning levels come back at session start; red never sits below orange', async ($, on) => {

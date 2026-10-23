@@ -1,6 +1,6 @@
 {
   "name": "cockpit",
-  "version": "0.30.0",
+  "version": "0.31.0",
   "author": {
     "name": "Ferran"
   },
@@ -11,7 +11,7 @@
       "type": "number",
       "title": "First context warning (%)",
       "description": "The context bar turns orange and warns that quality may start to slip.",
-      "default": 50
+      "default": 45
     },
     "redPercent": {
       "type": "number",

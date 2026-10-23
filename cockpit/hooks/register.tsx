@@ -1322,10 +1322,11 @@ async function bandTree($: EngineInterface, e: { surface: string }, o: { isWorki
       // drawing blinks) and change only when a number does.
       const parts = bandParts(width, s.m, s.mascot)
       if (o.plain) {
-        // The dialog of a question takes no size and no place (no overlay, no fixed width): both drawings at their own size, in a row.
-        return el(c.Box, { key: bandKey('cockpit'), flexDirection: 'row', alignItems: 'center' },
-          ...(parts.mascot ? [el(Svg, { key: 'mascot', source: parts.mascot.source, alt: STATES[s.state].label, isInteractive: true })] : []),
-          el(Svg, { key: 'meters', source: parts.meters.source, alt: altText(s.m) })) as never
+        // The dialog of a question takes no place (no overlay): both drawings in a row, each at the size it was drawn at (with no
+        // size the desktop scales a drawing up to the slot, which blew Clawd up over the question).
+        return el(c.Box, { key: bandKey('cockpit'), flexDirection: 'row', alignItems: 'center', gap: 1 },
+          ...(parts.mascot ? [el(Svg, { key: 'mascot', source: parts.mascot.source, alt: STATES[s.state].label, isInteractive: true, width: parts.mascot.width, height: parts.mascot.height })] : []),
+          el(Svg, { key: 'meters', source: parts.meters.source, alt: altText(s.m), width: parts.meters.width, height: parts.meters.height })) as never
       }
       const lane = bubbleLane($, s, c, Svg, fx, parts.meters.width, e.surface)
       const column = el(c.Box, { key: 'col', flexDirection: 'column', paddingLeft: parts.mascot ? 3 : 0 }, el(Svg, { key: 'meters', source: parts.meters.source, alt: altText(s.m), width: parts.meters.width, height: parts.meters.height }), ...lane)

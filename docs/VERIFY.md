@@ -171,3 +171,5 @@ Report anything off in plain words ("the palm tree overlaps", "no animation", "a
 | 106 | Change pose often (a command, an Edit, a Read) and watch Clawd | A pose change may still blank him for a frame, but less than before; compare entering running from idle with the earlier recording (3 blank frames) | |
 | 107 | Click the dots under Clawd to show his bubble, then click again (or wait 8 s) | It opens by growing out of Clawd while the words are typed, and closes the same way backwards: the words go and the bubble shrinks into him, together | |
 | 108 | Click Clawd in different poses (typing, running, thinking, fishing, idle, a walk) and click again | Every pose says something light and cheeky; the second click says a different line | |
+| 109 | Ask a question that opens the AskUserQuestion dialog (Claude asks you to choose) | The band above the dialog is the normal small size (Clawd about 60 px tall), not enlarged over the question | |
+| 110 | Run a WebSearch or WebFetch | Clawd holds the magnifying glass in his left hand and sweeps it over the browser window on the right | |

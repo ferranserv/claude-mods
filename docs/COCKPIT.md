@@ -12,13 +12,13 @@ Files (as built in PR 1): `hooks/register.tsx` holds every `$`-taking function a
 ## Band (superseded by 0.15.0: one row, no arrow)
 Collapsed (default): one row, mascot slot on the left, then chips: context %, cache countdown, 5h %, week pace, saver (when on), preflight count (when non-zero), Enhance button, expand arrow (small chevron, right edge). Never hides the core meters.
 Expanded: today's full meters (bars, legend, cache cost line) plus saver detail, preflight detail and all action buttons.
-Open/close: arrow toggles any time. It also opens by itself when a warning appears (context >= 50%, cache <= 5 min or cold, 5h >= 80%, allowance within 2% or over, preflight finding). If you collapse it while a warning stands, it stays collapsed until the level escalates. Choice kept in `$.store`.
+Open/close: arrow toggles any time. It also opens by itself when a warning appears (context >= 45%, cache <= 5 min or cold, 5h >= 80%, allowance within 2% or over, preflight finding). If you collapse it while a warning stands, it stays collapsed until the level escalates. Choice kept in `$.store`.
 Side-panel mode (`/meters side`) is kept as the same content in a pane.
 
 ## Every warning has its action (and no action without a warning)
 | Warning | Action |
 |---|---|
-| Context >= 50% | Handoff (new session with handoff), Compact (the lighter one: `$.session.compact()`), Fresh |
+| Context >= 45% | Handoff (new session with handoff), Compact (the lighter one: `$.session.compact()`), Fresh |
 | Context >= 80% | Handoff now (primary) |
 | Cache about to expire / cold | Handoff, Dismiss; cold shows next-message cost warm vs cold |
 | 5h >= 80% | Turn saver on |
@@ -207,3 +207,7 @@ The dialog of a question (`AskUserQuestion`) replaces the prompt area, and the b
 - 0.28.1: moves out of typing and running begin on the loop frame he is on (no jump of the code lines or the gum); see `docs/MASCOT.md`.
 - 0.29.0: `fishing` while a background task runs (see `docs/MASCOT.md`); every drawing 37 to 56 % smaller (the host blanks a replaced drawing for a few frames, longer for big ones).
 - 0.30.0: the bubble closes by shrinking into Clawd as its words go (the opening backwards); clicking Clawd in any pose says something (light lines for every state); see `docs/MASCOT.md`.
+
+### 0.31.0
+- First context warning moved from 50% to 45% (150k tokens still warns first on a 1M window; on 200k, 45% is 90k). Rot depends on absolute tokens more than on percent, so both stay.
+- Question dialog: the band's drawings now get an explicit width and height (without them the desktop scaled Clawd up to the slot and he covered the question).
