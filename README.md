@@ -24,8 +24,8 @@ Everything the cockpit has to tell you is Clawd's **bubble**, in a row under the
 
 | Clawd says | Button on the bubble | Behind the … |
 | --- | --- | --- |
-| Context past 50%, past 80% | Copy handoff (writes the brief and copies it, the session stays) | Handoff (new session), Compact, Fresh |
-| Cache about to go cold, or cold | Handoff | |
+| Context past 50%, past 80% | Copy handoff (writes the brief and copies it, the session stays) | Handoff & clear (new session), Compact, Clear session |
+| Cache about to go cold, or cold | Copy handoff | Writes the brief into your prompt box and copies it; never clears the session |
 | 5-hour limit at 80% (saver off) | Saver on | |
 | 5-hour limit reached | Copy handoff | |
 | Weekly use ahead of pace (saver off) | Saver on | |

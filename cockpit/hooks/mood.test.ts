@@ -139,7 +139,7 @@ describe('the bubble', () => {
   const b: BubbleInput = { ctxPercent: 62, ctxText: 'Quality may start to slip.', cacheLabel: '4m', fiveUsed: 85, fiveReset: '14:20', weekPace: 'Wed 5% over', weekRoom: -5, saverOn: false, detail: 'app.ts', savedUsd: '$0.04', hasAdvice: false }
   test('warnings stand for their alert row and offer the action', () => {
     expect(bubbleFor('fire', b)).toMatchObject({ alertId: 'ctx', action: 'copy' })
-    expect(bubbleFor('hourglass', b)).toMatchObject({ alertId: 'cache', action: 'handoff' })
+    expect(bubbleFor('hourglass', b)).toMatchObject({ alertId: 'cache', action: 'copy' })
     expect(bubbleFor('sleepy', b)).toMatchObject({ alertId: 'five', action: 'saverOn' })
     expect(bubbleFor('asleep', b)?.text).toContain('14:20')
   })

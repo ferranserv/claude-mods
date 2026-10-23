@@ -497,7 +497,7 @@ test('calm: the band is the meters and the wand only; no arrow, no bubble, no sa
   expect(await ui.find({ key: 'enhance' })).toBeUndefined() // no Button over it
   await ui.unmount()
 })
-test('a warning speaks in one bubble: Copy handoff on it, Handoff, Compact and Fresh behind the …; the meters row is not touched', async ($, on) => {
+test('a warning speaks in one bubble: Copy handoff on it, Handoff & clear, Compact and Clear session behind the …; the meters row is not touched', async ($, on) => {
   const w = world(on)
   await started($)
   await measureCtx($, 60)
@@ -774,11 +774,11 @@ test('a cold cache clears, the pose and its bubble, when a new message is sent',
   await measureCtx($, 10) // calm, so only the cache has anything to say
   await $.command.run({ command: 'cockpit', args: 'close' } as never)
   expect(await altOf($)).toContain('frozen')
-  expect(await hasButton($, 'handoff')).toBe(true)
+  expect(await hasButton($, 'copy')).toBe(true)
   await send($, 'hello again')
   await w.clock.advance(6000)
   expect(await altOf($)).not.toContain('frozen')
-  expect(await hasButton($, 'handoff')).toBe(false)
+  expect(await hasButton($, 'copy')).toBe(false)
 })
 
 test('a bubble goes with its pose: "Done." is said while the bell rings and is deleted when it is over', async ($, on) => {
@@ -932,14 +932,14 @@ test('demo cold: Clawd and the bubble with its real button stay until you answer
   await w.clock.advance(6000)
   await $.command.run({ command: 'cockpit', args: 'demo cold' } as never)
   expect(await altOf($)).toContain('frozen')
-  expect(await hasButton($, 'handoff')).toBe(true) // the button is a real one, laid out with the bubble
+  expect(await hasButton($, 'copy')).toBe(true) // the button is a real one, laid out with the bubble
   await w.clock.advance(30_000) // far longer than the four seconds of a timed demo
   expect(await altOf($)).toContain('frozen')
-  expect(await hasButton($, 'handoff')).toBe(true)
+  expect(await hasButton($, 'copy')).toBe(true)
   await send($, 'hello')
   await w.clock.advance(6000)
   expect(await altOf($)).not.toContain('frozen')
-  expect(await hasButton($, 'handoff')).toBe(false)
+  expect(await hasButton($, 'copy')).toBe(false)
 })
 
 test('a timed demo takes its bubble away with its state, and leaves nothing pending', async ($, on) => {
@@ -966,8 +966,9 @@ test('the buttons are ONE gray picture with one real Button per pill laid over i
   expect(copy).toBeDefined() // each pill is its own drawing
   expect(copy?.props?.source).toContain('#8E8E93') // the bubble's own gray, opaque
   expect(copy?.props?.source).not.toContain('fill-opacity')
-  expect(copy?.props?.height).toBe(26) // as tall as the bubble
-  expect((await ui.findAll({ type: 'Svg' })).find(v => v.props?.alt === '…')?.props?.height).toBe(26)
+  expect(copy?.props?.height).toBe(30) // on the bubble's own line: as tall as its lane, the pill 26 tall with the bubble's 2 px margin
+  expect(copy?.props?.source).toContain('translate(0 2)')
+  expect((await ui.findAll({ type: 'Svg' })).find(v => v.props?.alt === '…')?.props?.height).toBe(30)
   expect(await ui.find({ key: 'press-copy' })).toBeDefined()
   expect(await ui.find({ key: 'press-more' })).toBeDefined()
   // The click area is a Client laid over the drawing at 100% of its own box: no Button, so no host unit of height or width counts.
@@ -1216,18 +1217,20 @@ test('a bubble that arrives with buttons opens with its motion, and one that lea
     const ui = (await $.ui.mount(band('desktop'))) as unknown as Mounted
     const all = await ui.findAll({ type: 'Svg' })
     await ui.unmount()
-    return { bubble: all.filter(v => v.props?.height === 30 && v.props?.alt !== 'bubble space').pop()?.props?.source, clawd: all.filter(v => v.props?.height === 56 && String(v.props?.alt ?? '').startsWith('Clawd')).pop()?.props }
+    return { bubble: all.filter(v => v.props?.height === 30 && v.props?.alt !== 'bubble space' && String(v.props?.source).includes('textLength')).pop()?.props?.source, pill: all.find(v => v.props?.height === 30 && v.props?.alt === 'Copy handoff')?.props?.source ?? all.filter(v => v.props?.height === 30 && v.props?.alt === '' && String(v.props?.source).includes('>Copy handoff<')).pop()?.props?.source, clawd: all.filter(v => v.props?.height === 56 && String(v.props?.alt ?? '').startsWith('Clawd')).pop()?.props }
   }
   const before = (await drawings()).clawd
   await measureCtx($, 60) // a warning: its bubble arrives with a button and the "…"
   await settle($, w, 4000)
   const open = await drawings()
   expect(open.bubble).toContain('values="0.5;1.06;1"') // it scales out of Clawd while its words are typed
+  expect(open.pill).toContain('values="0.6;1.06;1"') // its buttons pop in just after it
   expect(String(open.clawd?.alt)).not.toContain('quality') // his own drawing's text does not carry the bubble's words
   await ($ as unknown as { prompt: { submit: (i: unknown) => Promise<unknown> } }).prompt.submit({ text: 'something else', origin: { kind: 'composer' } })
   await w.clock.advance(50)
   const closing = await drawings()
   expect(closing.bubble).toContain('values="1;1.06;0.5"') // it leaves the way it came: words deleted, scaled back to Clawd
+  expect(closing.pill).toContain('values="1;1;0"') // and its buttons pop out first, drawn from the labels they had
   expect(before).toBeDefined()
 })
 

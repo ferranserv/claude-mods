@@ -31,6 +31,7 @@ import {
   sideSvg,
   sideWidth,
   bubbleArt,
+  LEAD_S,
   PILL_GAP,
   pillGroupSvg,
   undoSvg,
@@ -159,6 +160,7 @@ const mood = {
   resetAt: 0, // the next limit reset a redraw is already booked for
   draftTurn: false, // the turn is a /handoff: Claude writes the brief as text, with no tool to show it
   askAt: 0, // when a permission ask was seen; it only counts if nothing has moved on a moment later
+  btn: { labels: [] as string[], seq: 0, anim: null as 'in' | 'out' | null, until: 0, prev: null as { seq: number; labels: string[]; until: number } | null }, // the bubble's buttons, so they pop in and out with it (see bubbleLane)
   bub: null as { text: string; room: number; seq: number; art: ReturnType<typeof bubbleArt> | null; until: number; prev?: { seq: number; text: string; art: ReturnType<typeof bubbleArt>; until: number } | null } | null, // the bubble's drawing (see bubbleLane)
   msg: null as { text: string; until: number } | null, // a message to you (the one channel: the bubble), over everything but the raised hand
   history: [] as string[], // the last things the bubble said, for /cockpit log
@@ -1090,7 +1092,7 @@ type Snap = {
 }
 
 /** What each answer to a warning is called. */
-const ACTION_LABELS: Record<ActionId, string> = { handoff: 'Handoff', copy: 'Copy handoff', fresh: 'Fresh', saverOn: 'Saver on', compact: 'Compact' }
+const ACTION_LABELS: Record<ActionId, string> = { handoff: 'Handoff & clear', copy: 'Copy handoff', fresh: 'Clear session', saverOn: 'Saver on', compact: 'Compact' }
 
 const files = (n: number) => `${n} file${n === 1 ? '' : 's'}`
 
@@ -1428,15 +1430,17 @@ type BtnSpec = { key: string; label: string; press: () => void }
  * A group of buttons: one row of pills, each a press target (`pressTarget`): its drawing is its whole click area, so nothing is
  * laid over it. With no drawing surface (the terminal), plain text buttons in a row.
  */
-function buttonGroup(c: Comps, specs: BtnSpec[], key = 'btns') {
+function buttonGroup(c: Comps, specs: BtnSpec[], key = 'btns', lane?: { anim?: 'in' | 'out'; delay?: number; isInert?: boolean }) {
   if (specs.length === 0) return []
   if (!c.Svg) return [el(c.Box, { key, flexDirection: 'row', alignItems: 'center', gap: 1 }, ...specs.map(b => pill(c, b.label, { key: b.key, onPress: b.press })))]
   // Each pill is its own press target (its drawing is its click area), with the gap between them drawn as blank space.
   const row: unknown[] = []
   specs.forEach((b, i) => {
-    const art = pillGroupSvg([b.label])
+    const art = pillGroupSvg([b.label], lane ? { lane: true, anim: lane.anim, delay: (lane.delay ?? 0) + i * 0.06 } : {})
     if (i > 0) row.push(el(c.Svg as never, { key: `gap-${i}`, source: `<svg xmlns="http://www.w3.org/2000/svg" width="${PILL_GAP}" height="${art.height}"/>`, alt: '', width: PILL_GAP, height: art.height }))
-    row.push(pressTarget(c, `press-${b.key}`, { source: art.source, alt: b.label, width: art.width, height: art.height, isInteractive: false }, b.press))
+    // A pill that is leaving is only a drawing: nothing to press while it goes.
+    if (lane?.isInert) row.push(el(c.Svg as never, { key: `press-${b.key}`, source: art.source, alt: '', isInteractive: false, width: art.width, height: art.height }))
+    else row.push(pressTarget(c, `press-${b.key}`, { source: art.source, alt: b.label, width: art.width, height: art.height, isInteractive: false }, b.press))
   })
   return [el(c.Box, { key, flexDirection: 'row', alignItems: 'center', flexShrink: 0 }, ...row)]
 }
@@ -1584,7 +1588,42 @@ function bubbleLane($: EngineInterface, s: Snap, c: Comps, Svg: unknown, fx: Fx,
   }
   if (bub.art && bub.text === '' && bub.until <= s.now) bub.art = null
   if (bub.prev && (bub.prev.until <= s.now || bub.text !== '')) bub.prev = null
-  const buttons = buttonGroup(c, specs)
+  // The buttons come and go with the bubble: they pop in just after it opens and pop out before it shrinks away, each a drawing that is
+  // never changed once drawn (like the bubble's), so a redraw of the band does not replay it. A leaving set is drawn from the labels it had.
+  const labels = specs.map(b => b.label)
+  const bt = mood.btn
+  const wasShown = bt.labels.length > 0 && bt.anim !== 'out'
+  if (labels.join('\u0001') !== bt.labels.join('\u0001') || (labels.length === 0 && bt.anim === 'out' && bt.until <= s.now)) {
+    if (labels.length === 0 && wasShown && c.Svg) {
+      bt.prev = { seq: bt.seq, labels: bt.labels, until: s.now + EXIT_OVERLAP_MS }
+      bt.seq++
+      bt.anim = 'out'
+      bt.until = s.now + Math.ceil(LEAD_S * 1000) + 400
+      $.clock.after(EXIT_OVERLAP_MS + 30, () => $.ui.invalidate('ui.render'))
+      $.clock.after(bt.until - s.now + 50, () => $.ui.invalidate('ui.render'))
+    } else if (labels.length === 0) {
+      bt.labels = []
+      bt.anim = null
+      bt.prev = null
+    } else {
+      bt.seq++
+      bt.anim = wasShown ? null : 'in'
+      bt.labels = labels
+      bt.prev = null
+    }
+  }
+  if (bt.prev && bt.prev.until <= s.now) bt.prev = null
+  if (bt.anim === 'out' && bt.until <= s.now) {
+    bt.labels = []
+    bt.anim = null
+  }
+  const leaving = labels.length === 0 && bt.anim === 'out'
+  const buttons = !c.Svg
+    ? buttonGroup(c, specs)
+    : leaving
+      ? buttonGroup(c, bt.labels.map((label, i) => ({ key: `x${i}`, label, press: () => undefined })), `btns${bt.seq}`, { anim: 'out', delay: LEAD_S, isInert: true })
+      : buttonGroup(c, specs, `btns${bt.seq}`, { anim: bt.anim ?? undefined, delay: 0.15, isInert: false })
+  const staleButtons = bt.prev && c.Svg ? buttonGroup(c, bt.prev.labels.map((label, i) => ({ key: `p${i}`, label, press: () => undefined })), `btns${bt.prev.seq}`, { isInert: true }) : []
   // The lane is made of drawings in px and the buttons sit at the right edge of the meters' width through a growing spacer:
   // nothing is counted in the host's character cells, so nothing drifts.
   const zone = el(
@@ -1600,7 +1639,8 @@ function bubbleLane($: EngineInterface, s: Snap, c: Comps, Svg: unknown, fx: Fx,
     // into the panel's bottom padding. So the buttons are laid on the lane at the right edge, not in its row (they would set its height).
     c.Svg
       ? el(c.Box, { key: 'lane', flexDirection: 'row', alignItems: 'flex-start', position: 'relative' }, zone, el(c.Box, { key: 'grow', flexGrow: 1 }),
-          ...(buttons.length > 0 ? [el(c.Box, { key: 'btns-lane', position: 'absolute', top: 0, right: 0, flexDirection: 'column' }, el(c.Svg as never, { key: 'btns-inset', source: `<svg xmlns="http://www.w3.org/2000/svg" width="1" height="${(LANE_H - 26) / 2}"/>`, alt: '', width: 1, height: (LANE_H - 26) / 2 }), ...buttons)] : []))
+          ...(staleButtons.length > 0 ? [el(c.Box, { key: 'btns-prev', position: 'absolute', top: 0, right: 0 }, ...staleButtons)] : []),
+          ...(buttons.length > 0 ? [el(c.Box, { key: 'btns-lane', position: 'absolute', top: 0, right: 0 }, ...buttons)] : []))
       : el(c.Box, { key: 'lane', flexDirection: 'row', alignItems: 'center' }, zone, el(c.Box, { key: 'grow', flexGrow: 1 }), ...buttons),
     ...menuRow(s, c, fx, surface, 0),
   ]

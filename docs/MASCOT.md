@@ -111,3 +111,10 @@ SVG per frame set, frames swapped by SMIL (`animate` on opacity, `isInteractive:
 ## 0.35.0
 - **Asleep is alone**: while the 5-hour limit is reached (100%) the status alerts do not take turns any more: `asleep` is the only one (`activeAlerts` in `mood.ts`), so there is no 6 s timer either. When the limit resets, the others (mad, fire, cold...) cycle again. A notice (`talk`), the bell and the poses of the work still come first, as before.
 - **Cold, rebuilt**: the loop is 24 frames (3.8 s). The snow falls slowly, a pixel a frame (it was 3), and repeats exactly. He is still most of the time; the shiver is one pixel, a few quick taps, with the teeth chattering only in that burst (it was a constant 6 Hz sway and chatter). The move into the cold is longer (2.6 s) and gradual: the first flakes (`snowN` grows 1 to 8), the ice spreading from under his feet (`iceT` 0.1 to 1), the arms coming in, the first small shiver, his color turning blue; no blink or hop. Out of it (2 s) it all goes backwards: the snow thins, the ice melts, he warms up (`coldMove` in `states.ts`). The snow and the ice of the moves are the ones of the loop, so nothing pops at the joins.
+
+## 0.36.0
+- **Buttons on the bubble's line, and animated**: each pill is now a drawing as tall as the bubble's lane (30 px) with the pill 2 px down, exactly the bubble's margin, so they share one centre (before, a 2 px spacer in a column placed them and the host could round it). They pop in 0.15 s after the bubble opens (scale 0.6 to 1, fade, 0.06 s apart) and pop out first when it closes (held `LEAD_S`, then scale down and fade), drawn from the labels they had and not pressable while they go.
+- **Cold and hourglass**: the button is Copy handoff (brief into the prompt box and clipboard, session kept), not Handoff & Clear.
+
+## 0.36.1
+- Buttons that clear the session are named for it: `Handoff & clear` and `Clear session` (was Handoff, Fresh). Copy handoff and Compact keep the session.

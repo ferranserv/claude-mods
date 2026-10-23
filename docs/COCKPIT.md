@@ -237,3 +237,11 @@ The dialog of a question (`AskUserQuestion`) replaces the prompt area, and the b
 ### 0.35.0
 - **Bottom of the band**: the lane takes 7 px less room (`LANE_PULL` in `lib.ts`) than what is drawn in it: the bubble and the buttons hang 7 px below it, into the panel's own bottom padding (the gap from the bubble to the panel's edge was about 15 px, now about 8). The buttons are laid on the lane at its right edge instead of in its row (they would set its height). While the "…" menu row is open the pull is 0 (nothing hangs over the menu). Unverified on the desktop: that the panel does not clip what hangs into its padding. If it does, set `LANE_PULL` to 0 (the old spacing) or lower it.
 - **Asleep alone** and **cold rebuilt**: see `docs/MASCOT.md`.
+
+### 0.36.0
+- **Alignment**: the pills were laid in a column under a 2 px spacer drawing, a different coordinate system from the bubble's absolute box. Now each pill drawing is lane-tall (`LANE_H`) with the pill at `BUBBLE_Y`, placed at top 0 in the same lane: one line, no spacer (`pillGroupSvg(..., { lane: true })`).
+- **Motion**: `mood.btn` follows the labels shown. none to some: `in` (after the bubble); some to none: the old labels are drawn once more with `out` (inert, no press target) plus a still copy under it for `EXIT_OVERLAP_MS`, like the bubble's exit. Other label changes redraw still. Not animated: the "…" menu row.
+- **Cold/hourglass action** is `copy` (was `handoff`, which runs `/clear`). `/handoff` and the hotkey still clear; the bubble's "…" menu on context warnings still offers Handoff.
+
+### 0.36.1
+- Labels in `ACTION_LABELS` state the clear. The `/handoff`, `/fresh` commands keep their names.

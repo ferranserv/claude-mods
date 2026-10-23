@@ -493,7 +493,7 @@ export const bubbleWidth = (text: string, room: number): number => Math.min(room
  * The frame is `room` px wide and a lane tall whatever the words are, so the drawing beside it never moves. `seconds` is how long the motion takes.
  */
 /** How long the exit holds the whole bubble before the words go (the host shows a replacing drawing late). */
-const LEAD_S = 0.45
+export const LEAD_S = 0.45
 
 export function bubbleArt(from: string, to: string, room: number): { source: string; width: number; height: number; seconds: number } {
   const maxText = Math.max(40, room - BUBBLE_TAIL - 2 * BUBBLE_PAD - 2)
@@ -587,7 +587,15 @@ export const PILL_GAP = 8
  * does with its layout. `parts` gives each pill's x and width in px: the Buttons laid over it share the picture's width by
  * these same numbers (as flex ratios, so no unit of the host's counts), see buttonGroup in register.tsx.
  */
-export function pillGroupSvg(labels: string[]): { source: string; width: number; height: number; parts: { x: number; w: number }[] } {
+export type PillMotion = {
+  /** The pill is drawn as tall as the bubble's lane with the bubble's own margin, so it is laid on the same line as the bubble. */
+  lane?: boolean
+  /** in: it pops in (after `delay` seconds). out: it holds, then pops out (after `delay` seconds). */
+  anim?: 'in' | 'out'
+  delay?: number
+}
+
+export function pillGroupSvg(labels: string[], motion: PillMotion = {}): { source: string; width: number; height: number; parts: { x: number; w: number }[] } {
   const size = 12
   const h = BUBBLE_H
   const r = (x: number, y: number, rw: number, rh: number, c: string) => `<rect x="${x}" y="${y}" width="${rw}" height="${rh}" fill="${c}"/>`
@@ -605,7 +613,20 @@ export function pillGroupSvg(labels: string[]): { source: string; width: number;
     x += w + PILL_GAP
   }
   const width = Math.max(0, x - PILL_GAP)
-  return { source: wrapSvg(width, h, out), width, height: h, parts }
+  if (!motion.lane) return { source: wrapSvg(width, h, out), width, height: h, parts }
+  // On the bubble's line: the same lane height and the same margin above, so the pills and the bubble share one centre.
+  const cx = width / 2
+  const cy = LANE_H / 2
+  const t = motion.delay ?? 0
+  const placed = `<g transform="translate(0 ${BUBBLE_Y})">${out}</g>`
+  const pop = (a: 'in' | 'out') =>
+    a === 'in'
+      ? { fade: `<animate attributeName="opacity" from="0" to="1" begin="${t}s" dur="0.18s" fill="freeze"/>`, scale: `<animateTransform attributeName="transform" type="scale" values="0.6;1.06;1" keyTimes="0;0.65;1" begin="${t}s" dur="0.22s" fill="freeze"/>` }
+      : { fade: `<animate attributeName="opacity" values="1;1;0" keyTimes="0;0.4;1" begin="${t}s" dur="0.25s" fill="freeze"/>`, scale: `<animateTransform attributeName="transform" type="scale" values="1;1.06;0.6" keyTimes="0;0.3;1" begin="${t}s" dur="0.25s" fill="freeze"/>` }
+  if (!motion.anim) return { source: wrapSvg(width, LANE_H, placed), width, height: LANE_H, parts }
+  const m = pop(motion.anim)
+  const start = motion.anim === 'in' ? ' opacity="0"' : ''
+  return { source: wrapSvg(width, LANE_H, `<g transform="translate(${cx} ${cy})"${start}>${m.fade}<g>${m.scale}<g transform="translate(${-cx} ${-cy})">${placed}</g></g></g>`), width, height: LANE_H, parts }
 }
 
 /** The mascot, the meters and the gap between them as separate drawings: a new pose replaces only Clawd, so the meters are never reloaded (a replaced drawing blinks). */
@@ -869,8 +890,8 @@ export function alertsOf(m: Model, o: { saverOn: boolean; now: number }): Alert[
   if (m.ctx.level === 'alert') out.push({ id: 'ctx', tone: 'alert', text: m.ctx.legend.text, actions: ['copy', 'handoff', 'compact', 'fresh'] })
   else if (m.ctx.level === 'warn') out.push({ id: 'ctx', tone: 'warn', text: m.ctx.legend.text, actions: ['copy', 'handoff', 'compact', 'fresh'] })
   const c = m.cache?.view
-  if (c?.state === 'soon') out.push({ id: 'cache', tone: 'warn', text: `Prompt cache goes cold in ${c.label}. ${m.cache?.sub ?? ''}`.trim(), actions: ['handoff'] })
-  if (c?.state === 'cold') out.push({ id: 'cache', tone: 'warn', text: `Prompt cache is cold: the next message pays full price. ${m.cache?.sub ?? ''}`.trim(), actions: ['handoff'] })
+  if (c?.state === 'soon') out.push({ id: 'cache', tone: 'warn', text: `Prompt cache goes cold in ${c.label}. ${m.cache?.sub ?? ''}`.trim(), actions: ['copy'] })
+  if (c?.state === 'cold') out.push({ id: 'cache', tone: 'warn', text: `Prompt cache is cold: the next message pays full price. ${m.cache?.sub ?? ''}`.trim(), actions: ['copy'] })
   if (m.five.used >= 100) out.push({ id: 'five', tone: 'alert', text: `5-hour limit reached. ${m.five.sub}`.trim(), actions: ['copy'] })
   else if (m.five.used >= 80 && !o.saverOn) out.push({ id: 'five', tone: 'warn', text: `${pct(m.five.used)} of the 5-hour limit used. ${m.five.sub}`.trim(), actions: ['saverOn'] })
   if (m.week.used > allottedThrough(o.now) && !o.saverOn) out.push({ id: 'week', tone: 'warn', text: `Weekly limit ${m.week.paceText}.`, actions: ['saverOn'] })
