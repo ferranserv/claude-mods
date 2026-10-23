@@ -45,6 +45,9 @@ describe('which state wins', () => {
   test('a tool at work shows over everything but the hand; compacting beats a tool', () => {
     expect(mood({ busy: true, tool: { kind: 'building', until: NOW + 500 } })).toBe('building')
     expect(mood({ compacting: true, tool: { kind: 'reading', until: NOW + 1 } })).toBe('dizzy')
+    expect(mood({ busy: true, tool: { kind: 'mcp', until: NOW + 500 } })).toBe('mcp')
+    expect(rank('mcp')).toBeGreaterThan(rank('browse'))
+    expect(rank('mcp')).toBeLessThan(rank('running'))
   })
 
   test('a shell command that runs shows running, over coffee and typing, under the tools with a pose of their own', () => {
@@ -158,8 +161,8 @@ describe('the drawings', () => {
       expect(d.label.length).toBeGreaterThan(5)
     }
   })
-  test('35 states, each with a terminal face', () => {
-    expect(STATE_IDS.length).toBe(35)
+  test('36 states, each with a terminal face', () => {
+    expect(STATE_IDS.length).toBe(36)
     for (const id of STATE_IDS) expect(STATES[id].face.length).toBeGreaterThan(2)
   })
   test('the alarm clock shows the wake-up time it is given', () => {

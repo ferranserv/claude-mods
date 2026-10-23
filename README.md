@@ -24,7 +24,7 @@ Everything the cockpit has to tell you is Clawd's **bubble**, in a row under the
 
 | Clawd says | Button on the bubble | Behind the … |
 | --- | --- | --- |
-| Context past 50% (or 150k tokens), past 80% | Copy handoff (writes the brief and copies it, the session stays) | Handoff (new session), Compact, Fresh |
+| Context past 50%, past 80% | Copy handoff (writes the brief and copies it, the session stays) | Handoff (new session), Compact, Fresh |
 | Cache about to go cold, or cold | Handoff | |
 | 5-hour limit at 80% (saver off) | Saver on | |
 | 5-hour limit reached | Copy handoff | |
@@ -53,7 +53,7 @@ Handoff buttons wait while Claude is working. `/cockpit log` lists the last ten 
 | `/preflight`, `/preflight off\|on` | Check now, or turn the preflight warnings off or on. |
 | `/enhance <draft>` | Rewrite a draft with fitting skills and project details. |
 | Hotkeys | `meta+h` handoff, `meta+n` fresh, `meta+e` enhance, from the prompt box. Change or clear them in the options. |
-| Options | `warnPercent` 50, `redPercent` 80, `warnTokens` 150000, `cacheMinutes` 60, `notifyMinutes` 5, `cacheStepMinutes` 5, `mascot` (normal, small, off), `handoffKey`, `freshKey`, `sound` (the chime), `turnLog`, `hotkey`, `model`, `enhanceStyle` (full or lean), `maxSkills`, `askSeconds` (how long a question waits before the raised hand, 5). |
+| Options | `warnPercent` 50, `redPercent` 80, `warnTokens` 0 (off; a size warning in tokens if you want one), `cacheMinutes` 60, `notifyMinutes` 5, `cacheStepMinutes` 5, `mascot` (normal, small, off), `handoffKey`, `freshKey`, `sound` (the chime), `turnLog`, `hotkey`, `model`, `enhanceStyle` (full or lean), `maxSkills`, `askSeconds` (how long a question waits before the raised hand, 5). |
 
 Cache window: Claude Code's API usage does not report the TTL, so the cockpit learns it. A cache hit after more than five idle minutes proves the one-hour cache; two full misses inside the hour mean the five-minute one; a model switch reports it outright. The countdown restarts when you send a message and at each request Claude makes, never on its own; it shows in 5-minute steps and rounds up.
 
@@ -64,7 +64,7 @@ Several things can be true at once, so there are three levels and an order insid
 | Level | States | When |
 | --- | --- | --- |
 | 1. Needs you now | raised hand, writing, idea | Claude asked you a question or a plan waits for approval; a handoff or an enhanced draft is being written; the plan was approved |
-| 2. The task (only while Claude works) | oops, boom, lab, ship, plug, dizzy; creating, building, reading, browsing, **running**; coffee; typing; thinking | a tool failed; a check failed (the flask blows up); a check passed; a commit, push or pull request went out; a connector failed; the conversation is being compacted; Claude is writing a file, editing, reading, searching the web, or a shell command has run 2 seconds (checks, installs and builds count at once; typing with green code scrolling behind him); 7 minutes of work (coffee, for 6 seconds at a time); any other tool; waiting for the model |
+| 2. The task (only while Claude works) | oops, boom, lab, ship, plug, dizzy; creating, building, reading, browsing, **mcp** (a connector's tool: he plugs the two halves of the cable together, happy, and waves go out), **running**; coffee; typing; thinking | a tool failed; a check failed (the flask blows up); a check passed; a commit, push or pull request went out; a connector failed; the conversation is being compacted; Claude is writing a file, editing, reading, searching the web, or a shell command has run 2 seconds (checks, installs and builds count at once; typing with green code scrolling behind him); 7 minutes of work (coffee, for 6 seconds at a time); any other tool; waiting for the model |
 | 3. Session and your own actions | walk, hello, love, wizard | session start; your first message; handoff saved; draft enhanced (5 seconds each) |
 | 4. When the turn is over | bell, coins, then a notice (talk), then the status alerts | the turn finished (plus the chime); the saver kept money; a notice is up; then, in turns of 6 seconds, worst first: asleep (5-hour limit reached), mad (over today's allowance), on fire (context 80%+), allowance within 2%, sleepy (5-hour 80%+), tipsy (context 50%+), frozen (cache cold), hourglass (cache about to expire), detective (a preflight finding), unplugged (a connector is down); none left: **fishing** while a background task (a command run in the background, or an agent) is still running, else idle (sunglasses) |
 
