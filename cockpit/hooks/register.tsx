@@ -1553,7 +1553,7 @@ function bubbleLane($: EngineInterface, s: Snap, c: Comps, Svg: unknown, fx: Fx,
     { key: 'zone', position: 'relative', flexShrink: 0 },
     // A blank drawing that holds the lane's height and the bubble's width (the bubble drawings are laid over it).
     el(Svg, { key: 'space', source: `<svg xmlns="http://www.w3.org/2000/svg" width="${room}" height="${LANE_H}"/>`, alt: 'bubble space', width: room, height: LANE_H }),
-    ...(bub.art ? [el(c.Box, { key: `b${bub.seq}`, position: 'absolute', top: 0, left: 0 }, el(Svg, { key: 'art', source: bub.art.source, alt: text, isInteractive: true, width: bub.art.width, height: bub.art.height }))] : []),
+    ...(bub.art ? [el(c.Box, { key: `b${bub.seq}`, position: 'absolute', top: 0, left: 0 }, el(Svg, { key: 'art', source: bub.art.source, alt: text !== '' ? text : 'Clawd closes his speech bubble', isInteractive: true, width: bub.art.width, height: bub.art.height }))] : []),
   )
   return [
     el(c.Box, { key: 'lane', flexDirection: 'row', alignItems: 'center' }, zone, el(c.Box, { key: 'grow', flexGrow: 1 }), ...buttons),

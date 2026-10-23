@@ -484,6 +484,9 @@ export const bubbleWidth = (text: string, room: number): number => Math.min(room
  *   closing: the opening played backwards: the words are deleted letter by letter (the bubble shortens with them), then it scales back into Clawd and fades.
  * The frame is `room` px wide and a lane tall whatever the words are, so the drawing beside it never moves. `seconds` is how long the motion takes.
  */
+/** How long the exit holds the whole bubble before the words go (the host shows a replacing drawing late). */
+const LEAD_S = 0.3
+
 export function bubbleArt(from: string, to: string, room: number): { source: string; width: number; height: number; seconds: number } {
   const maxText = Math.max(40, room - BUBBLE_TAIL - 2 * BUBBLE_PAD - 2)
   const a = from === '' ? '' : fitText(from, maxText)
@@ -505,8 +508,11 @@ export function bubbleArt(from: string, to: string, room: number): { source: str
   const scaleS = 0.2
   const typeAt = opening ? 0 : eraseS
   // Closing: first the words go and the bubble shortens with them, then what is left shrinks back into Clawd and fades.
+  // The host shows a new drawing about 0.3 s after it is put up (seen on a recording: only the last 0.4 s of a 0.7 s opening was visible), so the
+  // exit holds the full bubble for LEAD_S first and the whole motion is seen.
   const shrinkS = 0.3
-  const seconds = same ? 0 : closing ? eraseS + shrinkS : opening ? Math.max(typeS, scaleS) : eraseS + typeS
+  const lead = closing ? LEAD_S : 0
+  const seconds = same ? 0 : closing ? lead + eraseS + shrinkS : opening ? Math.max(typeS, scaleS) : eraseS + typeS
   // The bubble is one drawing that is written over, not another laid on it: as the old words are deleted letter by letter it
   // shortens with them, down to nothing but its ends; as the new words are typed it lengthens with them, to the width they need.
   const stepsFor = (t: string) => Math.min(40, Math.max(1, t.length))
@@ -514,7 +520,7 @@ export function bubbleArt(from: string, to: string, room: number): { source: str
   const widthAnim = (dw: number, from: number, to: number, n: number, begin: number, dur: number) =>
     `<animate attributeName="width" values="${Array.from({ length: n + 1 }, (_, i) => Math.round(from + ((to - from) * i) / n) + dw).join(';')}" keyTimes="${times(n)}" calcMode="discrete" begin="${begin}s" dur="${dur}s" fill="freeze"/>`
   const shape = (x: number, y: number, dw: number, h: number, fill: string) =>
-    `<rect x="${x}" y="${y}" width="${(a === '' ? MIN : wA) + dw}" height="${h}" fill="${fill}">${!same && a !== '' ? widthAnim(dw, wA, MIN, stepsFor(a), 0, eraseS) : ''}${!same && b !== '' ? widthAnim(dw, MIN, wB, stepsFor(b), typeAt, typeS) : ''}</rect>`
+    `<rect x="${x}" y="${y}" width="${(a === '' ? MIN : wA) + dw}" height="${h}" fill="${fill}">${!same && a !== '' ? widthAnim(dw, wA, MIN, stepsFor(a), lead, eraseS) : ''}${!same && b !== '' ? widthAnim(dw, MIN, wB, stepsFor(b), typeAt, typeS) : ''}</rect>`
   const r = (x: number, y: number, rw: number, rh: number, c: string) => `<rect x="${x}" y="${y}" width="${rw}" height="${rh}" fill="${c}"/>`
   const body = [
     shape(bx + 2, y0, -4, BUBBLE_H, D), shape(bx, y0 + 2, 0, BUBBLE_H - 4, D), // the border: a block with its corners stepped
@@ -538,7 +544,7 @@ export function bubbleArt(from: string, to: string, room: number): { source: str
   }
   const px = (t: string) => bubbleTextWidth(t)
   const clip = (id: string, t: string, anim: string, w: number) => `<clipPath id="${id}"><rect x="${bx + BUBBLE_PAD - 1}" y="0" width="${w}" height="${LANE_H}">${anim}</rect></clipPath>`
-  const oldWords = a === '' ? '' : clip('cko', a, same ? '' : letters(a, px(a) + 2, false, 0, eraseS), px(a) + 2)
+  const oldWords = a === '' ? '' : clip('cko', a, same ? '' : letters(a, px(a) + 2, false, lead, eraseS), px(a) + 2)
   const newWords = b === '' || same ? '' : clip('ckn', b, letters(b, px(b) + 2, true, typeAt, typeS), 0)
   const defs = oldWords || newWords ? `<defs>${oldWords}${newWords}</defs>` : ''
   const texts = (same ? (b === '' ? '' : words(b, px(b))) : '') + (!same && a !== '' ? `<g clip-path="url(#cko)">${words(a, px(a))}</g>` : '') + (!same && b !== '' ? `<g clip-path="url(#ckn)">${words(b, px(b))}</g>` : '')
@@ -547,8 +553,8 @@ export function bubbleArt(from: string, to: string, room: number): { source: str
   const oy = mid
   const popIn = '<animate attributeName="opacity" from="0" to="1" begin="0s" dur="0.18s" fill="freeze"/>'
   const scaleIn = `<animateTransform attributeName="transform" type="scale" values="0.5;1.06;1" keyTimes="0;0.65;1" begin="0s" dur="${scaleS}s" fill="freeze"/>`
-  const popOut = `<animate attributeName="opacity" values="1;1;0" keyTimes="0;0.55;1" begin="${eraseS}s" dur="${shrinkS}s" fill="freeze"/>`
-  const scaleOut = `<animateTransform attributeName="transform" type="scale" values="1;1.06;0.5" keyTimes="0;0.3;1" begin="${eraseS}s" dur="${shrinkS}s" fill="freeze"/>`
+  const popOut = `<animate attributeName="opacity" values="1;1;0" keyTimes="0;0.55;1" begin="${lead + eraseS}s" dur="${shrinkS}s" fill="freeze"/>`
+  const scaleOut = `<animateTransform attributeName="transform" type="scale" values="1;1.06;0.5" keyTimes="0;0.3;1" begin="${lead + eraseS}s" dur="${shrinkS}s" fill="freeze"/>`
   const start = opening ? ' opacity="0"' : ''
   const inner = `${defs}${body}${tail}${texts}`
   const out = `<g transform="translate(${ox} ${oy})"${start}>${opening ? popIn : closing ? popOut : ''}<g>${opening ? scaleIn : closing ? scaleOut : ''}<g transform="translate(${-ox} ${-oy})">${inner}</g></g></g>`

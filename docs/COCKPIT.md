@@ -221,3 +221,6 @@ The dialog of a question (`AskUserQuestion`) replaces the prompt area, and the b
 
 ### 0.33.0
 - Bubble exit: words first (letter by letter, the bubble shortening), then the shrink into Clawd; 0.55 s for a short line, up to 0.9 s for a long one. Supersedes the "both at once, 0.35 s" of 0.30.0. Why: the host replaces the drawing and takes a few frames to load it, so a 0.35 s close could finish unseen. The opening takes up to 0.7 s and was seen. New test closes via the dots and via expiry.
+
+### 0.33.1
+- Recording of the desktop app (30 fps frames): the opening grows over 0.4 s (the typing of 0.7 s seen from 0.3 s in), the exit is one frame, on a click and on expiry alike. The test harness could not show this (it draws the exit drawing). Causes tried: empty `alt` on the exit drawing (now non-empty) and the host's 0.3 s late start (the exit now holds 0.3 s first). If the exit still vanishes, the next step is to stop replacing the drawing for the exit (animate the opening drawing itself, with the exit built in for bubbles that expire on a known time).
