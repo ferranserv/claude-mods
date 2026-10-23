@@ -318,12 +318,16 @@ function clawd(o) {
   if (o.star) { px(PAT.STAR, X - 4, Y - 6, 's'); px(PAT.STAR, X + 23, Y - 4, 's'); }
   if (o.flame !== undefined) { const f = PAT.FLAME[o.flame], g2 = PAT.FLAME[(o.flame + 1) % 3]; px(f, X - 3, F - 7, 'r'); px(g2, X + 3, F - 6, 'y'); px(f, X + 9, F - 7, 'r'); px(g2, X + 15, F - 6, 'y'); px(f, X + 21, F - 7, 'r'); [[X + 5, Y - 3], [X + 18, Y - 2], [X + 11, Y - 5]].forEach(([x, y], i) => set(x, y - (o.flame + i) % 3, i % 2 ? 'y' : 'r')); }
   if (o.steam !== undefined) { const t = o.steam; [[6, 2], [11, 0], [16, 2]].forEach(([x, , ], i) => fill(X + x, Y - 4 - ((t + i) % 3) * 2, 2, 2, 'v')); }
-  if (o.snow) {   // flakes fall down the far edges and over his head, never near his hands
-    const t = o.snow;
-    [[0, 0], [31, 5], [0, 11], [31, 16]].forEach(([x0, off]) => { const y = (t * 3 + off) % 22; stamp(['#.#', '.#.', '#.#'], x0, y, 'i'); set(x0 + 1, y + 1, 'w'); });
-    [[9, 0], [15, 4], [22, 2], [18, 6]].forEach(([x, off]) => set(x, (t * 2 + off) % 7, 'w'));
+  if (o.snow !== undefined) {   // flakes fall slowly (a pixel a frame) down the far edges and over his head, never near his hands
+    // snow is the frame of the fall (it repeats every 24 frames); snowN how many flakes there are (8: all), so they can start and stop gradually.
+    const t = o.snow, n = o.snowN === undefined ? 8 : o.snowN, mod = (v, m) => ((v % m) + m) % m;
+    [[0, 0], [31, 8], [0, 12], [31, 20]].forEach(([x0, off], k) => { if (k >= n) return; const y = mod(t + off, 24); stamp(['#.#', '.#.', '#.#'], x0, y, 'i'); set(x0 + 1, y + 1, 'w'); });
+    [[9, 0], [15, 3], [22, 1], [18, 4]].forEach(([x, off], k) => { if (4 + k < n) set(x, mod(Math.floor(t / 2) + off, 6), 'w'); });
   }
-  if (o.ice) { fill(X - 1, F - 1, 26, 4, 'i'); fill(X - 1, F - 1, 26, 1, 'w'); fill(X + 1, F + 3, 22, 1, 'Q'); for (const x of [X + 1, X + 8, X + 15, X + 21]) { fill(x, F - 3, 2, 2, 'i'); } }
+  if (o.ice) {   // the ice under his feet; iceT (0 to 1) is how far it has spread from the middle (it forms, and melts)
+    const iw = o.iceT === undefined ? 26 : Math.max(0, Math.round(26 * o.iceT)), ix = X - 1 + Math.floor((26 - iw) / 2);
+    if (iw > 0) { fill(ix, F - 1, iw, 4, 'i'); fill(ix, F - 1, iw, 1, 'w'); if (iw >= 6) fill(ix + 2, F + 3, iw - 4, 1, 'Q'); for (const x of [X + 1, X + 8, X + 15, X + 21]) { if (x >= ix && x + 2 <= ix + iw) fill(x, F - 3, 2, 2, 'i'); } }
+  }
   if (o.sweat !== undefined) px(['.#.', '###', '###'], X + 22, Y + 1 + o.sweat, 'q');
   // ---- ship: a launch console under his left hand (a big red button) and a rocket at the right edge that lifts off, clipped at the canvas
   const cs = (x, y, c) => { if (x >= 0 && x < W && y >= 0 && y < H) k.g[y][x] = c; };   // clipped: a rocket that flies out of the top is not "outside the canvas"

@@ -222,3 +222,4 @@ Not verifiable from the cloud: the lane's px height in the app (blank drawing in
 - 0.33.2: the bubble exit no longer blinks before closing (the old drawing stays under the exit for 0.6 s).
 - 0.33.3: bubble exit timing: the old drawing goes at 0.3 s, before the exit moves, so no extra piece shows.
 - 0.34.0: Clawd no longer vanishes for a frame or two at a pose change (a still copy of the new drawing's first frame is put under it for 120 ms).
+- 0.35.0: less space under the bubble (the lane hangs 7 px into the panel padding); asleep is the only alert while the 5-hour limit lasts; the cold pose rebuilt (slow snow, subtle shiver, gradual moves in and out).

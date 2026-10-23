@@ -7,7 +7,7 @@
 //                        COFFEE_AFTER_MS), typing, thinking. Session events (walk, hello) and the owner's own actions
 //                        (love, wand) play whenever they happen, for FLEET_MS, and are not kept.
 //   3. when it is over   bell, then coins (the saver kept money), then a notice (talk), then the status alerts, ROTATING
-//                        every ROTATE_MS, worst first: asleep, mad, fire, gauge, sleepy, drunk, cold, hourglass,
+//                        every ROTATE_MS, worst first (but asleep, the 5-hour limit reached, is the only one while it lasts): asleep, mad, fire, gauge, sleepy, drunk, cold, hourglass,
 //                        detective, plug (a connector still down). Nothing left: fishing while a background task
 //                        runs (he is not idle, he waits for it), else idle.
 // While a turn runs no status alert is shown, not even a critical one (owner's choice).
@@ -73,6 +73,8 @@ export type MoodInput = {
 
 /** The status alerts that are true now, worst first. They only exist while Claude is not working. */
 export function activeAlerts(i: MoodInput): StateId[] {
+  // The 5-hour limit is reached: he sleeps, and that is the only alert shown until it resets (the others do not take turns over his sleep).
+  if (i.fiveUsed >= 100) return ['asleep']
   const on: Record<(typeof ALERT_ORDER)[number], boolean> = {
     asleep: i.fiveUsed >= 100,
     mad: i.weekRoom < 0,

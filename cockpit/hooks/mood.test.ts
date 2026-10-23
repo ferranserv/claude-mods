@@ -69,9 +69,17 @@ describe('which state wins', () => {
   })
 
   test('when it is over the alerts are listed worst first and each is true only on its own range', () => {
-    expect(activeAlerts({ ...calm, fiveUsed: 100, weekRoom: -1, ctx: 'alert', hasAdvice: true, cache: 'cold', offline: true })).toEqual(['asleep', 'mad', 'fire', 'cold', 'detective', 'plug'])
+    expect(activeAlerts({ ...calm, fiveUsed: 99, weekRoom: -1, ctx: 'alert', hasAdvice: true, cache: 'cold', offline: true })).toEqual(['mad', 'fire', 'sleepy', 'cold', 'detective', 'plug'])
     expect(activeAlerts({ ...calm, weekRoom: 1, ctx: 'warn', fiveUsed: 85, cache: 'soon' })).toEqual(['gauge', 'sleepy', 'drunk', 'hourglass'])
     expect(activeAlerts(calm)).toEqual([])
+  })
+
+  test('asleep (the 5-hour limit reached) is the only alert while it lasts; when the limit resets the others take turns again', () => {
+    const all = { ...calm, weekRoom: -1, ctx: 'alert' as const, hasAdvice: true, cache: 'cold' as const, offline: true }
+    expect(activeAlerts({ ...all, fiveUsed: 100 })).toEqual(['asleep'])
+    expect([0, 1, 2, 3, 4, 5].map(k => mood({ ...all, fiveUsed: 100, now: k * ROTATE_MS }))).toEqual(Array(6).fill('asleep'))
+    expect(nextShift({ ...all, fiveUsed: 100 })).toBeNull() // nothing to take turns with: no timer
+    expect(new Set([0, 1, 2, 3, 4, 5].map(k => mood({ ...all, fiveUsed: 0, now: k * ROTATE_MS }))).size).toBeGreaterThan(1) // awake: they cycle again
   })
 
   test('several alerts take turns, ROTATE_MS each; a single one stays', () => {
@@ -397,11 +405,30 @@ describe('the moves between states', () => {
     expect(swap.some(f => f.carry === 'laptop' && f.carrySide === 'L')).toBe(true) // the laptop leaves with the left hand
     expect(swap.some(f => f.carry === 'hat-hard' && f.carrySide === 'R')).toBe(true) // the hard hat is put on with the right
   })
-  test('any state to cold turns him blue slowly, over two seconds; coming back out of it takes 1.2', () => {
+  test('the cold comes on and goes gradually: flakes and ice grow and shrink, no hop, no pop at the joins; the loop is calm', () => {
+    const inn = moveFrames('idle', 'cold')!.frames
+    const snowN = inn.map(f => f.snowN).filter((v): v is number => v !== undefined)
+    expect(snowN.length).toBeGreaterThanOrEqual(6)
+    for (let i = 1; i < snowN.length; i++) expect(snowN[i]!).toBeGreaterThanOrEqual(snowN[i - 1]!) // more flakes, never fewer
+    const iceT = inn.map(f => f.iceT).filter((v): v is number => v !== undefined)
+    for (let i = 1; i < iceT.length; i++) expect(iceT[i]!).toBeGreaterThanOrEqual(iceT[i - 1]!)
+    expect(inn.some(f => f.dy !== undefined && f.dy !== 0)).toBe(false) // the hop of the other moves would jar
+    const out = moveFrames('cold', 'idle')!.frames.map(f => f.snowN).filter((v): v is number => v !== undefined)
+    for (let i = 1; i < out.length; i++) expect(out[i]!).toBeLessThanOrEqual(out[i - 1]!) // and they thin out going back
+    // the loop: the snow falls a pixel a frame and repeats exactly (24 frames), the shiver is one pixel, in a short burst
+    const loop = STATES.cold.frames
+    expect(loop.length).toBe(24)
+    expect(loop.map(f => f.snow)).toEqual(Array.from({ length: 24 }, (_, i) => i + 1))
+    const dx = loop.map(f => f.dx ?? 0)
+    expect(Math.max(...dx.map(Math.abs))).toBe(1)
+    expect(dx.filter(v => v !== 0).length).toBeLessThanOrEqual(4)
+    expect(loop.filter(f => f.mouth === 'chatter' || f.mouth === 'chatter2').length).toBeLessThanOrEqual(6)
+  })
+  test('any state to cold turns him blue slowly, over 2.6 seconds; coming back out of it takes 2', () => {
     for (const id of STATE_IDS) {
       if (id === 'cold') continue
-      expect(moveMs(id, 'cold'), `${id}>cold`).toBe(2000)
-      expect(moveMs('cold', id), `cold>${id}`).toBe(1200)
+      expect(moveMs(id, 'cold'), `${id}>cold`).toBe(2600)
+      expect(moveMs('cold', id), `cold>${id}`).toBe(2000)
     }
     const f = moveFrames('idle', 'cold')!.frames
     const reds = f.map(x => (x.pal ? parseInt((x.pal as Record<string, string>).c!.slice(1, 3), 16) : null)).filter((v): v is number => v !== null)

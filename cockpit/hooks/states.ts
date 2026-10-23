@@ -73,7 +73,11 @@ export const STATES: Record<StateId, Def> = {
     { eyes: 'open', look: 'right', mouth: 'flat', armR: 'out', hourglass: 1, sand: 3, hold: 4 },
     { eyes: 'half', look: 'right', mouth: 'flat', armR: 'out', hgTurn: 1, hold: 2 },
   ] },
-  cold: { label: 'Clawd is frozen: the prompt cache is cold', face: '(-_-)*', fd: 0.16, frames: range(16).map(i => ({ pal: { c: '#8fb9d9', k: '#6d97b8', f: '#b6d5ea' }, eyes: 'open', mouth: i % 2 ? 'chatter2' : 'chatter', snow: i + 1, ice: 1, armL: i < 8 ? 'half' : 'cross', armR: i < 8 ? 'half' : 'cross' })) },
+  // Frozen: still most of the time, with a short, small shiver (one pixel, a few quick taps and the teeth chattering) every 3.8 s; the snow falls a pixel a frame.
+  cold: { label: 'Clawd is frozen: the prompt cache is cold', face: '(-_-)*', fd: 0.16, frames: range(24).map(i => {
+    const shiver = i >= 10 && i <= 15
+    return { pal: { c: '#8fb9d9', k: '#6d97b8', f: '#b6d5ea' }, eyes: 'open', mouth: shiver ? (i % 2 ? 'chatter2' : 'chatter') : 'grim', snow: i + 1, ice: 1, armL: i < 12 ? 'half' : 'cross', armR: i < 12 ? 'half' : 'cross', ...(shiver ? { dx: [1, 0, -1, 0, 1, 0][i - 10] } : {}) }
+  }) },
   gauge: { label: 'Clawd shakes a piggy bank upside-down and the last coin falls to the floor, bounces and rolls away: today\'s allowance is almost used', face: '(o_o)!', fd: 0.1, frames: [
     { pig: 1, armR: 'up', look: 'right', eyes: 'open', mouth: 'smile', hold: 6 },
     { pig: 1, armR: 'up', look: 'right', eyes: 'wide', mouth: 'smile', armL: 'half', hold: 2 },
@@ -232,7 +236,6 @@ const MOTION: Partial<Record<StateId, Motion>> = {
   talk: { each: 2, dy: [0, -1, 0, 0, 0, -1, 0, 0] }, // nods as he talks
   fire: { dy: [0, -1, 0, -1], dx: [0, 1, -1, 0] }, // panics on the spot
   hourglass: { dx: [0, -1, 0, 0] }, // fidgets, waiting (props at the right edge: left only)
-  cold: { each: 2, dx: [0, 1, 1, 0, 0, -1, -1, 0] }, // a slight shiver
   mad: { each: 2, dy: [0, -1, 0, -1, 0, -1], dx: [0, 1, -1, 1, -1, 0] }, // stomps
   love: { dx: [0, 1, 1, 0, -1, -1] }, // sways in the hug
   detective: { each: 2, dx: [0, -1, -2, -1] }, // creeps along
@@ -586,11 +589,45 @@ function paced(all: Pose[], from: StateId): { fd: number; frames: Pose[] } {
 /** His colors when he is warm and when the cache has frozen him. */
 const WARM_PAL = { c: '#DA7758', k: '#b5593d', f: '#f0a07c' }
 const COLD_PAL = STATES.cold.frames[0]!.pal as Record<string, string>
-const COLD_MOVE_S = 2
-const WARM_MOVE_S = 1.2
+const COLD_MOVE_S = 2.6
+const WARM_MOVE_S = 2
 const mixHex = (a: string, b: string, t: number): string => {
   const n = (h: string, i: number) => parseInt(h.slice(1 + i * 2, 3 + i * 2), 16)
   return `#${[0, 1, 2].map(i => Math.round(n(a, i) + (n(b, i) - n(a, i)) * t).toString(16).padStart(2, '0')).join('')}`
+}
+
+/**
+ * The poses of the cold coming on, or going: the first flakes, the ice spreading from under his feet, the arms coming in, a first small
+ * shiver; or all of that backwards while he warms up. The snow and the ice are the ones of his cold loop (flake counts, `iceT`, and the
+ * frame of the fall continuing from it), so nothing pops in or out at the joins. No blink and no hop here: the move is a slow one.
+ */
+function coldMove(first: Pose[], toCold: boolean, last: Pose): Pose[] {
+  const cross = { armL: 'cross', armR: 'cross' }
+  const half = { armL: 'half', armR: 'half' }
+  const at = (snow: number, snowN: number, iceT: number, more: Pose): Pose => ({ ice: 1, snow, snowN, iceT, ...more })
+  const poses: Pose[] = toCold
+    ? [
+        { ...NEUTRAL, eyes: 'open' },
+        { eyes: 'half', mouth: 'grim' },
+        at(-6, 1, 0.1, { eyes: 'half', mouth: 'grim', ...half }),
+        at(-5, 2, 0.25, { eyes: 'half', mouth: 'grim', ...half }),
+        at(-4, 3, 0.4, { eyes: 'open', mouth: 'grim', ...half, dx: 1 }),
+        at(-3, 5, 0.55, { eyes: 'open', mouth: 'chatter', ...half, dx: 0 }),
+        at(-2, 6, 0.7, { eyes: 'open', mouth: 'chatter2', ...cross, dx: -1 }),
+        at(-1, 7, 0.85, { eyes: 'open', mouth: 'grim', ...cross }),
+        at(0, 8, 1, { eyes: 'open', mouth: 'grim', ...cross }),
+      ]
+    : [
+        at(1, 8, 1, { eyes: 'open', mouth: 'grim', ...cross }),
+        at(2, 7, 0.85, { eyes: 'open', mouth: 'grim', ...cross }),
+        at(3, 5, 0.65, { eyes: 'half', mouth: 'flat', ...half }),
+        at(4, 3, 0.45, { eyes: 'half', mouth: 'flat', ...half }),
+        at(5, 1, 0.25, { eyes: 'open', mouth: 'smile', armL: 'half', armR: 'half' }),
+        { eyes: 'open', mouth: 'smile' },
+        { ...NEUTRAL, eyes: 'open' },
+      ]
+  const staged = inbetween(stage([...first, ...poses, last]))
+  return staged.map((f, i) => (i === 0 ? { ...f, hold: 0.6 } : i === staged.length - 1 ? { ...f, hold: 1.3 } : f))
 }
 
 /**
@@ -808,8 +845,7 @@ function rawMoveOf(from: StateId, to: StateId, phase = 0): (Move & { w: number }
   const w = b.w ?? 34
   const first = (a.w ?? 34) <= w ? [isTapping(from) && phase > 0 ? startOf(from, phase) : L(from)] : []
   if (to === 'cold' || from === 'cold') {
-    const mid: Pose[] = [{ ...NEUTRAL }, { eyes: 'half', mouth: 'grim' }, { eyes: 'half', mouth: 'grim', armL: 'half', armR: 'half' }, { eyes: 'half', mouth: 'grim', armL: 'half', armR: 'half' }]
-    return { ...tinted(smooth([...first, ...mid, b.frames[0] ?? {}]), to === 'cold'), w }
+    return { ...tinted(coldMove([...first], to === 'cold', b.frames[0] ?? {}), to === 'cold'), w }
   }
   if (to === 'asleep') return { ...paced(smooth([...first, { ...NEUTRAL, eyes: 'open' }, ...RISE, b.frames[0] ?? {}]), from), w }
   // Reading brings a lot with it (glasses, a book, a stack of books): they come and go one at a time, not all at once.
