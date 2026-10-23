@@ -353,7 +353,8 @@ test('/meters warn, red, tokens: change the context warning levels without the o
   expect(text(await $.command.run({ command: 'meters', args: 'tokens 10' } as never))).toContain('at least 1000')
 
   expect(text(await $.command.run({ command: 'meters', args: 'limits reset' } as never))).toContain('from the options')
-  expect(text(await $.command.run({ command: 'meters', args: 'limits' } as never))).toContain('orange from 45%')
+  expect(text(await $.command.run({ command: 'meters', args: 'limits' } as never))).toContain('orange from 50%')
+  expect(text(await $.command.run({ command: 'meters', args: 'tokens off' } as never))).not.toContain('tokens')
 })
 
 test('saved warning levels come back at session start; red never sits below orange', async ($, on) => {
@@ -600,6 +601,9 @@ test('reading and web tools get their own states', async ($, on) => {
   await w.clock.advance(6000)
   await ($ as unknown as Do).tool.call({ tool: 'WebSearch', query: 'q' })
   expect(await altOf($)).toContain('searching the web')
+  await w.clock.advance(6000)
+  await ($ as unknown as Do).tool.call({ tool: 'mcp__github__get_me' })
+  expect(await altOf($)).toContain('connector (MCP) tool is working')
 })
 
 test('a failed tool is an oops, a passing test run is the lab, an approved plan is an idea', async ($, on) => {

@@ -1,6 +1,6 @@
 {
   "name": "cockpit",
-  "version": "0.31.1",
+  "version": "0.32.0",
   "author": {
     "name": "Ferran"
   },
@@ -11,7 +11,7 @@
       "type": "number",
       "title": "First context warning (%)",
       "description": "The context bar turns orange and warns that quality may start to slip.",
-      "default": 45
+      "default": 50
     },
     "redPercent": {
       "type": "number",
@@ -21,9 +21,9 @@
     },
     "warnTokens": {
       "type": "number",
-      "title": "Context warning by size (tokens)",
-      "description": "Same orange warning once the context holds this many tokens, whatever the percent (a 1M window).",
-      "default": 250000
+      "title": "Context warning by size (tokens, 0 = off)",
+      "description": "Optional: the same orange warning once the context holds this many tokens, whatever the percent. Off by default so the warning stays proportional when you switch models.",
+      "default": 0
     },
     "cacheMinutes": {
       "type": "number",

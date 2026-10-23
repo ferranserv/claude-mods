@@ -2,6 +2,7 @@ import { describe, expect, test } from 'claude-code/testing'
 
 import {
   CACHE_INITIAL,
+  DEFAULT_LIMITS,
   DAYS,
   allottedThrough,
   bandSvg,
@@ -116,20 +117,22 @@ describe('colors', () => {
 })
 
 describe('legendFor and levels', () => {
-  test('calm below 45 percent and 250k tokens', () => {
-    expect(levelOf(44, 100_000)).toBe('calm')
+  test('calm below 50 percent, whatever the token count', () => {
+    expect(levelOf(49, 100_000)).toBe('calm')
+    expect(levelOf(10, 900_000)).toBe('calm') // a big window with a small share used does not warn
     expect(legendFor(20, 40_000).tone).toBe('calm')
   })
-  test('first warning at 45 percent, whatever the token count', () => {
-    expect(levelOf(45, 10)).toBe('warn')
+  test('first warning at 50 percent, whatever the token count', () => {
+    expect(levelOf(50, 10)).toBe('warn')
     const l = legendFor(52, 10)
     expect(l.tone).toBe('warn')
     expect(l.text).toContain('52%')
     expect(l.text).toContain('quality')
   })
-  test('warns at 250k tokens even when percent is low (a 1M window)', () => {
-    expect(levelOf(15, 249_999)).toBe('calm')
-    const l = legendFor(15, 250_000)
+  test('a size warning in tokens is there when asked for (warnTokens above 0)', () => {
+    const t = { ...DEFAULT_LIMITS, warnTokens: 250_000 }
+    expect(levelOf(15, 249_999, t)).toBe('calm')
+    const l = legendFor(15, 250_000, t)
     expect(l.tone).toBe('warn')
     expect(l.text).toContain('250k')
   })
@@ -183,13 +186,13 @@ describe('model', () => {
     expect(m.week.value[0]?.[0]?.t).toBe('-')
   })
 
-  test('context bar: blue, orange from 45, red past 80', () => {
-    // small windows, so the token count stays under 250k and only the percent speaks
+  test('context bar: blue, orange from 50, red past 80', () => {
+    // small windows, so only the percent speaks
     const at = (percent: number) => model({ ...data(), fill: { tokens: percent * 1000, window: 100_000, percent } }).ctx.color
     const blue = at(10)
-    const orange = at(45)
+    const orange = at(50)
     const red = at(81)
-    expect(at(44)).toBe(blue)
+    expect(at(49)).toBe(blue)
     expect(orange).not.toBe(blue)
     expect(at(80)).toBe(orange)
     expect(red).not.toBe(orange)
@@ -348,7 +351,7 @@ describe('terminal line', () => {
   test('shows a short hint when the context is large or nearly full', () => {
     expect(line(model(data(10))).map(s => s.t).join('')).not.toContain('quality')
     const big = { ...data(26), fill: { tokens: 260_000, window: 1_000_000, percent: 26 } }
-    expect(line(model(big)).map(s => s.t).join('')).toContain('quality may slip')
+    expect(line(model(big)).map(s => s.t).join('')).not.toContain('quality') // tokens alone do not warn
     expect(line(model(data(55))).map(s => s.t).join('')).toContain('quality may slip')
     expect(line(model(data(90))).map(s => s.t).join('')).toContain('hand off now')
   })

@@ -294,6 +294,7 @@ function toolKind(tool: string): ToolKind | null {
   if (['Edit', 'Write', 'MultiEdit', 'NotebookEdit'].includes(tool)) return 'building'
   if (['Read', 'Grep', 'Glob', 'NotebookRead', 'LS'].includes(tool)) return 'reading'
   if (['WebSearch', 'WebFetch'].includes(tool)) return 'browse'
+  if (tool.startsWith('mcp__')) return 'mcp'
   return null
 }
 
@@ -635,7 +636,7 @@ const handoffSays = (m: HandoffMode): string =>
 const thresholds = (o: Record<string, unknown>): Thresholds => {
   const n = (v: unknown, d: number) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : d)
   const warn = n(o.warnPercent, DEFAULT_LIMITS.warnPercent)
-  return { warnPercent: warn, redPercent: Math.max(warn, n(o.redPercent, DEFAULT_LIMITS.redPercent)), warnTokens: n(o.warnTokens, DEFAULT_LIMITS.warnTokens) }
+  return { warnPercent: warn, redPercent: Math.max(warn, n(o.redPercent, DEFAULT_LIMITS.redPercent)), warnTokens: typeof o.warnTokens === 'number' && Number.isFinite(o.warnTokens) && o.warnTokens >= 0 ? o.warnTokens : DEFAULT_LIMITS.warnTokens }
 }
 
 /** `/meters warn 5`, `/meters red 70`, `/meters tokens 50000`, `/meters limits`, `/meters limits reset`. */
@@ -645,10 +646,11 @@ async function limitsReport($: EngineInterface, arg: string, defaults: Threshold
   let next: Partial<Thresholds> = saved
   if (what === 'limits' && value === 'reset') next = {}
   else if (what === 'warn' || what === 'red' || what === 'tokens') {
-    const n = Number(value.replace(/k$/i, '')) * (/k$/i.test(value) ? 1000 : 1)
+    const off = what === 'tokens' && (value === 'off' || value === '0')
+    const n = off ? 0 : Number(value.replace(/k$/i, '')) * (/k$/i.test(value) ? 1000 : 1)
     const isPercent = what !== 'tokens'
-    if (!Number.isFinite(n) || (isPercent && (n < 1 || n > 100)) || (!isPercent && n < 1000)) {
-      return isPercent ? `Use /meters ${what} <1 to 100>.` : 'Use /meters tokens <number, at least 1000>, e.g. /meters tokens 250k.'
+    if (!Number.isFinite(n) || (isPercent && (n < 1 || n > 100)) || (!isPercent && !off && n < 1000)) {
+      return isPercent ? `Use /meters ${what} <1 to 100>.` : 'Use /meters tokens <number, at least 1000, or off>, e.g. /meters tokens 250k.'
     }
     next = { ...saved, [what === 'warn' ? 'warnPercent' : what === 'red' ? 'redPercent' : 'warnTokens']: n }
   }
@@ -657,7 +659,7 @@ async function limitsReport($: EngineInterface, arg: string, defaults: Threshold
   if (now.redPercent < now.warnPercent) now.redPercent = now.warnPercent
   await update($, lim, () => now)
   const source = Object.keys(next).length > 0 ? 'changed with /meters' : 'from the options'
-  return `Context warnings (${source}): orange from ${now.warnPercent}% or ${Math.round(now.warnTokens / 1000)}k tokens, red past ${now.redPercent}%. /meters limits reset goes back to the options.`
+  return `Context warnings (${source}): orange from ${now.warnPercent}%${now.warnTokens > 0 ? ` or ${Math.round(now.warnTokens / 1000)}k tokens` : ''}, red past ${now.redPercent}%. /meters limits reset goes back to the options.`
 }
 
 /** Chime at the end of a main-loop turn. $.audio.play only has a player on macOS; Windows gets the clip through PowerShell. */
@@ -1174,7 +1176,7 @@ async function snapshot($: EngineInterface, propsWorking: boolean): Promise<Snap
   const wanted: StateId = !isDemo && mood.sticky && (picked === 'idle' || picked === 'talk') ? mood.sticky.state : picked
   const shown = mood.drawn
   // Painting a file and then hammering it (or reading, then browsing) is one piece of work: those follow each other at once.
-  const isWork = (id: StateId) => id === 'creating' || id === 'building' || id === 'reading' || id === 'browse' || id === 'running'
+  const isWork = (id: StateId) => id === 'creating' || id === 'building' || id === 'reading' || id === 'browse' || id === 'mcp' || id === 'running'
   const state: StateId = !isDemo && shown && shown.id !== wanted && shown.id !== 'hand' && now - shown.since < HOLD_MS && rank(wanted) >= rank(shown.id) && !(isWorking && isAlert(shown.id)) && !(isWork(wanted) && isWork(shown.id)) ? shown.id : wanted
   if (!mood.drawn || mood.drawn.id !== state) {
     // A move out of typing or running begins on the frame of the loop he is on (see loopFrame), so nothing jumps when it starts.

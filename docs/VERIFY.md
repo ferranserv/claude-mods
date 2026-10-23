@@ -173,3 +173,5 @@ Report anything off in plain words ("the palm tree overlaps", "no animation", "a
 | 108 | Click Clawd in different poses (typing, running, thinking, fishing, idle, a walk) and click again | Every pose says something light and cheeky; the second click says a different line | |
 | 109 | Ask a question that opens the AskUserQuestion dialog (Claude asks you to choose) | The band above the dialog is the normal small size (Clawd about 60 px tall), not enlarged over the question | |
 | 110 | Run a WebSearch or WebFetch | Clawd holds the magnifying glass in his left hand and sweeps it over the browser window on the right | |
+| 111 | Use a connector tool (any `mcp__` tool, e.g. a GitHub or Gmail call) | Clawd, smiling, holds up both halves of the cable, they plug together with a spark, and green waves go out each side; it ends with the tool | |
+| 112 | Run a session past 50% of the context window with the model you use most | The context bar turns orange and the warning bubble appears at 50%, not before, whatever the model | |

@@ -6,7 +6,7 @@ import type { Pose } from './sprite'
 export type StateId =
   | 'idle' | 'typing' | 'thinking' | 'bell' | 'coins' | 'walk' | 'talk' | 'drunk' | 'fire' | 'hourglass' | 'cold'
   | 'gauge' | 'mad' | 'sleepy' | 'asleep' | 'love' | 'detective' | 'oops' | 'wand' | 'hello' | 'idea' | 'coffee'
-  | 'reading' | 'building' | 'browse' | 'plug' | 'dizzy' | 'lab' | 'hand' | 'writing' | 'creating' | 'boom' | 'ship' | 'running' | 'fishing'
+  | 'reading' | 'building' | 'browse' | 'plug' | 'mcp' | 'dizzy' | 'lab' | 'hand' | 'writing' | 'creating' | 'boom' | 'ship' | 'running' | 'fishing'
 
 type Def = {
   /** What a screen reader hears. */
@@ -167,6 +167,11 @@ export const STATES: Record<StateId, Def> = {
     { hat: 'hard', wrench: 1, armR: 'up', mouth: 'smile', eyes: 'open' },
   ] },
   browse: { label: 'Clawd is searching the web: the magnifying glass in his left hand sweeps over the page', face: '(o_o)Q', fd: 0.5, frames: [1, 2, 3, 4, 5, 6, 7, 8].map(g => ({ browser: g % 2 ? 1 : 2, glass: g, look: g <= 4 ? 'right' : g === 5 || g === 6 ? 'down' : 'left', armL: 'up', armR: g % 2 ? 'half' : 'rest' })) },
+  mcp: { label: 'Clawd plugs the two halves of a cable together: a connector (MCP) tool is working', face: '(^_^)~', fd: 0.3, frames: [
+    { conn: 5 }, { conn: 3 }, { conn: 1 }, { conn: 0, connSpark: 1, eyes: 'wide' },
+    { conn: 0, connWave: 1 }, { conn: 0, connWave: 2 }, { conn: 0, connWave: 3 },
+    { conn: 0, connWave: 1 }, { conn: 0, connWave: 2 }, { conn: 0, connWave: 3 }, { conn: 0, connWave: 2 },
+  ].map(f => ({ eyes: 'happy', mouth: 'smile', armL: 'up', armR: 'up', ...f })) },
   plug: { label: 'Clawd holds an unplugged cable: a connector is offline', face: '(;_;)~', fd: 0.4, frames: [0, 1, 0, 1, 0, 1].map((t, i) => ({ plug: t, eyes: 'open', mouth: 'grim', armL: 'half', armR: 'half', dy: t })) },
   dizzy: { label: 'Clawd is dizzy: the conversation is being compacted', face: '(@_@)', fd: 0.2, frames: [0, -1, 0, 1, 0, -1, 0, 1].map((dx, i) => ({ spiral: (i % 2) + 1, eyes: 'dizzy', dx, mouth: 'o', ...(i >= 1 && i <= 3 ? { armL: 'half', armR: 'out' } : i >= 4 ? { armL: 'out', armR: 'half' } : {}) })) },
   lab: { label: 'Clawd holds bubbling flasks: the tests passed', face: '(^_^)8', fd: 0.3, frames: [0, 1, 2, 3, 4, 5].map(t => ({ flask: (t % 3) + 1, mouth: 'smile', eyes: t % 3 === 1 ? 'happy' : 'open', ...(t === 1 || t === 2 || t === 5 ? { armL: 'half' } : t === 3 || t === 4 ? { armL: 'up' } : {}) })) },
@@ -331,6 +336,13 @@ export const MOVES: Partial<Record<string, Move>> = {
   'hand>reading': { fd: 0.14, frames: [F('hand'), { ...BARE, look: 'down' }, { glasses: 1, look: 'down', eyes: 'half' }, F('reading')] },
   'hand>browse': { fd: 0.14, frames: [F('hand'), { ...BARE, look: 'right' }, { look: 'right', eyes: 'open', glass: 1 }, F('browse')] },
   // Work moves from one kind of tool to the next.
+  // A connector's tool: the cable halves come up in both hands, and go down again when it ends.
+  'thinking>mcp': { fd: 0.14, frames: [F('thinking'), { look: 'up', eyes: 'open', mouth: 'smile', armL: 'half', armR: 'half' }, { eyes: 'open', mouth: 'smile', armL: 'up', armR: 'up', conn: 6 }, F('mcp')] },
+  'mcp>thinking': { fd: 0.14, frames: [L('mcp'), { eyes: 'open', mouth: 'smile', armL: 'up', armR: 'up', conn: 6 }, { eyes: 'open', mouth: 'smile', armL: 'half', armR: 'half' }, F('thinking')] },
+  'mcp>bell': { fd: 0.14, frames: [L('mcp'), { eyes: 'happy', mouth: 'smile', armL: 'half', armR: 'half' }, { ...READY }, F('bell')] },
+  'bell>mcp': { fd: 0.14, frames: [F('bell'), { eyes: 'happy', mouth: 'smile', armR: 'half', armL: 'half' }, { eyes: 'open', mouth: 'smile', armL: 'up', armR: 'up', conn: 6 }, F('mcp')] },
+  'mcp>idle': { fd: 0.14, frames: [L('mcp'), { eyes: 'happy', mouth: 'smile', armL: 'half', armR: 'half' }, F('idle')] },
+  'idle>mcp': { fd: 0.14, frames: [F('idle'), { eyes: 'open', mouth: 'smile', armL: 'up', armR: 'up', conn: 6 }, F('mcp')] },
   'browse>reading': { fd: 0.14, frames: [F('browse'), { look: 'right', eyes: 'open', glass: 1 }, { glasses: 1, look: 'down', eyes: 'half' }, F('reading')] },
   'reading>browse': { fd: 0.14, frames: [F('reading'), { glasses: 1, look: 'right', eyes: 'half' }, { look: 'right', eyes: 'open', glass: 1 }, F('browse')] },
   'browse>building': { fd: 0.14, frames: [F('browse'), { look: 'right', eyes: 'open', glass: 1 }, { hat: 'hard', look: 'down', armR: 'half' }, F('building')] },
@@ -623,6 +635,7 @@ const ENTER: Partial<Record<StateId, Pose[]>> = {
   building: [{ look: 'down', eyes: 'open', mouth: 'smile', armR: 'half' }],
   browse: [{ look: 'right', eyes: 'open', mouth: 'flat' }],
   plug: [{ mouth: 'grim' }],
+  mcp: [{ eyes: 'open', mouth: 'smile', armL: 'half', armR: 'half' }],
   dizzy: [{ eyes: 'dizzy', mouth: 'o' }],
   lab: [{ eyes: 'happy', mouth: 'smile', armR: 'up' }],
   hand: [{ look: 'down', mouth: 'flat' }],

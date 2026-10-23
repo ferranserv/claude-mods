@@ -3,12 +3,11 @@
 export type Fill = { tokens: number; window: number; percent: number }
 export type Limit = { kind: string; percentUsed: number; resetsAt?: string }
 
-// The context bar warns twice: orange from WARN_PAST percent (quality can start to slip; on a 200k window that is 90k tokens), red past RED_PAST.
-// A window can be 1M, so percent alone says "fine" long after every message has become expensive and
-// long: LARGE_TOKENS is the same orange warning by size.
-export const WARN_PAST = 45
+// The context bar warns twice: orange from WARN_PAST percent (quality can start to slip), red past RED_PAST. Percent, not tokens,
+// so the warning stays proportional when the model (and its window) changes. LARGE_TOKENS is an optional size warning, off (0) by default.
+export const WARN_PAST = 50
 export const RED_PAST = 80
-export const LARGE_TOKENS = 250_000
+export const LARGE_TOKENS = 0
 
 export type Thresholds = { warnPercent: number; redPercent: number; warnTokens: number }
 export const DEFAULT_LIMITS: Thresholds = { warnPercent: WARN_PAST, redPercent: RED_PAST, warnTokens: LARGE_TOKENS }
@@ -95,7 +94,7 @@ export type Legend = { tone: Level; text: string; short: string }
 
 export function levelOf(percent: number, tokens: number, t: Thresholds = DEFAULT_LIMITS): Level {
   if (percent > t.redPercent) return 'alert'
-  if (percent >= t.warnPercent || tokens >= t.warnTokens) return 'warn'
+  if (percent >= t.warnPercent || (t.warnTokens > 0 && tokens >= t.warnTokens)) return 'warn'
   return 'calm'
 }
 
@@ -110,7 +109,7 @@ export function legendFor(percent: number, tokens: number, t: Thresholds = DEFAU
       ? { tone: 'warn', text: `${pct(percent)} full: quality may start to slip. Plan a handoff.`, short: 'Quality may slip. Plan a handoff.' }
       : { tone: 'warn', text: `${kilo(tokens)} re-read each message: quality may slip. Consider a handoff.`, short: 'Long context. Consider a handoff.' }
   }
-  return { tone: 'calm', text: `Warns at ${t.warnPercent}% or ${kilo(t.warnTokens)} tokens.`, short: `Warns at ${t.warnPercent}%.` }
+  return { tone: 'calm', text: t.warnTokens > 0 ? `Warns at ${t.warnPercent}% or ${kilo(t.warnTokens)} tokens.` : `Warns at ${t.warnPercent}%.`, short: `Warns at ${t.warnPercent}%.` }
 }
 
 const toneColor = (t: Level) => (t === 'alert' ? C.red : t === 'warn' ? C.orange : C.gray)
@@ -269,7 +268,7 @@ export function model(d: Data): Model {
       : [g('-')],
     legend,
     // Close to the first warning: the small print under the bar appears only from here.
-    near: level !== 'calm' || percent >= t.warnPercent * 0.8 || tokens >= t.warnTokens * 0.8,
+    near: level !== 'calm' || percent >= t.warnPercent * 0.8 || (t.warnTokens > 0 && tokens >= t.warnTokens * 0.8),
   }
 
   // A limit past its reset time has reset, whatever was last measured: the next reply brings the new number,

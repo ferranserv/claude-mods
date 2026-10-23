@@ -12,13 +12,13 @@ Files (as built in PR 1): `hooks/register.tsx` holds every `$`-taking function a
 ## Band (superseded by 0.15.0: one row, no arrow)
 Collapsed (default): one row, mascot slot on the left, then chips: context %, cache countdown, 5h %, week pace, saver (when on), preflight count (when non-zero), Enhance button, expand arrow (small chevron, right edge). Never hides the core meters.
 Expanded: today's full meters (bars, legend, cache cost line) plus saver detail, preflight detail and all action buttons.
-Open/close: arrow toggles any time. It also opens by itself when a warning appears (context >= 45%, cache <= 5 min or cold, 5h >= 80%, allowance within 2% or over, preflight finding). If you collapse it while a warning stands, it stays collapsed until the level escalates. Choice kept in `$.store`.
+Open/close: arrow toggles any time. It also opens by itself when a warning appears (context >= 50%, cache <= 5 min or cold, 5h >= 80%, allowance within 2% or over, preflight finding). If you collapse it while a warning stands, it stays collapsed until the level escalates. Choice kept in `$.store`.
 Side-panel mode (`/meters side`) is kept as the same content in a pane.
 
 ## Every warning has its action (and no action without a warning)
 | Warning | Action |
 |---|---|
-| Context >= 45% | Handoff (new session with handoff), Compact (the lighter one: `$.session.compact()`), Fresh |
+| Context >= 50% | Handoff (new session with handoff), Compact (the lighter one: `$.session.compact()`), Fresh |
 | Context >= 80% | Handoff now (primary) |
 | Cache about to expire / cold | Handoff, Dismiss; cold shows next-message cost warm vs cold |
 | 5h >= 80% | Turn saver on |
@@ -214,3 +214,7 @@ The dialog of a question (`AskUserQuestion`) replaces the prompt area, and the b
 
 ### 0.31.1
 - Size warning raised from 150k to 250k tokens (owner decision): on a 1M window the 45% never speaks first; on a 200k window it is out of reach, so only the 45% fires.
+
+### 0.32.0
+- Context warning is by percent only: 50% (orange), 80% (red). `warnTokens` stays as an option but is 0 (off) by default, so the warning is proportional whatever model is in use (owner decision, supersedes the 45% and 250k entries above). `/meters tokens off` turns the size warning off again.
+- New state `mcp` for connector tools (see `docs/MASCOT.md`).

@@ -3,7 +3,7 @@
 // Three levels, so the general state of the account never talks over the task:
 //   1. needs you now     hand (a permission prompt is open), writing, idea (a plan waits for approval)
 //   2. the task          only while Claude works: oops, boom (a check failed), lab (a check passed), ship (a commit, push or PR), plug (events of the task), dizzy (compacting), then creating,
-//                        building, reading, browse, running (the tool that runs; running is a shell command past RUN_AFTER_MS), then coffee (cycles with the work after
+//                        building, reading, browse, mcp (a connector's tool), running (the tool that runs; running is a shell command past RUN_AFTER_MS), then coffee (cycles with the work after
 //                        COFFEE_AFTER_MS), typing, thinking. Session events (walk, hello) and the owner's own actions
 //                        (love, wand) play whenever they happen, for FLEET_MS, and are not kept.
 //   3. when it is over   bell, then coins (the saver kept money), then a notice (talk), then the status alerts, ROTATING
@@ -20,7 +20,7 @@ export const FLEET_ORDER: readonly Fleet[] = ['oops', 'boom', 'bell', 'lab', 'sh
 /** Status alerts, worst first: shown only when Claude is not working, one at a time, in turns. */
 export const ALERT_ORDER = ['asleep', 'mad', 'fire', 'gauge', 'sleepy', 'drunk', 'cold', 'hourglass', 'detective', 'plug'] as const
 export const isAlert = (id: StateId): boolean => (ALERT_ORDER as readonly string[]).includes(id)
-export type ToolKind = 'building' | 'reading' | 'browse' | 'creating' | 'running'
+export type ToolKind = 'building' | 'reading' | 'browse' | 'mcp' | 'creating' | 'running'
 
 /** How long each fleeting event plays, in ms. */
 export const FLEET_MS: Record<Fleet, number> = { oops: 5000, boom: 6500, bell: 5000, lab: 5000, ship: 6700, love: 5000, idea: 5000, wand: 5000, coins: 5000, plug: 6000 }
@@ -155,6 +155,7 @@ export function bubbleFor(id: StateId, b: BubbleInput): Bubble | null {
     case 'building': return { text: b.detail !== '' ? `Editing ${b.detail}` : 'Editing' }
     case 'reading': return { text: b.detail !== '' ? `Reading ${b.detail}` : 'Reading' }
     case 'browse': return { text: 'Searching the web' }
+    case 'mcp': return { text: 'Using a connector' }
     case 'walk': return null
     case 'hello': return { text: 'Hi! What are we building?' }
     case 'asleep': return { text: `5-hour limit reached. Back at ${b.fiveReset}`, alertId: 'five', action: 'copy' }
@@ -209,6 +210,7 @@ const HINTS: Record<StateId, string[]> = {
   reading: ['Reading the files so you do not have to.', 'Nose in a book. Very studious.', 'Skimming the code. Interesting stuff.'],
   building: ['Hammering away at your code.', 'Hard hat on, building in progress.', 'Bang bang. Fresh edits coming.'],
   browse: ['Surfing the web for answers.', 'Looking it up. Do not tell my search history.', 'Searching high and low.'],
+  mcp: ['Plugged in and working. The signal is strong.', 'Calling a connector. It picked up!', 'Connection made. Beep boop, all good.'],
   plug: ['A connector is unplugged. I am holding the cable.', 'Somebody pulled the plug. I am on it.', 'Offline connector. Sad cable noises.'],
   dizzy: ['Compacting the conversation... a little dizzy.', 'Squishing the context. Woo, spinning!', 'Tidying memory. Room is spinning.'],
   lab: ['Checks passed! Science!', 'All green in the lab. Bubbling with joy.', 'The experiment worked. Beakers up!'],
@@ -226,7 +228,7 @@ export function hoverHint(id: StateId, n = 0): string {
 
 /** Every state, most important first: a shown state is only interrupted by one earlier in this list. */
 export const ORDER: readonly StateId[] = [
-  'hand', 'writing', 'idea', ...FLEET_ORDER, 'dizzy', 'creating', 'building', 'reading', 'browse', 'running', 'walk', 'hello',
+  'hand', 'writing', 'idea', ...FLEET_ORDER, 'dizzy', 'creating', 'building', 'reading', 'browse', 'mcp', 'running', 'walk', 'hello',
   'talk', ...ALERT_ORDER.filter(id => id !== 'plug'), 'coffee', 'typing', 'thinking', 'fishing', 'idle',
 ]
 export const rank = (id: StateId): number => ORDER.indexOf(id)

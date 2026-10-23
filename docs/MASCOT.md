@@ -87,3 +87,7 @@ SVG per frame set, frames swapped by SMIL (`animate` on opacity, `isInteractive:
 
 
 ## 0.31.0: web search (`browse`): the magnifying glass is in his left hand (arm up) and sweeps over the page on a long handle; the browser window stays on the right.
+
+## 0.32.0
+- `mcp` (a tool from a connector, any `mcp__...` tool): the two halves of the cable from the `plug` pose come up in both hands, move together, spark when they click in, and green radio waves go out each side while he smiles (happy eyes). It sits between `browse` and `running` in the hierarchy. Moves: hand-drawn to and from thinking, bell and idle; the generic morph covers the rest.
+- `browse` (0.31.0): the magnifying glass is in his left hand and sweeps over the page.
