@@ -366,7 +366,9 @@ describe('the moves between states', () => {
       const [from, to] = key.split('>') as [StateId, StateId]
       const m = moveFrames(from, to)!
       if (m.frames.length < 3 || ((from === 'typing' || from === 'running') && (to === 'typing' || to === 'running'))) continue // typing <-> running is the same body, so no blink and no hop
-      expect(m.frames[0]!.hold, `${key} first`).toBeLessThan(1)
+      // short on the way out of typing and running; held a moment otherwise, while the old drawing is dropped (see `paced` in states.ts)
+      if (from === 'typing' || from === 'running') expect(m.frames[0]!.hold, `${key} first`).toBeLessThan(1)
+      else expect(m.frames[0]!.hold, `${key} first`).toBeGreaterThan(1)
       expect(m.frames[m.frames.length - 1]!.hold, `${key} last`).toBeGreaterThan(1)
       expect(m.frames.slice(1, -1).some(f => f.eyes === 'blink' || (f.eyes !== undefined && f.eyes !== 'open' && f.eyes !== 'half')), `${key} blink or an expressive look in the middle`).toBe(true)
     }

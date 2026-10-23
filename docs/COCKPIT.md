@@ -230,3 +230,6 @@ The dialog of a question (`AskUserQuestion`) replaces the prompt area, and the b
 
 ### 0.33.3
 - Frame analysis of a recording of 0.33.2: the exit's drawing appears about 0.1 s after the click (that is the old blink), starts to move after its hold; the old drawing under it was dropped about 2 frames after that, so its right end showed. The rule for the two numbers: drop time (`EXIT_OVERLAP_MS`) must be after the exit shows (host delay, about 0.1 to 0.15 s) and before it moves (host delay + `LEAD_S`). Now 0.3 s and 0.55 s at the earliest. Measure again from a recording if the host is slower on another machine.
+
+### 0.34.0
+- Same trick as the bubble exit (0.33.x), for Clawd: old drawing kept under the new one for 120 ms after a pose change. Differences from the bubble: the old drawing keeps looping under the new one (so only 120 ms, and not out of typing or running), and a move reshapes him with a transparent background (so the first frame of a move is held about 0.2 s: the drop must come after the host has shown the new drawing, about 70 ms, and before the move starts). Cost: a pose reacts about 0.12 s later. Evidence: `Screen_Recording_2026-10-23_111509.mp4`, reading to the next pose, 2 blank frames. If a ghost shows, shorten `MASCOT_OVERLAP_MS`; if he still blanks, lengthen it.

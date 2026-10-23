@@ -162,11 +162,38 @@ const mood = {
   history: [] as string[], // the last things the bubble said, for /cockpit log
   lastLogged: '', // the text last added to the history
   askId: '', // the call that ask is for: only that call starting running again, or ending, settles it
+  mascotLast: null as { seq: number; source: string; alt: string; width: number; height: number; state: StateId } | null, // Clawd's drawing as last put up, and how many have been (each one is its own element, see mascotSlot)
+  mascotUnder: null as { seq: number; source: string; alt: string; width: number; height: number; until: number } | null, // the one before it, kept under it for a moment after a pose change
   drawn: null as { id: StateId; since: number; loopAt: number } | null, // what is on screen, since when, and when its loop began (after the move into it)
   move: null as { from: StateId; to: StateId; phase?: number } | null, // the state he left, so the drawing can play the move into the one he is in
 }
 /** A permission ask must stay open this long before Clawd raises a hand: a rule or the mode often settles it first. Set by the askSeconds option. */
 let askMs = 5000
+
+/** How long the drawing of the pose he left stays under the new one: after the host has shown the new one (about 70 ms), before it moves (about 200 ms). */
+const MASCOT_OVERLAP_MS = 120
+
+/**
+ * A pose change replaces Clawd's drawing, and the host blanks the old one for a frame or two before the new one shows (seen on a
+ * recording: all of him gone for 33 to 67 ms). Each drawing is its own element (a key per drawing), and after a pose change the old one stays
+ * mounted under the new one (which starts on the frame he is on) for MASCOT_OVERLAP_MS, so there is never nothing. Not from typing or
+ * running: those loops run fast and their code lines would show twice.
+ */
+function mascotSlot($: EngineInterface, s: Snap, m: { source: string; width: number; height: number } | null): { key: string; under: { key: string; source: string; alt: string; width: number; height: number } | null } {
+  if (!m) return { key: 'mascot', under: null }
+  const last = mood.mascotLast
+  const alt = STATES[s.state].label
+  if (!last) mood.mascotLast = { seq: 1, source: m.source, alt, width: m.width, height: m.height, state: s.state }
+  else if (last.source !== m.source) {
+    const fastLoop = mood.move !== null && (mood.move.from === 'typing' || mood.move.from === 'running')
+    mood.mascotUnder = last.state !== s.state && !fastLoop ? { seq: last.seq, source: last.source, alt: last.alt, width: last.width, height: last.height, until: s.now + MASCOT_OVERLAP_MS } : null
+    if (mood.mascotUnder) $.clock.after(MASCOT_OVERLAP_MS + 30, () => $.ui.invalidate('ui.render'))
+    mood.mascotLast = { seq: last.seq + 1, source: m.source, alt, width: m.width, height: m.height, state: s.state }
+  }
+  if (mood.mascotUnder && mood.mascotUnder.until <= s.now) mood.mascotUnder = null
+  const u = mood.mascotUnder
+  return { key: `mascot${mood.mascotLast!.seq}`, under: u ? { key: `mascot${u.seq}`, source: u.source, alt: u.alt, width: u.width, height: u.height } : null }
+}
 
 /** Clawd's drawing: the move from the state he left and the state's own loop, in one drawing (see enterMarkup). */
 function mascotFor(state: StateId, clock: string, move: { from: StateId; to: StateId; phase?: number } | null, scale: 1 | 2) {
@@ -1337,7 +1364,7 @@ async function bandTree($: EngineInterface, e: { surface: string }, o: { isWorki
       const drawn = el(
         c.Box,
         { key: 'art', flexDirection: 'row', alignItems: 'center' },
-        ...(parts.mascot ? [clawdColumn(c, s, parts, fx)] : []),
+        ...(parts.mascot ? [clawdColumn(c, s, parts, fx, mascotSlot($, s, parts.mascot))] : []),
         column,
       )
       row = el(c.Box, { key: 'row', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, drawn, controls(s, c, fx, Svg))
@@ -1417,7 +1444,7 @@ function buttonGroup(c: Comps, specs: BtnSpec[], key = 'btns') {
  * a plain drawing with a Client over it, like the pills. They take only the height the row has to spare (the meters and the lane
  * are taller than he is), so the band never grows.
  */
-function clawdColumn(c: Comps, s: Snap, parts: { mascot: { source: string; width: number; height: number } | null; meters: { height: number } }, fx: Fx) {
+function clawdColumn(c: Comps, s: Snap, parts: { mascot: { source: string; width: number; height: number } | null; meters: { height: number } }, fx: Fx, slot: ReturnType<typeof mascotSlot>) {
   const m = parts.mascot!
   const toggle = () => fx.toggle(s.speech !== null, s.hover?.text ?? '', s.hover?.alertId)
   const room = Math.min(14, parts.meters.height + LANE_H - m.height)
@@ -1425,7 +1452,7 @@ function clawdColumn(c: Comps, s: Snap, parts: { mascot: { source: string; width
   return el(
     c.Box,
     { key: 'clawd-col', flexDirection: 'column', alignItems: 'center', flexShrink: 0 },
-    pressTarget(c, 'clawd', { source: m.source, alt: STATES[s.state].label, width: m.width, height: m.height, isInteractive: true, svgKey: 'mascot' }, toggle),
+    pressTarget(c, 'clawd', { source: m.source, alt: STATES[s.state].label, width: m.width, height: m.height, isInteractive: true, svgKey: slot.key, under: slot.under }, toggle),
     ...(dots ? [pressTarget(c, 'clawd-dots', { source: dots.source, alt: 'Show or hide what Clawd says', width: dots.width, height: dots.height, isInteractive: false }, toggle)] : []),
   )
 }
@@ -1437,7 +1464,7 @@ function clawdColumn(c: Comps, s: Snap, parts: { mascot: { source: string; width
 const presses = new Map<string, () => void>()
 
 /** A press target: a Client whose drawing is its region; a pointer release on it runs `press` (the `ui.message` hook below). */
-function pressTarget(c: Comps, key: string, art: { source: string; alt: string; width: number; height: number; isInteractive: boolean; svgKey?: string }, press: () => void) {
+function pressTarget(c: Comps, key: string, art: { source: string; alt: string; width: number; height: number; isInteractive: boolean; svgKey?: string; under?: { key: string; source: string; alt: string; width: number; height: number } | null }, press: () => void) {
   const clientKey = `${key}-press`
   presses.set(clientKey, press)
   // The engine reads the Client and its module off this source before anything runs: it is called here with its module a string literal.
@@ -1447,6 +1474,7 @@ function pressTarget(c: Comps, key: string, art: { source: string; alt: string; 
   return el(
     c.Box,
     { key, position: 'relative', flexShrink: 0 },
+    ...(art.under ? [el(c.Box, { key: `${key}-under`, position: 'absolute', top: 0, left: 0 }, el(c.Svg as never, { key: art.under.key, source: art.under.source, alt: art.under.alt, isInteractive: true, width: art.under.width, height: art.under.height }))] : []),
     el(c.Svg as never, { key: art.svgKey ?? `${key}-art`, source: art.source, alt: art.alt, isInteractive: art.isInteractive, width: art.width, height: art.height }),
     el(c.Box, { key: `${key}-hit`, position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden' }, Client({ key: clientKey, module: './press.tsx', width: '100%', height: '100%' })),
   )
@@ -1694,6 +1722,8 @@ async function startBand($: EngineInterface): Promise<void> {
   mood.walkUntil = (await $.clock.now()) + START_MS
   // A session started (or opened again): what was drawn for another one is forgotten, so nothing stale is laid over what this one draws.
   mood.bub = null
+  mood.mascotLast = null
+  mood.mascotUnder = null
   mood.drawn = null
   mood.move = null
   mood.bg = 0

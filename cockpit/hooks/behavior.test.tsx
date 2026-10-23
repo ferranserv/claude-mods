@@ -549,8 +549,10 @@ const altOf = async ($: unknown, isWorking = false): Promise<string> => {
   // Clawd's drawing says who he is and what he does; the bubble's says its words (Clawd's alt does not change with them, or he would be redrawn).
   // While a bubble closes, the old drawing stays under its exit for a moment: only the last bubble drawing speaks.
   const all = await ui.findAll({ type: 'Svg' })
-  const lastBubble = all.filter(v => (v.props as { height?: number } | undefined)?.height === 30 && v.props?.alt !== 'bubble space').pop()
-  const svgs = all.filter(v => v === lastBubble || (v.props as { height?: number } | undefined)?.height !== 30 || v.props?.alt === 'bubble space')
+  const h = (v: { props?: unknown }) => (v.props as { height?: number } | undefined)?.height
+  const lastBubble = all.filter(v => h(v) === 30 && v.props?.alt !== 'bubble space').pop()
+  const lastClawd = all.filter(v => h(v) === 56).pop() // and the same for Clawd: the pose he left stays under the new one for a moment
+  const svgs = all.filter(v => (h(v) === 30 && v.props?.alt !== 'bubble space' ? v === lastBubble : h(v) === 56 ? v === lastClawd : true))
   const alt = svgs.map(v => String(v.props?.alt ?? '')).filter(a => a !== 'bubble space' && !a.startsWith('Context')).join(' . ')
   await ui.unmount()
   return alt
@@ -889,12 +891,36 @@ test('after a state change the drawing is replaced once, and not again when the 
   await started($)
   const before = await svgOf($)
   await $.command.run({ command: 'cockpit', args: 'demo typing' } as never)
+  expect(await svgOf($)).not.toBe(before) // the change: one new drawing, with the move and the loop in it (the old one stays under it for a moment)
+  await w.clock.advance(200) // the old one is dropped
   const during = await svgOf($)
-  expect(during).not.toBe(before) // the change: one new drawing, with the move and the loop in it
   await w.clock.advance(700) // longer than any move
   expect(await svgOf($)).toBe(during)
   await w.clock.advance(2000)
   expect(await svgOf($)).toBe(during)
+})
+test('after a pose change the pose he left stays under the new drawing for a moment (the host blanks a replaced drawing), then goes; not from typing', async ($, on) => {
+  const w = world(on)
+  await started($)
+  await w.clock.advance(6000)
+  type Mounted = { findAll: (q: unknown) => Promise<{ props?: { alt?: string; height?: number } }[]>; unmount: () => Promise<void> }
+  const clawds = async () => {
+    const ui = (await $.ui.mount(band('desktop'))) as unknown as Mounted
+    const all = await ui.findAll({ type: 'Svg' })
+    await ui.unmount()
+    return all.filter(v => v.props?.height === 56).map(v => String(v.props?.alt))
+  }
+  expect((await clawds()).length).toBe(1)
+  await $.command.run({ command: 'cockpit', args: 'demo reading' } as never)
+  const during = await clawds()
+  expect(during.length).toBe(2) // the new one and, under it, the one he left
+  expect(during[0]).not.toBe(during[1])
+  await w.clock.advance(250)
+  expect((await clawds()).length).toBe(1) // the old one is dropped before anything moves
+  await $.command.run({ command: 'cockpit', args: 'demo typing' } as never)
+  await w.clock.advance(300)
+  await $.command.run({ command: 'cockpit', args: 'demo reading' } as never)
+  expect((await clawds()).length).toBe(1) // out of typing nothing is kept: its code lines would show twice
 })
 test('demo cold: Clawd and the bubble with its real button stay until you answer, and go together', async ($, on) => {
   const w = world(on)
@@ -1072,7 +1098,7 @@ test('a new pose never changes the meters drawing, and the bubble drawing is kep
     return {
       meters: all.find(v => String(v.props?.source ?? '').includes('Context'))?.props?.source,
       bubble: all.find(v => String(v.props?.alt ?? '').includes('Context'))?.props?.source,
-      clawd: all.find(v => String(v.props?.alt ?? '').startsWith('Clawd'))?.props?.source,
+      clawd: all.filter(v => v.props?.height === 56 && String(v.props?.alt ?? '').startsWith('Clawd')).pop()?.props?.source,
     }
   }
   const a = await sources()
@@ -1188,7 +1214,7 @@ test('a bubble that arrives with buttons opens with its motion, and one that lea
     const ui = (await $.ui.mount(band('desktop'))) as unknown as Mounted
     const all = await ui.findAll({ type: 'Svg' })
     await ui.unmount()
-    return { bubble: all.filter(v => v.props?.height === 30 && v.props?.alt !== 'bubble space').pop()?.props?.source, clawd: all.find(v => String(v.props?.alt ?? '').startsWith('Clawd'))?.props }
+    return { bubble: all.filter(v => v.props?.height === 30 && v.props?.alt !== 'bubble space').pop()?.props?.source, clawd: all.filter(v => v.props?.height === 56 && String(v.props?.alt ?? '').startsWith('Clawd')).pop()?.props }
   }
   const before = (await drawings()).clawd
   await measureCtx($, 60) // a warning: its bubble arrives with a button and the "…"

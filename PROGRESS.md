@@ -221,3 +221,4 @@ Not verifiable from the cloud: the lane's px height in the app (blank drawing in
 - 0.33.1: bubble exit, second attempt (non-empty alt on the exit drawing, 0.3 s lead hold) after a desktop recording showed 0.33.0 still vanishing in one frame.
 - 0.33.2: the bubble exit no longer blinks before closing (the old drawing stays under the exit for 0.6 s).
 - 0.33.3: bubble exit timing: the old drawing goes at 0.3 s, before the exit moves, so no extra piece shows.
+- 0.34.0: Clawd no longer vanishes for a frame or two at a pose change (the old drawing stays under the new one for 120 ms); not out of typing or running.

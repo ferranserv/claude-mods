@@ -574,7 +574,10 @@ function smooth(frames: Pose[]): Pose[] {
 /** Slow enough to see (a frame is at least MOVE_FD), but never longer than MOVE_MAX_S in all; leaving the raised hand is quick. */
 const MOVE_FD = 0.11
 const MOVE_MAX_S = 1.5
-function paced(frames: Pose[], from: StateId): { fd: number; frames: Pose[] } {
+function paced(all: Pose[], from: StateId): { fd: number; frames: Pose[] } {
+  // The first frame is held a little longer, so the old drawing (kept under the new one for MASCOT_OVERLAP_MS, see register.tsx) is gone before
+  // anything moves. Not for typing and running: those keep their old drawing out of it (their loops are fast).
+  const frames = all.length > 2 && !isTapping(from) ? all.map((f, i) => (i === 0 ? { ...f, hold: 1.5 } : f)) : all
   const cap = from === 'hand' ? 0.7 : MOVE_MAX_S
   const total = onceSeconds(frames, MOVE_FD)
   return { fd: total > cap ? (MOVE_FD * cap) / total : MOVE_FD, frames }

@@ -104,3 +104,7 @@ SVG per frame set, frames swapped by SMIL (`animate` on opacity, `isInteractive:
 
 ## 0.33.3
 - Exit timing, from a recording of 0.33.2 (30 fps frames): no blink any more, but for two frames the old bubble's right end stuck out beyond the shrinking one, because the old drawing was dropped (0.6 s) after the exit had already started to move (the host shows the exit about 0.1 s after it is put up, then 0.5 s of hold). Now the old drawing is dropped at 0.3 s (`EXIT_OVERLAP_MS`) and the hold is 0.45 s (`LEAD_S`): the exit is on screen by 0.1 to 0.15 s, the old one goes at 0.3 s, and nothing moves before 0.55 s. Exit total: 1.0 s for a short line, 1.35 s for a long one.
+
+## 0.34.0
+- Clawd no longer disappears for a moment at a pose change. A recording of the desktop app (30 fps) showed all of him gone for 33 to 67 ms when a pose changed (the host blanks a replaced drawing before it shows the new one; this is not the blink of his eyes, which is drawn on purpose in the middle of each move). Now each drawing is its own element, and after a pose change the drawing of the pose he left stays mounted under the new one for 120 ms (`MASCOT_OVERLAP_MS`, `mascotSlot` in `register.tsx`), the same fix as the bubble exit. To keep the old one from showing while the new one moves, the first frame of a move is held about 0.2 s (`paced` in `states.ts`), so a pose reacts a fraction of a second later.
+- Not applied when he leaves typing or running (their loops run fast and the code lines would show twice): those still blank for a frame or two.
