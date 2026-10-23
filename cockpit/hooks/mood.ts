@@ -164,8 +164,8 @@ export function bubbleFor(id: StateId, b: BubbleInput): Bubble | null {
     case 'mad': return b.saverOn ? null : { text: `Over today's allowance (${b.weekPace})`, alertId: 'week', action: 'saverOn' }
     case 'fire': return { text: `Context ${Math.round(b.ctxPercent)}%. Hand off now.`, alertId: 'ctx', action: 'copy' }
     case 'detective': return null
-    case 'cold': return { text: 'Cache is cold: the next message pays full price', alertId: 'cache', action: 'handoff' }
-    case 'hourglass': return { text: `Cache goes cold in ${b.cacheLabel}`, alertId: 'cache', action: 'handoff' }
+    case 'cold': return { text: 'Cache is cold: the next message pays full price', alertId: 'cache', action: 'copy' }
+    case 'hourglass': return { text: `Cache goes cold in ${b.cacheLabel}`, alertId: 'cache', action: 'copy' }
     case 'gauge': return b.saverOn ? null : { text: 'Almost out for today', alertId: 'week', action: 'saverOn' }
     case 'drunk': return { text: b.ctxText, alertId: 'ctx', action: 'copy' }
     case 'sleepy': return b.saverOn ? null : { text: `${Math.round(b.fiveUsed)}% of the 5-hour limit used`, alertId: 'five', action: 'saverOn' }
