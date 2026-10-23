@@ -1092,7 +1092,7 @@ type Snap = {
 }
 
 /** What each answer to a warning is called. */
-const ACTION_LABELS: Record<ActionId, string> = { handoff: 'Handoff', copy: 'Copy handoff', fresh: 'Fresh', saverOn: 'Saver on', compact: 'Compact' }
+const ACTION_LABELS: Record<ActionId, string> = { handoff: 'Handoff & clear', copy: 'Copy handoff', fresh: 'Clear session', saverOn: 'Saver on', compact: 'Compact' }
 
 const files = (n: number) => `${n} file${n === 1 ? '' : 's'}`
 

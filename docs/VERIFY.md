@@ -182,3 +182,4 @@ Report anything off in plain words ("the palm tree overlaps", "no animation", "a
 | 117 | Let the cache go cold (or `/cockpit demo cold`), then send a message | The cold comes on gradually (flakes, ice, blue), the snow falls slowly, the shiver is small and short; sending a message warms him up gradually | |
 | 118 | Let the cache go cold (or `/cockpit demo cold`) and look at the bubble's buttons | The buttons are level with the bubble (same top and bottom, same centre); they pop in just after the bubble and pop out before it closes, with no blink | |
 | 119 | Press the button on the cold or going-cold bubble | The brief appears in the prompt box (and is copied); the session is not cleared | |
+| 120 | Open the "…" menu on a context warning | Handoff & clear and Clear session say they clear; Copy handoff and Compact do not | |

@@ -224,3 +224,4 @@ Not verifiable from the cloud: the lane's px height in the app (blank drawing in
 - 0.34.0: Clawd no longer vanishes for a frame or two at a pose change (a still copy of the new drawing's first frame is put under it for 120 ms).
 - 0.35.0: less space under the bubble (the lane hangs 7 px into the panel padding); asleep is the only alert while the 5-hour limit lasts; the cold pose rebuilt (slow snow, subtle shiver, gradual moves in and out).
 - 0.36.0: the bubble's buttons are drawn on the bubble's own line (same height and margin) and pop in after it opens and out before it closes; the cache warning (hourglass, cold) now offers Copy handoff (brief into the prompt box, no /clear).
+- 0.36.1: buttons that clear the session say so in their label (Handoff & clear, Clear session).

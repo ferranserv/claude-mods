@@ -242,3 +242,6 @@ The dialog of a question (`AskUserQuestion`) replaces the prompt area, and the b
 - **Alignment**: the pills were laid in a column under a 2 px spacer drawing, a different coordinate system from the bubble's absolute box. Now each pill drawing is lane-tall (`LANE_H`) with the pill at `BUBBLE_Y`, placed at top 0 in the same lane: one line, no spacer (`pillGroupSvg(..., { lane: true })`).
 - **Motion**: `mood.btn` follows the labels shown. none to some: `in` (after the bubble); some to none: the old labels are drawn once more with `out` (inert, no press target) plus a still copy under it for `EXIT_OVERLAP_MS`, like the bubble's exit. Other label changes redraw still. Not animated: the "…" menu row.
 - **Cold/hourglass action** is `copy` (was `handoff`, which runs `/clear`). `/handoff` and the hotkey still clear; the bubble's "…" menu on context warnings still offers Handoff.
+
+### 0.36.1
+- Labels in `ACTION_LABELS` state the clear. The `/handoff`, `/fresh` commands keep their names.

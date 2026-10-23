@@ -497,7 +497,7 @@ test('calm: the band is the meters and the wand only; no arrow, no bubble, no sa
   expect(await ui.find({ key: 'enhance' })).toBeUndefined() // no Button over it
   await ui.unmount()
 })
-test('a warning speaks in one bubble: Copy handoff on it, Handoff, Compact and Fresh behind the …; the meters row is not touched', async ($, on) => {
+test('a warning speaks in one bubble: Copy handoff on it, Handoff & clear, Compact and Clear session behind the …; the meters row is not touched', async ($, on) => {
   const w = world(on)
   await started($)
   await measureCtx($, 60)

@@ -115,3 +115,6 @@ SVG per frame set, frames swapped by SMIL (`animate` on opacity, `isInteractive:
 ## 0.36.0
 - **Buttons on the bubble's line, and animated**: each pill is now a drawing as tall as the bubble's lane (30 px) with the pill 2 px down, exactly the bubble's margin, so they share one centre (before, a 2 px spacer in a column placed them and the host could round it). They pop in 0.15 s after the bubble opens (scale 0.6 to 1, fade, 0.06 s apart) and pop out first when it closes (held `LEAD_S`, then scale down and fade), drawn from the labels they had and not pressable while they go.
 - **Cold and hourglass**: the button is Copy handoff (brief into the prompt box and clipboard, session kept), not Handoff & Clear.
+
+## 0.36.1
+- Buttons that clear the session are named for it: `Handoff & clear` and `Clear session` (was Handoff, Fresh). Copy handoff and Compact keep the session.
