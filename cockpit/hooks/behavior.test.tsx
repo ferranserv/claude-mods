@@ -547,7 +547,10 @@ type Do = { tool: { call: (i: unknown) => Promise<unknown>; check: (i: unknown) 
 const altOf = async ($: unknown, isWorking = false): Promise<string> => {
   const ui = await ($ as { ui: { mount: (i: unknown) => Promise<{ find: (q: unknown) => Promise<{ props?: { alt?: string } } | undefined>; findAll: (q: unknown) => Promise<{ props?: { alt?: string } }[]>; unmount: () => Promise<void> }> } }).ui.mount(band('desktop', isWorking))
   // Clawd's drawing says who he is and what he does; the bubble's says its words (Clawd's alt does not change with them, or he would be redrawn).
-  const svgs = await ui.findAll({ type: 'Svg' })
+  // While a bubble closes, the old drawing stays under its exit for a moment: only the last bubble drawing speaks.
+  const all = await ui.findAll({ type: 'Svg' })
+  const lastBubble = all.filter(v => (v.props as { height?: number } | undefined)?.height === 30 && v.props?.alt !== 'bubble space').pop()
+  const svgs = all.filter(v => v === lastBubble || (v.props as { height?: number } | undefined)?.height !== 30 || v.props?.alt === 'bubble space')
   const alt = svgs.map(v => String(v.props?.alt ?? '')).filter(a => a !== 'bubble space' && !a.startsWith('Context')).join(' . ')
   await ui.unmount()
   return alt
@@ -1185,7 +1188,7 @@ test('a bubble that arrives with buttons opens with its motion, and one that lea
     const ui = (await $.ui.mount(band('desktop'))) as unknown as Mounted
     const all = await ui.findAll({ type: 'Svg' })
     await ui.unmount()
-    return { bubble: all.find(v => v.props?.height === 30 && v.props?.alt !== 'bubble space')?.props?.source, clawd: all.find(v => String(v.props?.alt ?? '').startsWith('Clawd'))?.props }
+    return { bubble: all.filter(v => v.props?.height === 30 && v.props?.alt !== 'bubble space').pop()?.props?.source, clawd: all.find(v => String(v.props?.alt ?? '').startsWith('Clawd'))?.props }
   }
   const before = (await drawings()).clawd
   await measureCtx($, 60) // a warning: its bubble arrives with a button and the "…"
@@ -1231,7 +1234,7 @@ test('a bubble hidden with the dots, and a light bubble that expires, close with
     if (press) await ui.pointer({ type: 'up', x: 0, y: 0, in: 'clawd-dots-press' })
     const all = await ui.findAll({ type: 'Svg' })
     await ui.unmount()
-    return all.find(v => v.props?.height === 30 && v.props?.alt !== 'bubble space')?.props?.source
+    return all.filter(v => v.props?.height === 30 && v.props?.alt !== 'bubble space').pop()?.props?.source
   }
   expect(await bubble()).toBeUndefined() // nothing said: no bubble
   await bubble(true) // the dots say something light
@@ -1242,6 +1245,16 @@ test('a bubble hidden with the dots, and a light bubble that expires, close with
   expect(await bubble()).toContain('values="1;1.06;0.5"') // it closes with the motion, not at once
   await w.clock.advance(300)
   expect(await bubble()).toContain('values="1;1.06;0.5"') // and it is still there while the motion plays (the host loads a drawing late)
+  // the closed bubble stays drawn under its exit for a moment so the host's blank frames for a replaced drawing do not show as a blink, then it goes
+  const count = async () => {
+    const ui = (await $.ui.mount(band('desktop'))) as unknown as Mounted
+    const all = await ui.findAll({ type: 'Svg' })
+    await ui.unmount()
+    return all.filter(v => v.props?.height === 30 && v.props?.alt !== 'bubble space').length
+  }
+  expect(await count()).toBe(2)
+  await w.clock.advance(400)
+  expect(await count()).toBe(1)
   await settle($, w, 4000)
   expect(await bubble()).toBeUndefined() // and then it is gone
   await bubble(true) // said again, left alone: it expires by itself

@@ -224,3 +224,6 @@ The dialog of a question (`AskUserQuestion`) replaces the prompt area, and the b
 
 ### 0.33.1
 - Recording of the desktop app (30 fps frames): the opening grows over 0.4 s (the typing of 0.7 s seen from 0.3 s in), the exit is one frame, on a click and on expiry alike. The test harness could not show this (it draws the exit drawing). Causes tried: empty `alt` on the exit drawing (now non-empty) and the host's 0.3 s late start (the exit now holds 0.3 s first). If the exit still vanishes, the next step is to stop replacing the drawing for the exit (animate the opening drawing itself, with the exit built in for bubbles that expire on a known time).
+
+### 0.33.2
+- The exit shows (0.33.1 worked) but blinks once before it starts: old drawing blank, then the exit's full bubble. The old drawing now stays under the exit's until it has shown (`EXIT_OVERLAP_MS`), which breaks the "one drawing at a time" rule of 0.19.0 for 0.6 s on purpose: the two are identical at that moment, so nothing doubles. Test: two bubble drawings right after hiding, one 400 ms later; `altOf` in the tests reads only the last one. If the blink remains, tune `EXIT_OVERLAP_MS` (longer if the exit blinks late, shorter if the full bubble stays too long before the words go).
