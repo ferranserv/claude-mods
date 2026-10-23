@@ -138,8 +138,8 @@ describe('the speech bubble', () => {
     expect(close.source).toContain('type="scale" values="1;1.06;0.5"') // the opening backwards: a little pop, then it shrinks into Clawd
     expect(close.source).toContain('values="1;1;0"')
     expect(close.seconds).toBeGreaterThanOrEqual(1) // long enough to be seen (a cut of 0.35 s was gone before the host had loaded the drawing)
-    expect(close.source).toMatch(/<clipPath id="cko">.*begin="0\.5s"/) // the bubble is held whole for a moment (the host shows a new drawing late), then the words go letter by letter, the bubble shortening with them...
-    expect(close.source).toMatch(/type="scale"[^>]*begin="0\.75s"/) // ...and only then does what is left shrink into Clawd
+    expect(close.source).toMatch(/<clipPath id="cko">.*begin="0\.45s"/) // the bubble is held whole for a moment (the host shows a new drawing late), then the words go letter by letter, the bubble shortening with them...
+    expect(close.source).toMatch(/type="scale"[^>]*begin="0\.7s"/) // ...and only then does what is left shrink into Clawd
     expect(bubbleArt('A rather long sentence that Clawd says out loud', '', 400).seconds).toBeGreaterThan(close.seconds) // more words, more to delete
     const change = bubbleArt('Done.', 'Waiting for your answer', 400)
     expect(change.source).toContain('>Done.<') // it starts as the old bubble...

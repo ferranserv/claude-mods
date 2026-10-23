@@ -485,7 +485,7 @@ export const bubbleWidth = (text: string, room: number): number => Math.min(room
  * The frame is `room` px wide and a lane tall whatever the words are, so the drawing beside it never moves. `seconds` is how long the motion takes.
  */
 /** How long the exit holds the whole bubble before the words go (the host shows a replacing drawing late). */
-const LEAD_S = 0.5
+const LEAD_S = 0.45
 
 export function bubbleArt(from: string, to: string, room: number): { source: string; width: number; height: number; seconds: number } {
   const maxText = Math.max(40, room - BUBBLE_TAIL - 2 * BUBBLE_PAD - 2)

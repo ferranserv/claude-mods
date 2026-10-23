@@ -227,3 +227,6 @@ The dialog of a question (`AskUserQuestion`) replaces the prompt area, and the b
 
 ### 0.33.2
 - The exit shows (0.33.1 worked) but blinks once before it starts: old drawing blank, then the exit's full bubble. The old drawing now stays under the exit's until it has shown (`EXIT_OVERLAP_MS`), which breaks the "one drawing at a time" rule of 0.19.0 for 0.6 s on purpose: the two are identical at that moment, so nothing doubles. Test: two bubble drawings right after hiding, one 400 ms later; `altOf` in the tests reads only the last one. If the blink remains, tune `EXIT_OVERLAP_MS` (longer if the exit blinks late, shorter if the full bubble stays too long before the words go).
+
+### 0.33.3
+- Frame analysis of a recording of 0.33.2: the exit's drawing appears about 0.1 s after the click (that is the old blink), starts to move after its hold; the old drawing under it was dropped about 2 frames after that, so its right end showed. The rule for the two numbers: drop time (`EXIT_OVERLAP_MS`) must be after the exit shows (host delay, about 0.1 to 0.15 s) and before it moves (host delay + `LEAD_S`). Now 0.3 s and 0.55 s at the earliest. Measure again from a recording if the host is slower on another machine.
