@@ -574,7 +574,10 @@ function smooth(frames: Pose[]): Pose[] {
 /** Slow enough to see (a frame is at least MOVE_FD), but never longer than MOVE_MAX_S in all; leaving the raised hand is quick. */
 const MOVE_FD = 0.11
 const MOVE_MAX_S = 1.5
-function paced(frames: Pose[], from: StateId): { fd: number; frames: Pose[] } {
+function paced(all: Pose[], from: StateId): { fd: number; frames: Pose[] } {
+  // The first frame is held a little longer, so the still picture of the pose he left (kept under the new drawing for MASCOT_OVERLAP_MS, see
+  // register.tsx) is gone before anything moves.
+  const frames = all.length > 2 ? all.map((f, i) => (i === 0 ? { ...f, hold: 1.5 } : f)) : all
   const cap = from === 'hand' ? 0.7 : MOVE_MAX_S
   const total = onceSeconds(frames, MOVE_FD)
   return { fd: total > cap ? (MOVE_FD * cap) / total : MOVE_FD, frames }
@@ -833,6 +836,19 @@ export function moveMarkup(from: StateId, to: StateId, scale: 1 | 2 = 2, phase =
   const made = { markup: renderOnce(m.frames, m.fd, m.w, scale), width: m.w * scale, height: 28 * scale }
   moveCache.set(key, made)
   return made
+}
+
+/**
+ * The first frame of the move from `from` into `to`, as ONE still drawing: exactly what the new drawing starts with (and holds, see
+ * `paced`). Put under the new drawing for a moment, it fills the frames in which the host has not shown the new one yet, and since the
+ * two are the same picture nothing shows twice. Null when there is no move.
+ */
+export function moveStartMarkup(from: StateId, to: StateId, phase = 0, clock = '', scale: 1 | 2 = 2): Mascot | null {
+  const m = moveOf(from, to, phase)
+  if (!m) return null
+  const first = m.frames[0] ?? {}
+  const pose = from === 'asleep' && clock !== '' ? { ...first, clock } : first
+  return { markup: renderFrames([pose], 1, m.w, false, scale), width: m.w * scale, height: 28 * scale }
 }
 
 const enterCache = new Map<string, Mascot>()

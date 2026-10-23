@@ -3,7 +3,7 @@ import { describe, expect, test } from 'claude-code/testing'
 import { COFFEE_AFTER_MS, COFFEE_CYCLE_MS, COFFEE_SHOW_MS, ROTATE_MS, activeAlerts, bubbleFor, clockOf, hoverHint, isAlert, nextShift, pickState, rank } from './mood'
 import type { BubbleInput, MoodInput } from './mood'
 import type { StateId } from './states'
-import { MOVES, STATES, STATE_IDS, enterMarkup, loopFrame, moveFrames, moveMarkup, moveMs, stateMarkup } from './states'
+import { MOVES, STATES, STATE_IDS, enterMarkup, loopFrame, moveFrames, moveMarkup, moveMs, moveStartMarkup, stateMarkup } from './states'
 import { clawd, pixelsOutside } from './sprite'
 
 const NOW = 1_000_000
@@ -361,12 +361,23 @@ describe('the moves between states', () => {
     expect(Object.keys(MOVES).length).toBeGreaterThanOrEqual(45)
     for (const key of ['idle>thinking', 'hand>building', 'building>oops', 'typing>lab', 'typing>coffee', 'typing>browse', 'writing>love', 'thinking>bell']) expect(MOVES[key], key).toBeDefined()
   })
+  test('the still under a new drawing is the first frame of its move: the same size, none when there is no move', () => {
+    const still = moveStartMarkup('idle', 'reading')!
+    expect(still.width).toBe(68)
+    expect(still.height).toBe(56)
+    expect(still.markup).not.toContain('<animate') // one frame: nothing moves
+    expect(moveStartMarkup('idle', 'idle')).toBeNull()
+    expect(moveStartMarkup('idle', 'reading', 0, '', 1)!.width).toBe(34)
+    const move = moveFrames('idle', 'reading')!
+    expect(move.frames[0]!.hold).toBeGreaterThan(1) // held, while the still is dropped
+  })
   test('moves are eased: a short first frame, a longer settling last frame, a blink over the swap', () => {
     for (const key of Object.keys(MOVES)) {
       const [from, to] = key.split('>') as [StateId, StateId]
       const m = moveFrames(from, to)!
       if (m.frames.length < 3 || ((from === 'typing' || from === 'running') && (to === 'typing' || to === 'running'))) continue // typing <-> running is the same body, so no blink and no hop
-      expect(m.frames[0]!.hold, `${key} first`).toBeLessThan(1)
+      // held a moment, while the still picture under the new drawing is dropped (see `paced` in states.ts)
+      expect(m.frames[0]!.hold, `${key} first`).toBeGreaterThan(1)
       expect(m.frames[m.frames.length - 1]!.hold, `${key} last`).toBeGreaterThan(1)
       expect(m.frames.slice(1, -1).some(f => f.eyes === 'blink' || (f.eyes !== undefined && f.eyes !== 'open' && f.eyes !== 'half')), `${key} blink or an expressive look in the middle`).toBe(true)
     }

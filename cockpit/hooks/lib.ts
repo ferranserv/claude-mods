@@ -402,6 +402,9 @@ const rect = (x: number, y: number, w: number, h: number, fill: string, opacity 
 
 const TRACK = 0.25
 
+/** Clawd's markup as a drawing of its own (a still one, for the pose he left: see `mascotSlot` in register.tsx). */
+export const mascotSource = (m: { markup: string; width: number; height: number }): string => wrapSvg(m.width, m.height, m.markup)
+
 function wrapSvg(width: number, height: number, body: string): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" font-family="${FONT}">${body}</svg>`
 }
