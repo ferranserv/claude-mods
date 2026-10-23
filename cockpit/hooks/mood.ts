@@ -176,14 +176,52 @@ export function bubbleFor(id: StateId, b: BubbleInput): Bubble | null {
   }
 }
 
-/** What Clawd says when you hover over him in a pose that has no bubble of its own. */
-export function hoverHint(id: StateId): string | null {
-  if (id === 'thinking') return 'Thinking…'
-  if (id === 'typing') return 'Working on it'
-  if (id === 'running') return 'Running a command'
-  if (id === 'idle') return 'Ready when you are'
-  if (id === 'fishing') return 'A background task is still running'
-  return null
+/**
+ * What Clawd says when you click him and his pose has no bubble of its own: every state has something, light and a little cheeky, in
+ * a few variants (`n` picks one, so a second click does not repeat the first). A warning's own bubble says what it must: these are
+ * for the rest.
+ */
+const HINTS: Record<StateId, string[]> = {
+  idle: ['Ready when you are. No rush, I have shades.', 'Just vibing. Say the word.', 'Nothing on my plate. Suspiciously peaceful.'],
+  typing: ['Tap tap tap... making things happen.', 'Chewing gum and shipping code. Multitasking.', 'Fingers flying. Do not mind the bubble gum.'],
+  running: ['A command is running. I am rooting for it.', 'Watching the green lines go by. Very hacker.', 'Running something. Fingers crossed, gum chewed.'],
+  thinking: ['Thinking... the little wheels are turning.', 'Hold on, the idea is loading...', 'Brain at work. Please enjoy this loading circle.'],
+  fishing: ['Fishing for a background task. Patience is a skill.', 'Still waiting on the task. No bites yet.', 'The worm is out there somewhere. So is your task.'],
+  bell: ['Done! Ding ding.', 'All finished. Gold star for us.', 'Task complete. I rang the bell myself.'],
+  coins: ['Cha-ching! A smaller model took that one.', 'Saved you a few coins. You are welcome.', 'Cheap and cheerful: Haiku handled it.'],
+  walk: ['New session! Just stretching my legs.', 'Settling in. Nice to see you again.', 'Walking in like I own the place.'],
+  talk: ['Psst... I have a note for you.', 'Got something to tell you, hold on.', 'Excuse me, one little announcement.'],
+  drunk: ['Whoa, the room is spinning: the context is getting full.', 'A bit tipsy... too much context in my glass.', 'Hic! Maybe a handoff soon?'],
+  fire: ['This is fine. Totally fine. Hand off soon.', 'Everything is on fire and I am smiling.', 'Context is full. Time for a fresh start.'],
+  hourglass: ['Tick tock. The cache is about to go cold.', 'Watching the sand run. Send something soon!', 'The cache is melting away. Hurry, hurry.'],
+  cold: ['Brrr. The cache went cold: the next message costs more.', 'Frozen solid. Warm me up with a message.', 'My teeth are chattering. Cold cache.'],
+  gauge: ['The piggy bank is almost empty for today.', 'Shaking the last coin out of the piggy bank.', 'Almost out of allowance. Spend wisely!'],
+  mad: ['We are over today\'s allowance. I am stomping, politely.', 'Over budget. I am grumpy about it.', 'Allowance blown. Stomp, stomp.'],
+  sleepy: ['*yawn* The 5-hour limit is getting close.', 'Getting sleepy... the limit is near.', 'Eyes heavy. Limit approaching.'],
+  asleep: ['Zzz... 5-hour limit reached. Wake me later.', 'Out like a light. See you after the reset.', 'Shhh. I am napping on my alarm clock.'],
+  love: ['Handoff saved. I am hugging it.', 'Handoff ready. Pure love.', 'Saved with care, just for you.'],
+  detective: ['Something looks fishy in the repo...', 'Elementary, my dear developer: I found something.', 'I spy a suspicious thing. Take a look?'],
+  oops: ['Oops. A tool tripped. Not the end of the world.', 'Well, that did not work. Onward!', 'A little stumble. I am fine, really.'],
+  wand: ['Draft enhanced. Abracadabra!', 'A little magic on your prompt. Sparkle!', 'Polished your draft with a flourish.'],
+  hello: ['Hi! What are we building?', 'Hello, human! Ready to make something?', 'Hey there. Let us do great things.'],
+  idea: ['Plan approved. Lightbulb moment!', 'I had an idea! It is a good one.', 'Eureka. Let us get to it.'],
+  coffee: ['Coffee break: this one is taking a while.', 'Sipping coffee. Still on it, promise.', 'Long task, strong coffee.'],
+  reading: ['Reading the files so you do not have to.', 'Nose in a book. Very studious.', 'Skimming the code. Interesting stuff.'],
+  building: ['Hammering away at your code.', 'Hard hat on, building in progress.', 'Bang bang. Fresh edits coming.'],
+  browse: ['Surfing the web for answers.', 'Looking it up. Do not tell my search history.', 'Searching high and low.'],
+  plug: ['A connector is unplugged. I am holding the cable.', 'Somebody pulled the plug. I am on it.', 'Offline connector. Sad cable noises.'],
+  dizzy: ['Compacting the conversation... a little dizzy.', 'Squishing the context. Woo, spinning!', 'Tidying memory. Room is spinning.'],
+  lab: ['Checks passed! Science!', 'All green in the lab. Bubbling with joy.', 'The experiment worked. Beakers up!'],
+  hand: ['Waiting for your answer. Take your time.', 'Hand up. I have a question for you.', 'Whenever you are ready, I am listening.'],
+  writing: ['Writing it down, nice and neat.', 'Quill in hand. Careful handwriting.', 'Drafting something just for you.'],
+  creating: ['Painting a new file. Masterpiece incoming.', 'Mustache twirled. Creating art.', 'A fresh file, a fresh canvas.'],
+  boom: ['Checks failed. Boom. Sorry about the soot.', 'That flask did not survive. I will clean up.', 'Kaboom. Lesson learned. Probably.'],
+  ship: ['Shipped! Look at it go.', 'Three, two, one... liftoff!', 'Out the door and into the sky.'],
+}
+/** Always something to say: the state's own words, variant `n` (a second click says another). */
+export function hoverHint(id: StateId, n = 0): string {
+  const all = HINTS[id]
+  return all[((n % all.length) + all.length) % all.length]!
 }
 
 /** Every state, most important first: a shown state is only interrupted by one earlier in this list. */

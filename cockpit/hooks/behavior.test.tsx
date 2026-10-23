@@ -2,6 +2,7 @@ import { expect, test } from 'claude-code/testing'
 
 import { MIN, WED, world } from './world'
 import { enterMarkup } from './states'
+import { hoverHint } from './mood'
 
 const text = (r: unknown) => String((r as { text: string }).text)
 
@@ -1191,7 +1192,7 @@ test('a bubble that arrives with buttons opens with its motion, and one that lea
   await ($ as unknown as { prompt: { submit: (i: unknown) => Promise<unknown> } }).prompt.submit({ text: 'something else', origin: { kind: 'composer' } })
   await w.clock.advance(50)
   const closing = await drawings()
-  expect(closing.bubble).toContain('values="1;0.5"') // it leaves the way it came: words deleted, scaled back to Clawd
+  expect(closing.bubble).toContain('values="1;1.06;0.5"') // it leaves the way it came: words deleted, scaled back to Clawd
   expect(before).toBeDefined()
 })
 
@@ -1262,5 +1263,38 @@ test('a command left running in the background: when the turn is over he fishes,
   await ($ as unknown as { prompt: { submit: (i: unknown) => Promise<unknown> } }).prompt.submit({ text: 'task done', origin: { kind: 'task-notification' } })
   await w.clock.advance(6000)
   expect(await altOf($)).toContain('sunglasses') // the task reported: idle again
+})
+
+test('clicking Clawd in a pose with no bubble of its own always gets something to say, and a second click says another thing', async ($, on) => {
+  const w = world(on)
+  await started($)
+  await measureCtx($, 10)
+  await w.clock.advance(12_000)
+  for (const id of ['typing', 'running', 'thinking', 'fishing', 'idle', 'walk', 'detective']) {
+    await $.command.run({ command: 'cockpit', args: `demo ${id}` } as never)
+    await settle($, w, 1500)
+    const said = async () => {
+      const ui = await $.ui.mount(band('desktop'))
+      const alts = (await ui.findAll({ type: 'Svg' })).map(v => String((v.props as { alt?: string } | undefined)?.alt ?? ''))
+      await ui.unmount()
+      return alts
+    }
+    const click = async () => {
+      const ui = await $.ui.mount(band('desktop'))
+      await ui.pointer({ type: 'up', x: 0, y: 0, in: 'clawd-dots-press' })
+      await ui.unmount()
+      await w.clock.advance(300)
+    }
+    await click()
+    const first = (await said()).find(a => [0, 1, 2].some(n => a === hoverHint(id as never, n)))
+    expect(first, `${id} says something`).toBeDefined()
+    await click() // hides it
+    await click() // and the next one says another
+    const second = (await said()).find(a => [0, 1, 2].some(n => a === hoverHint(id as never, n)))
+    expect(second, `${id} says something else the second time`).toBeDefined()
+    expect(second).not.toBe(first)
+    await $.command.run({ command: 'cockpit', args: 'demo off' } as never)
+    await w.clock.advance(10_000)
+  }
 })
 

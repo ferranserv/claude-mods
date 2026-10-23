@@ -206,3 +206,4 @@ The dialog of a question (`AskUserQuestion`) replaces the prompt area, and the b
 - The enhance wand and the Undo arrow are the same 26 x 26 px rounded square with a thin outline in the meters' gray, press targets like the pills (the whole drawing is the click area, no Button over it; the terminal keeps text buttons). While Enhance runs the wand button turns green and nothing else changes (no second wand, no "enhancing" text); it is gray again when it is done.
 - 0.28.1: moves out of typing and running begin on the loop frame he is on (no jump of the code lines or the gum); see `docs/MASCOT.md`.
 - 0.29.0: `fishing` while a background task runs (see `docs/MASCOT.md`); every drawing 37 to 56 % smaller (the host blanks a replaced drawing for a few frames, longer for big ones).
+- 0.30.0: the bubble closes by shrinking into Clawd as its words go (the opening backwards); clicking Clawd in any pose says something (light lines for every state); see `docs/MASCOT.md`.

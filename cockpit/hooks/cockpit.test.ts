@@ -135,8 +135,10 @@ describe('the speech bubble', () => {
     expect(open.source).not.toContain('clip-path="url(#cko)"')
     const close = bubbleArt('Done.', '', 400)
     expect(close.source).toContain('clip-path="url(#cko)"')
-    expect(close.source).toContain('type="scale" values="1;0.5"')
-    expect(close.source).toContain('from="1" to="0"')
+    expect(close.source).toContain('type="scale" values="1;1.06;0.5"') // the opening backwards: a little pop, then it shrinks into Clawd
+    expect(close.source).toContain('values="1;1;0"')
+    expect(close.seconds).toBeGreaterThanOrEqual(0.35) // long enough to be seen
+    expect(close.source).toMatch(/type="scale"[^>]*begin="0s"/) // and it starts with the words going, not after them
     const change = bubbleArt('Done.', 'Waiting for your answer', 400)
     expect(change.source).toContain('>Done.<') // it starts as the old bubble...
     expect(change.source).toContain('>Waiting for your answer<')
