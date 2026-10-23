@@ -218,3 +218,4 @@ Not verifiable from the cloud: the lane's px height in the app (blank drawing in
 - 0.31.1: the context size warning is 250k tokens (was 150k).
 - 0.32.0: context warns at 50% only (no token threshold by default); new `mcp` pose for connector tools (cable halves plug together, waves go out).
 - 0.33.0: the bubble exit is longer and in two steps (words go, then it shrinks into Clawd), also on expiry; every pose (new ones too) has light lines for a click.
+- 0.33.1: bubble exit, second attempt (non-empty alt on the exit drawing, 0.3 s lead hold) after a desktop recording showed 0.33.0 still vanishing in one frame.
