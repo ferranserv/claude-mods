@@ -157,7 +157,7 @@ const mood = {
   resetAt: 0, // the next limit reset a redraw is already booked for
   draftTurn: false, // the turn is a /handoff: Claude writes the brief as text, with no tool to show it
   askAt: 0, // when a permission ask was seen; it only counts if nothing has moved on a moment later
-  bub: null as { text: string; room: number; seq: number; art: ReturnType<typeof bubbleArt> | null; until: number } | null, // the bubble's drawing (see bubbleLane)
+  bub: null as { text: string; room: number; seq: number; art: ReturnType<typeof bubbleArt> | null; until: number; prev?: { seq: number; text: string; art: ReturnType<typeof bubbleArt>; until: number } | null } | null, // the bubble's drawing (see bubbleLane)
   msg: null as { text: string; until: number } | null, // a message to you (the one channel: the bubble), over everything but the raised hand
   history: [] as string[], // the last things the bubble said, for /cockpit log
   lastLogged: '', // the text last added to the history
@@ -212,6 +212,8 @@ function poke($: EngineInterface, ms = 0): void {
 
 /** How long a message stays in the bubble. */
 const MSG_MS = 8000
+/** How long the bubble that is closing stays under its exit drawing, so the host's blank frames for a replaced drawing do not show as a blink. */
+const EXIT_OVERLAP_MS = 600
 
 function remember(now: number, text: string): void {
   mood.lastLogged = text
@@ -1529,6 +1531,10 @@ function bubbleLane($: EngineInterface, s: Snap, c: Comps, Svg: unknown, fx: Fx,
     // to the new, in the room it has now. This also opens a bubble that arrives with buttons and closes one that leaves with them.
     const art = bubbleArt(bub!.text, text, room)
     const ms = Math.ceil(art.seconds * 1000)
+    // An exit replaces the drawing, and the host blanks the old one before the new one shows (a blink). So the old drawing stays under
+    // the exit's (which starts as the same full bubble) until the exit has shown, and is dropped then.
+    bub!.prev = text === '' && bub!.art ? { seq: bub!.seq, text: bub!.text, art: bub!.art, until: s.now + EXIT_OVERLAP_MS } : null
+    if (bub!.prev) $.clock.after(EXIT_OVERLAP_MS + 50, () => $.ui.invalidate('ui.render'))
     bub!.seq++
     bub!.art = art
     bub!.room = room
@@ -1545,6 +1551,7 @@ function bubbleLane($: EngineInterface, s: Snap, c: Comps, Svg: unknown, fx: Fx,
     bub.art = text === '' ? null : bubbleArt(text, text, room)
   }
   if (bub.art && bub.text === '' && bub.until <= s.now) bub.art = null
+  if (bub.prev && (bub.prev.until <= s.now || bub.text !== '')) bub.prev = null
   const buttons = buttonGroup(c, specs)
   // The lane is made of drawings in px and the buttons sit at the right edge of the meters' width through a growing spacer:
   // nothing is counted in the host's character cells, so nothing drifts.
@@ -1553,6 +1560,7 @@ function bubbleLane($: EngineInterface, s: Snap, c: Comps, Svg: unknown, fx: Fx,
     { key: 'zone', position: 'relative', flexShrink: 0 },
     // A blank drawing that holds the lane's height and the bubble's width (the bubble drawings are laid over it).
     el(Svg, { key: 'space', source: `<svg xmlns="http://www.w3.org/2000/svg" width="${room}" height="${LANE_H}"/>`, alt: 'bubble space', width: room, height: LANE_H }),
+    ...(bub.prev ? [el(c.Box, { key: `b${bub.prev.seq}`, position: 'absolute', top: 0, left: 0 }, el(Svg, { key: 'art', source: bub.prev.art.source, alt: bub.prev.text, isInteractive: true, width: bub.prev.art.width, height: bub.prev.art.height }))] : []),
     ...(bub.art ? [el(c.Box, { key: `b${bub.seq}`, position: 'absolute', top: 0, left: 0 }, el(Svg, { key: 'art', source: bub.art.source, alt: text !== '' ? text : 'Clawd closes his speech bubble', isInteractive: true, width: bub.art.width, height: bub.art.height }))] : []),
   )
   return [
