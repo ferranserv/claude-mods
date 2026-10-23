@@ -1243,18 +1243,17 @@ test('a bubble hidden with the dots, and a light bubble that expires, close with
   await bubble(true) // and the next click hides it
   await w.clock.advance(50)
   expect(await bubble()).toContain('values="1;1.06;0.5"') // it closes with the motion, not at once
-  await w.clock.advance(300)
-  expect(await bubble()).toContain('values="1;1.06;0.5"') // and it is still there while the motion plays (the host loads a drawing late)
-  // the closed bubble stays drawn under its exit for a moment so the host's blank frames for a replaced drawing do not show as a blink, then it goes
   const count = async () => {
     const ui = (await $.ui.mount(band('desktop'))) as unknown as Mounted
     const all = await ui.findAll({ type: 'Svg' })
     await ui.unmount()
     return all.filter(v => v.props?.height === 30 && v.props?.alt !== 'bubble space').length
   }
+  // the closed bubble stays drawn under its exit for a moment so the host's blank frames for a replaced drawing do not show as a blink, then it goes
   expect(await count()).toBe(2)
   await w.clock.advance(400)
   expect(await count()).toBe(1)
+  expect(await bubble()).toContain('values="1;1.06;0.5"') // the exit keeps playing on its own
   await settle($, w, 4000)
   expect(await bubble()).toBeUndefined() // and then it is gone
   await bubble(true) // said again, left alone: it expires by itself

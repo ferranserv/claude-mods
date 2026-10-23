@@ -213,7 +213,7 @@ function poke($: EngineInterface, ms = 0): void {
 /** How long a message stays in the bubble. */
 const MSG_MS = 8000
 /** How long the bubble that is closing stays under its exit drawing, so the host's blank frames for a replaced drawing do not show as a blink. */
-const EXIT_OVERLAP_MS = 600
+const EXIT_OVERLAP_MS = 300
 
 function remember(now: number, text: string): void {
   mood.lastLogged = text
@@ -1534,7 +1534,7 @@ function bubbleLane($: EngineInterface, s: Snap, c: Comps, Svg: unknown, fx: Fx,
     // An exit replaces the drawing, and the host blanks the old one before the new one shows (a blink). So the old drawing stays under
     // the exit's (which starts as the same full bubble) until the exit has shown, and is dropped then.
     bub!.prev = text === '' && bub!.art ? { seq: bub!.seq, text: bub!.text, art: bub!.art, until: s.now + EXIT_OVERLAP_MS } : null
-    if (bub!.prev) $.clock.after(EXIT_OVERLAP_MS + 50, () => $.ui.invalidate('ui.render'))
+    if (bub!.prev) $.clock.after(EXIT_OVERLAP_MS + 30, () => $.ui.invalidate('ui.render'))
     bub!.seq++
     bub!.art = art
     bub!.room = room
