@@ -217,3 +217,4 @@ Not verifiable from the cloud: the lane's px height in the app (blank drawing in
 - 0.31.0: context warns from 45%; the band in a question dialog has a fixed size (no giant Clawd); the web-search pose sweeps a magnifying glass held in the left hand.
 - 0.31.1: the context size warning is 250k tokens (was 150k).
 - 0.32.0: context warns at 50% only (no token threshold by default); new `mcp` pose for connector tools (cable halves plug together, waves go out).
+- 0.33.0: the bubble exit is longer and in two steps (words go, then it shrinks into Clawd), also on expiry; every pose (new ones too) has light lines for a click.

@@ -209,7 +209,7 @@ const HINTS: Record<StateId, string[]> = {
   coffee: ['Coffee break: this one is taking a while.', 'Sipping coffee. Still on it, promise.', 'Long task, strong coffee.'],
   reading: ['Reading the files so you do not have to.', 'Nose in a book. Very studious.', 'Skimming the code. Interesting stuff.'],
   building: ['Hammering away at your code.', 'Hard hat on, building in progress.', 'Bang bang. Fresh edits coming.'],
-  browse: ['Surfing the web for answers.', 'Looking it up. Do not tell my search history.', 'Searching high and low.'],
+  browse: ['Surfing the web for answers.', 'Looking it up. Do not tell my search history.', 'Magnifying glass out. Nothing escapes me.'],
   mcp: ['Plugged in and working. The signal is strong.', 'Calling a connector. It picked up!', 'Connection made. Beep boop, all good.'],
   plug: ['A connector is unplugged. I am holding the cable.', 'Somebody pulled the plug. I am on it.', 'Offline connector. Sad cable noises.'],
   dizzy: ['Compacting the conversation... a little dizzy.', 'Squishing the context. Woo, spinning!', 'Tidying memory. Room is spinning.'],
