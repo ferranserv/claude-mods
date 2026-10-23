@@ -447,6 +447,11 @@ export function undoSvg(): { source: string; width: number; height: number } {
 export const CELL = { w: 8, h: 18 }
 /** The bubble's lane in px: the bubble is 26 px tall with 2 px above and below; the buttons beside it are one row (18 px) tall, centered, because a Button is one row and the drawing under it must be exactly as tall as it is. */
 export const LANE_H = 30
+/**
+ * How many px of the lane's bottom the layout does not count: the bubble and the buttons are drawn LANE_PULL px lower than the room the lane
+ * takes, into the panel's own bottom padding (about 15 px under the bubble, now about 8). 0 gives the old spacing back.
+ */
+export const LANE_PULL = 7
 /** The bubble and the buttons beside it, one height. */
 const BUBBLE_H = 26
 const BUBBLE_Y = (LANE_H - BUBBLE_H) / 2   // 2

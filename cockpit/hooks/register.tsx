@@ -17,6 +17,7 @@ import {
   cacheView,
   CELL,
   LANE_H,
+  LANE_PULL,
   dotsSvg,
   clockText,
   C,
@@ -1449,7 +1450,7 @@ function buttonGroup(c: Comps, specs: BtnSpec[], key = 'btns') {
 function clawdColumn(c: Comps, s: Snap, parts: { mascot: { source: string; width: number; height: number } | null; meters: { height: number } }, fx: Fx, slot: ReturnType<typeof mascotSlot>) {
   const m = parts.mascot!
   const toggle = () => fx.toggle(s.speech !== null, s.hover?.text ?? '', s.hover?.alertId)
-  const room = Math.min(14, parts.meters.height + LANE_H - m.height)
+  const room = Math.min(14, parts.meters.height + LANE_H - (s.menuOpen ? 0 : LANE_PULL) - m.height)
   const dots = room >= 8 ? dotsSvg(m.width, room) : null
   return el(
     c.Box,
@@ -1547,6 +1548,7 @@ function controls(s: Snap, c: Comps, fx: Fx, Svg: unknown = null) {
  */
 function bubbleLane($: EngineInterface, s: Snap, c: Comps, Svg: unknown, fx: Fx, metersPx: number, surface: string): unknown[] {
   const specs = s.speech ? bubbleSpecs(s, fx, surface) : []
+  const pull = s.menuOpen ? 0 : LANE_PULL // with the menu row open under the lane nothing hangs below it
   // The bubble gets all the row up to its buttons (and no more than its words need); with no buttons, all of it.
   const gap = CELL.w
   const buttonsPx = specs.length > 0 ? pillGroupSvg(specs.map(b => b.label)).width : 0
@@ -1589,12 +1591,17 @@ function bubbleLane($: EngineInterface, s: Snap, c: Comps, Svg: unknown, fx: Fx,
     c.Box,
     { key: 'zone', position: 'relative', flexShrink: 0 },
     // A blank drawing that holds the lane's height and the bubble's width (the bubble drawings are laid over it).
-    el(Svg, { key: 'space', source: `<svg xmlns="http://www.w3.org/2000/svg" width="${room}" height="${LANE_H}"/>`, alt: 'bubble space', width: room, height: LANE_H }),
+    el(Svg, { key: 'space', source: `<svg xmlns="http://www.w3.org/2000/svg" width="${room}" height="${LANE_H - pull}"/>`, alt: 'bubble space', width: room, height: LANE_H - pull }),
     ...(bub.prev ? [el(c.Box, { key: `b${bub.prev.seq}`, position: 'absolute', top: 0, left: 0 }, el(Svg, { key: 'art', source: bub.prev.art.source, alt: bub.prev.text, isInteractive: true, width: bub.prev.art.width, height: bub.prev.art.height }))] : []),
     ...(bub.art ? [el(c.Box, { key: `b${bub.seq}`, position: 'absolute', top: 0, left: 0 }, el(Svg, { key: 'art', source: bub.art.source, alt: text !== '' ? text : 'Clawd closes his speech bubble', isInteractive: true, width: bub.art.width, height: bub.art.height }))] : []),
   )
   return [
-    el(c.Box, { key: 'lane', flexDirection: 'row', alignItems: 'center' }, zone, el(c.Box, { key: 'grow', flexGrow: 1 }), ...buttons),
+    // The lane takes LANE_H - LANE_PULL of room (all of LANE_H while the menu row is open), and what is drawn in it (the bubble, 30 px tall; the buttons, 26) hangs LANE_PULL px below it,
+    // into the panel's bottom padding. So the buttons are laid on the lane at the right edge, not in its row (they would set its height).
+    c.Svg
+      ? el(c.Box, { key: 'lane', flexDirection: 'row', alignItems: 'flex-start', position: 'relative' }, zone, el(c.Box, { key: 'grow', flexGrow: 1 }),
+          ...(buttons.length > 0 ? [el(c.Box, { key: 'btns-lane', position: 'absolute', top: 0, right: 0, flexDirection: 'column' }, el(c.Svg as never, { key: 'btns-inset', source: `<svg xmlns="http://www.w3.org/2000/svg" width="1" height="${(LANE_H - 26) / 2}"/>`, alt: '', width: 1, height: (LANE_H - 26) / 2 }), ...buttons)] : []))
+      : el(c.Box, { key: 'lane', flexDirection: 'row', alignItems: 'center' }, zone, el(c.Box, { key: 'grow', flexGrow: 1 }), ...buttons),
     ...menuRow(s, c, fx, surface, 0),
   ]
 }
