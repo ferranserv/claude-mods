@@ -4,7 +4,7 @@ Personal Claude Code mods, published as the `claude-mods` plugin marketplace.
 
 | Mod | What it does |
 | --- | --- |
-| `cockpit` | One band above the prompt: Clawd the mascot (36 animated states, one per thing that is happening), context window, 5-hour limit, weekly limit (five weekday slots) and the **prompt cache countdown**, in one row. Every warning is Clawd's speech bubble, with the button that answers it. Also: saver (easy prompts go to Haiku 5.5), preflight (warns on main, uncommitted work, another session in the folder), prompt enhancer (the wand button and `meta+e`), and a chime when a turn ends. Replaces `meters`, `saver`, `preflight-guard` and `prompt-enhancer` (kept in `archive/`). |
+| `cockpit` | One band above the prompt: Clawd the mascot (36 animated states, one per thing that is happening), context window, 5-hour limit, weekly limit (five weekday slots) and the **prompt cache countdown**, in one row. Every warning is Clawd's speech bubble, with the button that answers it. Also: saver (easy prompts, and drafting or correcting emails and texts, go to Haiku 5.5), preflight (warns on main, uncommitted work, another session in the folder), prompt enhancer (the wand button and `meta+e`), and a chime when a turn ends. Replaces `meters`, `saver`, `preflight-guard` and `prompt-enhancer` (kept in `archive/`). |
 
 ## Install
 
