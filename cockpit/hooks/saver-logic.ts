@@ -26,12 +26,21 @@ const EASY =
 const HARD =
   /\b(plan|design|architect\w*|debug\w*|implement\w*|build|create|write|generate|refactor\w*|migrat\w*|investigat\w*|diagnos\w*|optimi[sz]\w*|step[- ]by[- ]step|failing|crash\w*|bugs?|root cause|why (?:is|does|did|isn't|doesn't)|new (?:feature|function|component|module|endpoint|class))\b/i
 
+// Prose work: drafting or fixing an email or text, English or Spanish. "write" and "create" would call it hard, so this
+// is checked first; TECHNICAL still wins when the prompt is really about code.
+const COMMS =
+  /\b(e-?mails?|correos?|mensajes?|redact\w*|redacci[oó]n|proofread\w*|polish|rewrite|corrig\w*|corrige|ortograf[ií]a|gram[aá]tica|grammar|reescrib\w*|reescribe|reformul\w*|traduc\w*|translat\w*)\b/i
+
+const TECHNICAL =
+  /\b(code|c[oó]digo|function|script|bugs?|debug\w*|refactor\w*|implement\w*|architect\w*|migrat\w*|investigat\w*|diagnos\w*|optimi[sz]\w*|root cause|crash\w*|plan|dise[nñ]\w*|design)\b/i
+
 const LIST_ITEM = /^\s*(?:\d+[.)]|[-*])\s/
 
 /** Decides from the words alone; `unclear` is the one case worth a model call. */
 export function labelLocally(text: string): Level {
   const t = text.trim()
   if (t.length > 800) return 'hard'
+  if (COMMS.test(t) && !TECHNICAL.test(t)) return 'easy'
   if (t.split('\n').filter(l => LIST_ITEM.test(l)).length >= 3) return 'hard'
   const isEasy = EASY.test(t)
   const isHard = HARD.test(t)

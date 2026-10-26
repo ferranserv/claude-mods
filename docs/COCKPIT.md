@@ -245,3 +245,6 @@ The dialog of a question (`AskUserQuestion`) replaces the prompt area, and the b
 
 ### 0.36.1
 - Labels in `ACTION_LABELS` state the clear. The `/handoff`, `/fresh` commands keep their names.
+
+### 0.37.0
+- `labelLocally` (saver-logic.ts) checks `COMMS` before the hard words: an email, message, redaction, correction or translation prompt is `easy` even if it says "write", unless `TECHNICAL` also matches (code, bug, design, plan...). Up to the 800-character cap; bullet lists no longer make it hard.

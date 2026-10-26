@@ -10,6 +10,18 @@ describe('labelLocally', () => {
     expect(labelLocally('give me a short summary of this file')).toBe('easy')
   })
 
+  test('drafting or fixing an email or text stays easy, in English and Spanish', () => {
+    expect(labelLocally('write an email to the supplier asking to move the delivery to Friday')).toBe('easy')
+    expect(labelLocally('redacta un correo para el cliente confirmando la reunión')).toBe('easy')
+    expect(labelLocally('corrige la redacción de este párrafo')).toBe('easy')
+    expect(labelLocally('proofread this message:\n- a\n- b\n- c')).toBe('easy')
+  })
+
+  test('an email about code or a design is not routed blindly (the model decides)', () => {
+    expect(labelLocally('write an email explaining the bug in the login function')).not.toBe('easy')
+    expect(labelLocally('redacta el diseño del nuevo proceso')).not.toBe('easy')
+  })
+
   test('many-step or building work is hard', () => {
     expect(labelLocally('debug why the login test is failing')).toBe('hard')
     expect(labelLocally('implement a retry wrapper around the fetch call')).toBe('hard')

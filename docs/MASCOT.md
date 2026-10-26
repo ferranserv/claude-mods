@@ -118,3 +118,6 @@ SVG per frame set, frames swapped by SMIL (`animate` on opacity, `isInteractive:
 
 ## 0.36.1
 - Buttons that clear the session are named for it: `Handoff & clear` and `Clear session` (was Handoff, Fresh). Copy handoff and Compact keep the session.
+
+## 0.37.0
+- No drawing change. The coins bubble now also appears after emails, rewrites and corrections the saver routed to Haiku.
